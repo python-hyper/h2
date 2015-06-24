@@ -1,5 +1,5 @@
 ===============================
-Hyper: HTTP/2 Client for Python
+hyper-h2: HTTP/2 Protocol Stack
 ===============================
 
 .. image:: https://raw.github.com/Lukasa/hyper/development/docs/source/images/hyper.png
@@ -7,52 +7,33 @@ Hyper: HTTP/2 Client for Python
 .. image:: https://travis-ci.org/Lukasa/hyper.png?branch=master
     :target: https://travis-ci.org/Lukasa/hyper
 
-HTTP is changing under our feet. HTTP/1.1, our old friend, is being
-supplemented by the brand new HTTP/2 standard. HTTP/2 provides many benefits:
-improved speed, lower bandwidth usage, better connection management, and more.
+This repository contains a pure-Python implementation of a HTTP/2 protocol
+stack. It's written from the ground up to be embeddable in whatever program you
+choose to use, ensuring that you can speak HTTP/2 regardless of your
+programming paradigm.
 
-``hyper`` provides these benefits to your Python code. How? Like this::
+You use it like this::
 
-    from hyper import HTTPConnection
+    import h2
 
-    conn = HTTPConnection('http2bin.org:443')
-    conn.request('GET', '/get')
-    resp = conn.get_response()
+    conn = h2.Connection()
+    frames, stream_id = conn.send_headers(headers)
+    data_frames = conn.send_data(stream_id, data)
+    response_headers = conn.recv_header_frames(received_header_frames)
+    response_data = conn.recv_data_frames(received_data_frames)
 
-    print(resp.read())
 
-Simple.
-
-Caveat Emptor!
-==============
-
-Please be warned: ``hyper`` is in a very early alpha. You *will* encounter bugs
-when using it. In addition, there are very many rough edges. With that said,
-please try it out in your applications: I need your feedback to fix the bugs
-and file down the rough edges.
-
-Versions
-========
-
-``hyper`` supports the final draft of the HTTP/2 specification: additionally,
-it provides support for drafts 14, 15, and 16 of the HTTP/2 specification. It
-also supports the final draft of the HPACK specification.
-
-Compatibility
-=============
-
-``hyper`` is intended to be a drop-in replacement for ``http.client``, with a
-similar API. However, ``hyper`` intentionally does not name its classes the
-same way ``http.client`` does. This is because most servers do not support
-HTTP/2 at this time: I don't want you accidentally using ``hyper`` when you
-wanted ``http.client``.
+This repository does not provide a parsing layer, a network layer, or any rules
+about concurrency. Instead, it's a purely in-memory solution, defined in terms
+of data actions and HTTP/2 frames. This is one building block of a full Python
+HTTP implementation.
 
 Contributing
 ============
 
-``hyper`` welcomes contributions from anyone! Unlike many other projects we are
-happy to accept cosmetic contributions and small contributions, in addition to
-large feature requests and changes.
+``hyper-h2`` welcomes contributions from anyone! Unlike many other projects we
+are happy to accept cosmetic contributions and small contributions, in addition
+to large feature requests and changes.
 
 Before you contribute (either by opening an issue or filing a pull request),
 please `read the contribution guidelines`_.
@@ -62,7 +43,7 @@ please `read the contribution guidelines`_.
 License
 =======
 
-``hyper`` is made available under the MIT License. For more details, see the
+``hyper-h2`` is made available under the MIT License. For more details, see the
 ``LICENSE`` file in the repository.
 
 Authors
