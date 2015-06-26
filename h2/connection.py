@@ -7,6 +7,7 @@ An implementation of a HTTP/2 connection.
 """
 from enum import Enum
 
+from hyperframe.frame import GoAwayFrame
 from hpack.hpack import Encoder
 
 from .exceptions import ProtocolError
@@ -188,6 +189,19 @@ class H2Connection(object):
         return self.streams[stream_id].push_stream(
             request_headers, related_stream_id
         )
+
+    def close_connection(self, error_code=None):
+        """
+        Close a connection. If an error code is provided, a GOAWAY frame will
+        be emitted. Otherwise, no frame will be emitted.
+        """
+        self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
+
+        if error_code is not None:
+            f = GoAwayFrame(0)
+            f.error_code = error_code
+            f.last_stream_id = self.highest_stream_id
+            return f
 
     def recieve_frame(self, frame):
         """
