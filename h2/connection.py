@@ -128,12 +128,20 @@ class H2Connection(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
+    # The initial maximum outbound frame size. This can be changed by receiving
+    # a settings frame.
+    DEFAULT_MAX_OUTBOUND_FRAME_SIZE = 65535
+
+    # The initial maximum inbound frame size. This is somewhat arbitrarily
+    # chosen.
+    DEFAULT_MAX_INBOUND_FRAME_SIZE = 2**24
+
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_stream_id = None
-        self.max_outbound_frame_size = None
-        self.max_inbound_frame_size = None
+        self.max_outbound_frame_size = self.DEFAULT_MAX_OUTBOUND_FRAME_SIZE
+        self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
 
         # A private variable to store a sequence of received header frames
@@ -149,7 +157,10 @@ class H2Connection(object):
                 "Stream ID must be larger than %s", self.highest_stream_id
             )
 
-        self.streams[stream_id] = H2Stream(stream_id)
+        s = H2Stream(stream_id)
+        s.max_inbound_frame_size = self.max_inbound_frame_size
+        s.max_outbound_frame_size = self.max_outbound_frame_size
+        self.streams[stream_id] = s
         self.highest_stream_id = stream_id
 
     def send_headers_on_stream(self, stream_id, headers, end_stream=False):
