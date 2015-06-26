@@ -7,7 +7,10 @@ An implementation of a HTTP/2 connection.
 """
 from enum import Enum
 
+from hpack.hpack import Encoder
+
 from .exceptions import ProtocolError
+from .stream import H2Stream
 
 
 class ConnectionState(Enum):
@@ -88,7 +91,7 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_DATA): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_GOAWAY): (None, ConnectionState.CLOSED),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.SERVER_OPEN),
-        (ConnectionState.SERVER_OPEN, ConnectlionInputs.RECV_PING): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PING): (None, ConnectionState.SERVER_OPEN),
     }
 
     def __init__(self):
@@ -127,8 +130,10 @@ class H2Connection(object):
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
+        self.highest_stream_id = None
         self.max_outbound_frame_size = None
         self.max_inbound_frame_size = None
+        self.encoder = Encoder()
 
         # A private variable to store a sequence of received header frames
         # until completion.
@@ -138,25 +143,36 @@ class H2Connection(object):
         """
         Initiate a new stream. By default does nothing.
         """
-        pass
+        if stream_id <= self.highest_stream_id:
+            raise ValueError(
+                "Stream ID must be larger than %s", self.highest_stream_id
+            )
+
+        self.streams[stream_id] = H2Stream(stream_id)
+        self.highest_stream_id = stream_id
 
     def send_headers_on_stream(self, stream_id, headers, end_stream=False):
         """
         Send headers on a given stream.
         """
-        pass
+        self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
+        return self.streams[stream_id].send_headers(
+            headers, self.encoder, end_stream
+        )
 
     def send_data_on_stream(self, stream_id, data, end_stream=False):
         """
         Send data on a given stream.
         """
-        pass
+        self.state_machine.process_input(ConnectionInputs.SEND_DATA)
+        return self.streams[stream_id].send_data(data, end_stream)
 
     def end_stream(self, stream_id):
         """
         End a given stream.
         """
-        pass
+        self.state_machine.process_input(ConnectionInputs.SEND_DATA)
+        return self.streams[stream_id].end_stream()
 
     def increment_flow_control_window(self, increment, stream_id=None):
         """
@@ -168,7 +184,10 @@ class H2Connection(object):
         """
         Send a push promise.
         """
-        pass
+        self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
+        return self.streams[stream_id].push_stream(
+            request_headers, related_stream_id
+        )
 
     def recieve_frame(self, frame):
         """
