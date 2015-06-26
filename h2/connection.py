@@ -113,3 +113,65 @@ class H2ConnectionStateMachine(object):
             if func is not None:
                 return func()
 
+
+class H2Connection(object):
+    """
+    A low-level HTTP/2 stream object. This handles building and receiving
+    frames and maintains per-stream state.
+
+    This wraps a HTTP/2 Stream state machine implementation, ensuring that
+    frames can only be sent/received when the stream is in a valid state.
+    Attempts to create frames that cannot be sent will raise a
+    ``ProtocolError``.
+    """
+    def __init__(self, client_side=True):
+        self.state_machine = H2ConnectionStateMachine()
+        self.streams = {}
+        self.max_outbound_frame_size = None
+        self.max_inbound_frame_size = None
+
+        # A private variable to store a sequence of received header frames
+        # until completion.
+        self._header_frames = []
+
+    def begin_new_stream(self, stream_id):
+        """
+        Initiate a new stream. By default does nothing.
+        """
+        pass
+
+    def send_headers_on_stream(self, stream_id, headers, end_stream=False):
+        """
+        Send headers on a given stream.
+        """
+        pass
+
+    def send_data_on_stream(self, stream_id, data, end_stream=False):
+        """
+        Send data on a given stream.
+        """
+        pass
+
+    def end_stream(self, stream_id):
+        """
+        End a given stream.
+        """
+        pass
+
+    def increment_flow_control_window(self, increment, stream_id=None):
+        """
+        Increment a flow control window, optionally for a single stream.
+        """
+        pass
+
+    def push_stream(self, stream_id, related_stream_id, request_headers):
+        """
+        Send a push promise.
+        """
+        pass
+
+    def recieve_frame(self, frame):
+        """
+        Handle a frame received on the connection.
+        """
+        pass
