@@ -7,7 +7,7 @@ An implementation of a HTTP/2 connection.
 """
 from enum import Enum
 
-from hyperframe.frame import GoAwayFrame
+from hyperframe.frame import GoAwayFrame, WindowUpdateFrame
 from hpack.hpack import Encoder
 
 from .exceptions import ProtocolError
@@ -190,7 +190,16 @@ class H2Connection(object):
         """
         Increment a flow control window, optionally for a single stream.
         """
-        pass
+        self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
+
+        if stream_id is not None:
+            return self.streams[stream_id].increase_flow_control_window(
+                increment
+            )
+        else:
+            f = WindowUpdateFrame(0)
+            f.window_increment = increment
+            return f
 
     def push_stream(self, stream_id, related_stream_id, request_headers):
         """
