@@ -7,7 +7,10 @@ An implementation of a HTTP/2 connection.
 """
 from enum import Enum
 
-from hyperframe.frame import GoAwayFrame, WindowUpdateFrame
+from hyperframe.frame import (
+    GoAwayFrame, WindowUpdateFrame, HeadersFrame, ContinuationFrame, DataFrame,
+    RstStreamFrame, PingFrame
+)
 from hpack.hpack import Encoder
 
 from .exceptions import ProtocolError
@@ -209,6 +212,13 @@ class H2Connection(object):
         return self.streams[stream_id].push_stream(
             request_headers, related_stream_id
         )
+
+    def ping(self):
+        """
+        Send a PING frame.
+        """
+        self.state_machine.process_input(ConnectionInputs.SEND_PING)
+        return PingFrame(0)
 
     def close_connection(self, error_code=None):
         """
