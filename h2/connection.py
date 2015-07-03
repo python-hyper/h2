@@ -100,6 +100,9 @@ class H2ConnectionStateMachine(object):
 
     def __init__(self):
         self.state = ConnectionState.IDLE
+        self._frame_dispatch_table = {
+            HeadersFrame: self._receive_headers_frame,
+        }
 
     def process_input(self, input_):
         """
@@ -165,6 +168,7 @@ class H2Connection(object):
         s.max_outbound_frame_size = self.max_outbound_frame_size
         self.streams[stream_id] = s
         self.highest_stream_id = stream_id
+        return s
 
     def send_headers_on_stream(self, stream_id, headers, end_stream=False):
         """
@@ -233,8 +237,19 @@ class H2Connection(object):
             f.last_stream_id = self.highest_stream_id
             return f
 
-    def recieve_frame(self, frame):
+    def receive_frame(self, frame):
         """
         Handle a frame received on the connection.
         """
-        pass
+        # I don't love using __class__ here, maybe reconsider it.
+        return self._frame_dispatch_table[frame.__class__]
+
+    def _receive_headers_frame(self, frame):
+        self.state_machine.process_input(ConnectionInputs.RECV_HEADERS)
+
+        try:
+            stream = self.streams[frame.stream_id]
+        except KeyError:
+            stream = self.begin_new_stream(frame.stream_id)
+
+        return stream.receive_headers('END_STREAM' in frame.flags)
