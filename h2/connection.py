@@ -170,6 +170,16 @@ class H2Connection(object):
         self.highest_stream_id = stream_id
         return s
 
+    def get_stream_by_id(self, stream_id):
+        """
+        Gets a stream by its stream ID. Will create one if one does not already
+        exist.
+        """
+        try:
+            return self.streams[stream_id]
+        except KeyError:
+            return self.begin_new_stream(stream_id)
+
     def send_headers_on_stream(self, stream_id, headers, end_stream=False):
         """
         Send headers on a given stream.
@@ -246,13 +256,16 @@ class H2Connection(object):
 
     def _receive_headers_frame(self, frame):
         """
-        Receive a headers frame on the stream.
+        Receive a headers frame on the connect.
         """
         self.state_machine.process_input(ConnectionInputs.RECV_HEADERS)
-
-        try:
-            stream = self.streams[frame.stream_id]
-        except KeyError:
-            stream = self.begin_new_stream(frame.stream_id)
-
+        stream = self.get_stream_by_id(frame.stream_id)
         return stream.receive_headers('END_STREAM' in frame.flags)
+
+    def _receive_push_promise_frame(self, frame):
+        """
+        Receive a push-promise frame on the connection.
+        """
+        self.state_machine.process_input(ConnectionInputs.RECV_PUSH_PROMISE)
+        stream = self.get_stream_by_id(frame.stream_id)
+        return stream.receive_push_promise()
