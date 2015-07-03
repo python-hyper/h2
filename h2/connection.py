@@ -245,6 +245,9 @@ class H2Connection(object):
         return self._frame_dispatch_table[frame.__class__]
 
     def _receive_headers_frame(self, frame):
+        """
+        Receive a headers frame on the stream.
+        """
         self.state_machine.process_input(ConnectionInputs.RECV_HEADERS)
 
         try:
