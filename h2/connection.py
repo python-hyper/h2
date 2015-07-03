@@ -9,7 +9,7 @@ from enum import Enum
 
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, ContinuationFrame, DataFrame,
-    RstStreamFrame, PingFrame
+    RstStreamFrame, PingFrame, PushPromiseFrame
 )
 from hpack.hpack import Encoder
 
@@ -100,9 +100,6 @@ class H2ConnectionStateMachine(object):
 
     def __init__(self):
         self.state = ConnectionState.IDLE
-        self._frame_dispatch_table = {
-            HeadersFrame: self._receive_headers_frame,
-        }
 
     def process_input(self, input_):
         """
@@ -153,6 +150,12 @@ class H2Connection(object):
         # A private variable to store a sequence of received header frames
         # until completion.
         self._header_frames = []
+
+        # When in doubt use dict-dispatch.
+        self._frame_dispatch_table = {
+            HeadersFrame: self._receive_headers_frame,
+            PushPromiseFrame: self._receive_push_promise_frame,
+        }
 
     def begin_new_stream(self, stream_id):
         """
