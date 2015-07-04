@@ -272,3 +272,11 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.RECV_PUSH_PROMISE)
         stream = self.get_stream_by_id(frame.stream_id)
         return stream.receive_push_promise()
+
+    def _receive_data_frame(self, frame):
+        """
+        Receive a data frame on the connection.
+        """
+        self.state_machine.process_input(ConnectionInputs.RECV_DATA)
+        stream = self.get_stream_by_id(frame.stream_id)
+        return stream.receive_data('END_STREAM' in frame.flags)
