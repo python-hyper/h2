@@ -188,7 +188,8 @@ class H2Connection(object):
         Send headers on a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-        return self.streams[stream_id].send_headers(
+        stream = self.get_stream_by_id(stream_id)
+        return stream.send_headers(
             headers, self.encoder, end_stream
         )
 
