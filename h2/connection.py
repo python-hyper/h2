@@ -159,7 +159,7 @@ class H2Connection(object):
 
     def begin_new_stream(self, stream_id):
         """
-        Initiate a new stream. By default does nothing.
+        Initiate a new stream.
         """
         if stream_id <= self.highest_stream_id:
             raise ValueError(
