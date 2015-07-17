@@ -256,7 +256,7 @@ class H2Connection(object):
         Handle a frame received on the connection.
         """
         # I don't love using __class__ here, maybe reconsider it.
-        return self._frame_dispatch_table[frame.__class__]
+        return self._frame_dispatch_table[frame.__class__](frame)
 
     def _receive_headers_frame(self, frame):
         """
