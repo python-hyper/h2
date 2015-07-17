@@ -12,13 +12,14 @@ class TestBasicConnection(object):
     """
     Basic connection tests.
     """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+
     def test_begin_connection(self):
         c = h2.connection.H2Connection()
-        headers = [
-            (':authority', 'example.com'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'GET'),
-        ]
-        frames = c.send_headers_on_stream(1, headers)
+        frames = c.send_headers_on_stream(1, self.example_request_headers)
         assert len(frames) == 1
