@@ -265,7 +265,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.RECV_HEADERS)
 
         if end_stream:
-            self.state_machine.process_input(StreamInputs.END_STREAM)
+            self.state_machine.process_input(StreamInputs.RECV_END_STREAM)
 
     def receive_data(self, end_stream):
         """
@@ -274,7 +274,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.RECV_DATA)
 
         if end_stream:
-            self.state_machine.process_input(StreamInputs.END_STREAM)
+            self.state_machine.process_input(StreamInputs.RECV_END_STREAM)
 
     def receive_window_update(self, increment):
         """
