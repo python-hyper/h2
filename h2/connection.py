@@ -142,7 +142,7 @@ class H2Connection(object):
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
-        self.highest_stream_id = None
+        self.highest_stream_id = 0
         self.max_outbound_frame_size = self.DEFAULT_MAX_OUTBOUND_FRAME_SIZE
         self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
