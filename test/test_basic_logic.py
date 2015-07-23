@@ -39,3 +39,11 @@ class TestBasicConnection(object):
 
         c = h2.connection.H2Connection()
         assert c.receive_frame(f) is None
+
+    def test_send_headers_end_stream(self):
+        c = h2.connection.H2Connection()
+        frames = c.send_headers_on_stream(
+            1, self.example_request_headers, end_stream=True
+        )
+        assert len(frames) == 1
+        assert frames[-1].flags == set(['END_STREAM', 'END_HEADERS'])
