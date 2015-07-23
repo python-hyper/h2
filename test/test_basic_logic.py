@@ -53,7 +53,7 @@ class TestBasicConnection(object):
 
     def test_no_data_after_headers_end_stream(self):
         c = h2.connection.H2Connection()
-        _ = c.send_headers_on_stream(
+        c.send_headers_on_stream(
             1, self.example_request_headers, end_stream=True
         )
         with pytest.raises(h2.exceptions.ProtocolError):
