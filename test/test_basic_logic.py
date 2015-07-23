@@ -5,7 +5,10 @@ test_basic_logic
 
 Test the basic logic of the h2 state machines.
 """
+import pytest
+
 import h2.connection
+import h2.exceptions
 
 from hyperframe import frame
 
@@ -47,3 +50,11 @@ class TestBasicConnection(object):
         )
         assert len(frames) == 1
         assert frames[-1].flags == set(['END_STREAM', 'END_HEADERS'])
+
+    def test_no_data_after_headers_end_stream(self):
+        c = h2.connection.H2Connection()
+        _ = c.send_headers_on_stream(
+            1, self.example_request_headers, end_stream=True
+        )
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_data_on_stream(1, b'test')
