@@ -9,7 +9,7 @@ from enum import Enum
 
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, ContinuationFrame, DataFrame,
-    RstStreamFrame, PingFrame, PushPromiseFrame
+    RstStreamFrame, PingFrame, PushPromiseFrame, SettingsFrame
 )
 from hpack.hpack import Encoder
 
@@ -147,6 +147,10 @@ class H2Connection(object):
         self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
 
+        # This might want to be an extensible class that does sensible stuff
+        # with defaults. For now, a dict will do.
+        self.local_settings = {}
+
         # A private variable to store a sequence of received header frames
         # until completion.
         self._header_frames = []
@@ -172,6 +176,24 @@ class H2Connection(object):
         self.streams[stream_id] = s
         self.highest_stream_id = stream_id
         return s
+
+    def initiate_connection(self):
+        """
+        Provides any data that needs to be sent at the start of the connection
+        if this component is initiating the connection (that is, if this is a
+        client).
+
+        Unlike other methods in this class, this *does not* return a Frame.
+        Instead, it returns an opaque byte string that should be transmitted
+        verbatim.
+        """
+        preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+
+        f = SettingsFrame(0)
+        for setting, value in self.local_settings.items():
+            f.settings[setting] = value
+
+        return preamble + f.serialize()
 
     def get_stream_by_id(self, stream_id):
         """
