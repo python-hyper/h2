@@ -227,18 +227,21 @@ class H2Stream(object):
 
     def send_data(self, data, end_stream=False):
         """
-        Prepare a data frame. Optionally end the stream.
+        Prepare some data frames. Optionally end the stream.
         """
-        # TODO: Automatically split into multiple frames.
         # TODO: Something something flow control.
         self.state_machine.process_input(StreamInputs.SEND_DATA)
-        df = DataFrame(self.stream_id)
-        df.data = data
+
+        frames = []
+        for offset in range(0, len(data), self.max_outbound_frame_size):
+            df = DataFrame(self.stream_id)
+            df.data = data
+            frames.append(df)
 
         if end_stream:
-            df.flags.add('END_STREAM')
+            frames[-1].flags.add('END_STREAM')
 
-        return df
+        return frames
 
     def end_stream(self):
         """
