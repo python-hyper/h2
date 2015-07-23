@@ -58,3 +58,11 @@ class TestBasicConnection(object):
         )
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_data_on_stream(1, b'test')
+
+    def test_data_is_split(self):
+        lots_of_data = b'data' * 65535
+
+        c = h2.connection.H2Connection()
+        frames = c.send_headers_on_stream(1, self.example_request_headers)
+        frames.extend(c.send_data_on_stream(1, lots_of_data, end_stream=True))
+        assert len(frames) == 5
