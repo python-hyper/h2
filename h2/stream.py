@@ -230,15 +230,15 @@ class H2Stream(object):
         Prepare some data frames. Optionally end the stream.
         """
         # TODO: Something something flow control.
-        self.state_machine.process_input(StreamInputs.SEND_DATA)
-
         frames = []
         for offset in range(0, len(data), self.max_outbound_frame_size):
+            self.state_machine.process_input(StreamInputs.SEND_DATA)
             df = DataFrame(self.stream_id)
             df.data = data
             frames.append(df)
 
         if end_stream:
+            self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[-1].flags.add('END_STREAM')
 
         return frames
