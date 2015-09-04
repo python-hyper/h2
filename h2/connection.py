@@ -150,12 +150,20 @@ class H2Connection(object):
         # until completion.
         self._header_frames = []
 
+        # Data that needs to be sent.
+        self.data_to_send = b''
+
         # When in doubt use dict-dispatch.
         self._frame_dispatch_table = {
             HeadersFrame: self._receive_headers_frame,
             PushPromiseFrame: self._receive_push_promise_frame,
             SettingsFrame: self._receive_settings_frame,
         }
+
+    def _prepare_for_sending(self, frames):
+        if not frames:
+            return
+        self.data_to_send += b''.join(f.serialize() for f in frames)
 
     def begin_new_stream(self, stream_id):
         """
@@ -190,7 +198,7 @@ class H2Connection(object):
         for setting, value in self.local_settings.items():
             f.settings[setting] = value
 
-        return preamble + f.serialize()
+        self.data_to_send += preamble + f.serialize()
 
     def get_stream_by_id(self, stream_id):
         """
@@ -208,23 +216,26 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = self.get_stream_by_id(stream_id)
-        return stream.send_headers(
+        frames = stream.send_headers(
             headers, self.encoder, end_stream
         )
+        self._prepare_for_sending(frames)
 
     def send_data_on_stream(self, stream_id, data, end_stream=False):
         """
         Send data on a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        return self.streams[stream_id].send_data(data, end_stream)
+        frames = self.streams[stream_id].send_data(data, end_stream)
+        self._prepare_for_sending(frames)
 
     def end_stream(self, stream_id):
         """
         End a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        return self.streams[stream_id].end_stream()
+        frames = self.streams[stream_id].end_stream()
+        self._prepare_for_sending(frames)
 
     def increment_flow_control_window(self, increment, stream_id=None):
         """
@@ -233,29 +244,32 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
         if stream_id is not None:
-            return self.streams[stream_id].increase_flow_control_window(
+            frames = self.streams[stream_id].increase_flow_control_window(
                 increment
             )
         else:
             f = WindowUpdateFrame(0)
             f.window_increment = increment
-            return f
+            frames = [f]
+
+        self._prepare_for_sending(frames)
 
     def push_stream(self, stream_id, related_stream_id, request_headers):
         """
         Send a push promise.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
-        return self.streams[stream_id].push_stream(
+        frames = self.streams[stream_id].push_stream(
             request_headers, related_stream_id
         )
+        self._prepare_for_sending(frames)
 
     def ping(self):
         """
         Send a PING frame.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_PING)
-        return PingFrame(0)
+        self._prepare_for_sending([PingFrame(0)])
 
     def close_connection(self, error_code=None):
         """
@@ -268,14 +282,15 @@ class H2Connection(object):
             f = GoAwayFrame(0)
             f.error_code = error_code
             f.last_stream_id = self.highest_stream_id
-            return f
+            self._prepare_for_sending([f])
 
     def receive_frame(self, frame):
         """
         Handle a frame received on the connection.
         """
         # I don't love using __class__ here, maybe reconsider it.
-        return self._frame_dispatch_table[frame.__class__](frame)
+        frames = self._frame_dispatch_table[frame.__class__](frame)
+        self._prepare_for_sending(frames)
 
     def _receive_headers_frame(self, frame):
         """
@@ -283,7 +298,8 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.RECV_HEADERS)
         stream = self.get_stream_by_id(frame.stream_id)
-        return stream.receive_headers('END_STREAM' in frame.flags)
+        frames = stream.receive_headers('END_STREAM' in frame.flags)
+        self._prepare_for_sending(frames)
 
     def _receive_push_promise_frame(self, frame):
         """
@@ -291,7 +307,8 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.RECV_PUSH_PROMISE)
         stream = self.get_stream_by_id(frame.stream_id)
-        return stream.receive_push_promise()
+        frames = stream.receive_push_promise()
+        self._prepare_for_sending(frames)
 
     def _receive_data_frame(self, frame):
         """
@@ -299,7 +316,8 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.RECV_DATA)
         stream = self.get_stream_by_id(frame.stream_id)
-        return stream.receive_data('END_STREAM' in frame.flags)
+        frames = stream.receive_data('END_STREAM' in frame.flags)
+        self._prepare_for_sending(frames)
 
     def _receive_settings_frame(self, frame):
         """
@@ -308,4 +326,4 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.RECV_SETTINGS)
         # TODO: Do something with settings!
         frame.flags.add('ACK')
-        return [frame]
+        self._prepare_for_sending([frame])
