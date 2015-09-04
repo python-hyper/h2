@@ -31,12 +31,14 @@ class ConnectionInputs(Enum):
     SEND_GOAWAY = 3
     SEND_WINDOW_UPDATE = 4
     SEND_PING = 5
-    RECV_HEADERS = 6
-    RECV_PUSH_PROMISE = 7
-    RECV_DATA = 8
-    RECV_GOAWAY = 9
-    RECV_WINDOW_UPDATE = 10
-    RECV_PING = 11
+    SEND_SETTINGS = 6
+    RECV_HEADERS = 7
+    RECV_PUSH_PROMISE = 8
+    RECV_DATA = 9
+    RECV_GOAWAY = 10
+    RECV_WINDOW_UPDATE = 11
+    RECV_PING = 12
+    RECV_SETTINGS = 13
 
 
 class H2ConnectionStateMachine(object):
@@ -53,23 +55,12 @@ class H2ConnectionStateMachine(object):
     # contains all allowed transitions: anything not in this map is invalid
     # and immediately causes a transition to ``closed``.
 
-    SEND_HEADERS = 0
-    SEND_PUSH_PROMISE = 1
-    SEND_DATA = 2
-    SEND_GOAWAY = 3
-    SEND_WINDOW_UPDATE = 4
-    SEND_PING = 5
-    RECV_HEADERS = 6
-    RECV_PUSH_PROMISE = 7
-    RECV_DATA = 8
-    RECV_GOAWAY = 9
-    RECV_WINDOW_UPDATE = 10
-    RECV_PING = 11
-
     _transitions = {
         # State: idle
         (ConnectionState.IDLE, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.IDLE, ConnectionInputs.RECV_HEADERS): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_SETTINGS): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.IDLE),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.CLIENT_OPEN),
@@ -77,12 +68,14 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_GOAWAY): (None, ConnectionState.CLOSED),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_WINDOW_UPDATE): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_PING): (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_SETTINGS): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_HEADERS): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PUSH_PROMISE): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_DATA): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_GOAWAY): (None, ConnectionState.CLOSED),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PING): (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, server side.
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.SERVER_OPEN),
@@ -91,11 +84,13 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_GOAWAY): (None, ConnectionState.CLOSED),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_WINDOW_UPDATE): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_PING): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_SETTINGS): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_HEADERS): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_DATA): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_GOAWAY): (None, ConnectionState.CLOSED),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PING): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.SERVER_OPEN),
     }
 
     def __init__(self):
@@ -159,6 +154,7 @@ class H2Connection(object):
         self._frame_dispatch_table = {
             HeadersFrame: self._receive_headers_frame,
             PushPromiseFrame: self._receive_push_promise_frame,
+            SettingsFrame: self._receive_settings_frame,
         }
 
     def begin_new_stream(self, stream_id):
@@ -187,6 +183,7 @@ class H2Connection(object):
         Instead, it returns an opaque byte string that should be transmitted
         verbatim.
         """
+        self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
         preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
 
         f = SettingsFrame(0)
@@ -303,3 +300,10 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.RECV_DATA)
         stream = self.get_stream_by_id(frame.stream_id)
         return stream.receive_data('END_STREAM' in frame.flags)
+
+    def _receive_settings_frame(self, frame):
+        """
+        Receive a SETTINGS frame on the connection.
+        """
+        self.state_machine.process_input(ConnectionInputs.RECV_SETTINGS)
+        # TODO: Do something with settings!
