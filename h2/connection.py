@@ -307,3 +307,5 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.RECV_SETTINGS)
         # TODO: Do something with settings!
+        frame.flags.add('ACK')
+        return [frame]
