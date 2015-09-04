@@ -11,7 +11,7 @@ from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, ContinuationFrame, DataFrame,
     RstStreamFrame, PingFrame, PushPromiseFrame, SettingsFrame
 )
-from hpack.hpack import Encoder
+from hpack.hpack import Encoder, Decoder
 
 from .exceptions import ProtocolError
 from .frame_buffer import FrameBuffer
@@ -116,6 +116,8 @@ class H2ConnectionStateMachine(object):
             if func is not None:
                 return func()
 
+            return []
+
 
 class H2Connection(object):
     """
@@ -142,6 +144,7 @@ class H2Connection(object):
         self.max_outbound_frame_size = self.DEFAULT_MAX_OUTBOUND_FRAME_SIZE
         self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
+        self.decoder = Decoder()
 
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
@@ -292,52 +295,70 @@ class H2Connection(object):
         """
         Pass some received HTTP/2 data to the connection for handling.
         """
-        # TODO: return events.
+        events = []
         self.incoming_buffer.add_data(data)
 
         for frame in self.incoming_buffer:
-            self.receive_frame(frame)
+            events.extend(self.receive_frame(frame))
+
+        return events
 
     def receive_frame(self, frame):
         """
         Handle a frame received on the connection.
         """
         # I don't love using __class__ here, maybe reconsider it.
-        frames = self._frame_dispatch_table[frame.__class__](frame)
+        frames, events = self._frame_dispatch_table[frame.__class__](frame)
         self._prepare_for_sending(frames)
+        return events
 
     def _receive_headers_frame(self, frame):
         """
         Receive a headers frame on the connect.
         """
-        self.state_machine.process_input(ConnectionInputs.RECV_HEADERS)
+        # Let's decode the headers.
+        headers = self.decoder.decode(frame.data)
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_HEADERS
+        )
         stream = self.get_stream_by_id(frame.stream_id)
-        frames = stream.receive_headers('END_STREAM' in frame.flags)
-        self._prepare_for_sending(frames)
+        frames, stream_events = stream.receive_headers(
+            headers,
+            'END_STREAM' in frame.flags
+        )
+        return frames, events + stream_events
 
     def _receive_push_promise_frame(self, frame):
         """
         Receive a push-promise frame on the connection.
         """
-        self.state_machine.process_input(ConnectionInputs.RECV_PUSH_PROMISE)
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_PUSH_PROMISE
+        )
         stream = self.get_stream_by_id(frame.stream_id)
-        frames = stream.receive_push_promise()
-        self._prepare_for_sending(frames)
+        frames, stream_events = stream.receive_push_promise()
+        return frames, events + stream_events
 
     def _receive_data_frame(self, frame):
         """
         Receive a data frame on the connection.
         """
-        self.state_machine.process_input(ConnectionInputs.RECV_DATA)
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_DATA
+        )
         stream = self.get_stream_by_id(frame.stream_id)
-        frames = stream.receive_data('END_STREAM' in frame.flags)
-        self._prepare_for_sending(frames)
+        frames, stream_events = stream.receive_data(
+            'END_STREAM' in frame.flags
+        )
+        return frames, events + stream_events
 
     def _receive_settings_frame(self, frame):
         """
         Receive a SETTINGS frame on the connection.
         """
-        self.state_machine.process_input(ConnectionInputs.RECV_SETTINGS)
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_SETTINGS
+        )
         # TODO: Do something with settings!
         frame.flags.add('ACK')
-        self._prepare_for_sending([frame])
+        return [frame], events

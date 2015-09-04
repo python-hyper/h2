@@ -17,9 +17,9 @@ class RequestReceived(object):
     This event carries the HTTP headers for the given request and the stream ID
     of the new stream.
     """
-    def __init__(self, stream_id, headers):
-        self.stream_id = stream_id
-        self.headers = headers
+    def __init__(self):
+        self.stream_id = None
+        self.headers = None
 
 
 class ResponseReceived(object):
@@ -28,9 +28,9 @@ class ResponseReceived(object):
     This event carries the HTTP headers for the given response and the stream
     ID of the new stream.
     """
-    def __init__(self, stream_id, headers):
-        self.stream_id = stream_id
-        self.headers = headers
+    def __init__(self):
+        self.stream_id = None
+        self.headers = None
 
 
 class DataReceived(object):
@@ -39,6 +39,6 @@ class DataReceived(object):
     the remote peer. The event carries the data itself, and the stream ID on
     which the data was received.
     """
-    def __init__(self, stream_id, data):
-        self.stream_id = stream_id
-        self.data = data
+    def __init__(self):
+        self.stream_id = None
+        self.data = None

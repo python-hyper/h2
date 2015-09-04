@@ -11,6 +11,7 @@ from hyperframe.frame import (
     RstStreamFrame
 )
 
+from .events import RequestReceived, ResponseReceived, DataReceived
 from .exceptions import ProtocolError
 
 
@@ -93,61 +94,67 @@ class H2StreamStateMachine(object):
     # allows/requires this by preventing other frames from being interleved in
     # between HEADERS/CONTINUATION frames.
     #
-    # The _transitions dictionary contains a mapping of tuples of
-    # (state, input) to tuples of (side_effect_function, end_state). This map
-    # contains all allowed transitions: anything not in this map is invalid
-    # and immediately causes a transition to ``closed``.
-    _transitions = {
-        # State: idle
-        (StreamState.IDLE, StreamInputs.SEND_HEADERS): (None, StreamState.OPEN),
-        (StreamState.IDLE, StreamInputs.RECV_HEADERS): (None, StreamState.OPEN),
-        (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE): (None, StreamState.RESERVED_LOCAL),
-        (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE): (None, StreamState.RESERVED_REMOTE),
-
-        # State: reserved local
-        (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS): (None, StreamState.HALF_CLOSED_REMOTE),
-        (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
-        (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
-        (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-        (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
-
-        # State: reserved remote
-        (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS): (None, StreamState.HALF_CLOSED_LOCAL),
-        (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
-        (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
-        (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-        (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
-
-        # State: open
-        (StreamState.OPEN, StreamInputs.SEND_DATA): (None, StreamState.OPEN),
-        (StreamState.OPEN, StreamInputs.RECV_DATA): (None, StreamState.OPEN),
-        (StreamState.OPEN, StreamInputs.SEND_END_STREAM): (None, StreamState.HALF_CLOSED_LOCAL),
-        (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (None, StreamState.HALF_CLOSED_REMOTE),
-        (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.OPEN),
-        (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.OPEN),
-        (StreamState.OPEN, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-        (StreamState.OPEN, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
-
-        # State: half-closed remote
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA): (None, StreamState.HALF_CLOSED_REMOTE),
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM): (None, StreamState.CLOSED),
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-        (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
-
-        # State: half-closed local
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (None, StreamState.HALF_CLOSED_LOCAL),
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (None, StreamState.CLOSED),
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-        (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
-    }
 
     def __init__(self, stream_id):
         self.state = StreamState.IDLE
         self.stream_id = stream_id
+
+        #: Whether this peer is the client side of this stream.
+        self.client = None
+
+        # The _transitions dictionary contains a mapping of tuples of
+        # (state, input) to tuples of (side_effect_function, end_state). This
+        # map contains all allowed transitions: anything not in this map is
+        # invalid and immediately causes a transition to ``closed``.
+        self._transitions = {
+            # State: idle
+            (StreamState.IDLE, StreamInputs.SEND_HEADERS): (self.request_sent, StreamState.OPEN),
+            (StreamState.IDLE, StreamInputs.RECV_HEADERS): (self.request_received, StreamState.OPEN),
+            (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE): (None, StreamState.RESERVED_LOCAL),
+            (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE): (None, StreamState.RESERVED_REMOTE),
+
+            # State: reserved local
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+
+            # State: reserved remote
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS): (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+
+            # State: open
+            (StreamState.OPEN, StreamInputs.SEND_HEADERS): (self.response_sent, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_HEADERS): (self.response_received, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_DATA): (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_DATA): (self.data_received, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_END_STREAM): (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.OPEN, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+
+            # State: half-closed remote
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+
+            # State: half-closed local
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (self.data_received, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+        }
 
     def process_input(self, input_):
         """
@@ -167,6 +174,50 @@ class H2StreamStateMachine(object):
             self.state = target_state
             if func is not None:
                 return func()
+
+            return []
+
+    def request_sent(self):
+        """
+        Fires when a request is sent.
+        """
+        self.client = True
+        return []
+
+    def response_sent(self):
+        """
+        Fires when something that should be a response is sent.
+        """
+        assert self.client is False  # FIXME: Better error handling here.
+        return []
+
+    def request_received(self):
+        """
+        Fires when a request is received.
+        """
+        self.client = False
+
+        event = RequestReceived()
+        event.stream_id = self.stream_id
+        return [event]
+
+    def response_received(self):
+        """
+        Fires when a response is received.
+        """
+        assert self.client is not None
+        assert self.client  # FIXME: Better error handling here.
+        event = ResponseReceived()
+        event.stream_id = self.stream_id
+        return [event]
+
+    def data_received(self):
+        """
+        Fires when data is received.
+        """
+        event = DataReceived()
+        event.stream_id = self.stream_id
+        return [event]
 
 
 class H2Stream(object):
@@ -192,7 +243,7 @@ class H2Stream(object):
         """
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
-        self.state_machine.process_input(StreamInputs.SEND_HEADERS)
+        events = self.state_machine.process_input(StreamInputs.SEND_HEADERS)
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:
@@ -223,7 +274,7 @@ class H2Stream(object):
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[0].flags.add('END_STREAM')
 
-        return frames
+        return frames, events
 
     def send_data(self, data, end_stream=False):
         """
@@ -241,7 +292,7 @@ class H2Stream(object):
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[-1].flags.add('END_STREAM')
 
-        return frames
+        return frames, []
 
     def end_stream(self):
         """
@@ -250,7 +301,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.END_STREAM)
         df = DataFrame(self.stream_id)
         df.flags.add('END_STREAM')
-        return df
+        return df, []
 
     def increase_flow_control_window(self, increment):
         """
@@ -259,32 +310,44 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
-        return wuf
+        return wuf, []
 
-    def receive_headers(self, end_stream):
+    def receive_headers(self, headers, end_stream):
         """
         Receive a set of headers (or trailers).
         """
-        self.state_machine.process_input(StreamInputs.RECV_HEADERS)
+        events = self.state_machine.process_input(StreamInputs.RECV_HEADERS)
 
         if end_stream:
-            self.state_machine.process_input(StreamInputs.RECV_END_STREAM)
+            events += self.state_machine.process_input(
+                StreamInputs.RECV_END_STREAM
+            )
+
+        events[0].headers = headers
+        return [], events
 
     def receive_data(self, end_stream):
         """
         Receive some data.
         """
-        self.state_machine.process_input(StreamInputs.RECV_DATA)
+        events = self.state_machine.process_input(StreamInputs.RECV_DATA)
 
         if end_stream:
-            self.state_machine.process_input(StreamInputs.RECV_END_STREAM)
+            events += self.state_machine.process_input(
+                StreamInputs.RECV_END_STREAM
+            )
+
+        return [], events
 
     def receive_window_update(self, increment):
         """
         Handle a WINDOW_UPDATE increment.
         """
-        self.state_machine.process_input(StreamInputs.RECV_WINDOW_UPDATE)
+        events = self.state_machine.process_input(
+            StreamInputs.RECV_WINDOW_UPDATE
+        )
         # TODO: Actually increment flow control!
+        return [], events
 
     def close(self, error_code=0):
         """
@@ -294,10 +357,11 @@ class H2Stream(object):
 
         rsf = RstStreamFrame(self.stream_id)
         rsf.error_code = error_code
-        return rsf
+        return rsf, []
 
     def stream_reset(self):
         """
         Handle a stream being reset remotely.
         """
-        self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
+        events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
+        return [], events
