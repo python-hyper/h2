@@ -14,6 +14,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder
 
 from .exceptions import ProtocolError
+from .frame_buffer import FrameBuffer
 from .stream import H2Stream
 
 
@@ -145,6 +146,9 @@ class H2Connection(object):
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
         self.local_settings = {}
+
+        # Buffer for incoming data.
+        self.incoming_buffer = FrameBuffer(server=not client_side)
 
         # A private variable to store a sequence of received header frames
         # until completion.
@@ -283,6 +287,16 @@ class H2Connection(object):
             f.error_code = error_code
             f.last_stream_id = self.highest_stream_id
             self._prepare_for_sending([f])
+
+    def receive_data(self, data):
+        """
+        Pass some received HTTP/2 data to the connection for handling.
+        """
+        # TODO: return events.
+        self.incoming_buffer.add_data(data)
+
+        for frame in self.incoming_buffer:
+            self.receive_frame(frame)
 
     def receive_frame(self, frame):
         """
