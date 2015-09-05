@@ -314,7 +314,7 @@ class H2Connection(object):
 
     def _receive_headers_frame(self, frame):
         """
-        Receive a headers frame on the connect.
+        Receive a headers frame on the connection.
         """
         # Let's decode the headers.
         headers = self.decoder.decode(frame.data)
