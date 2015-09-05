@@ -35,10 +35,10 @@ class H2Protocol(Protocol):
         data = json.dumps({'headers': headers})
 
         response_headers = (
-            [':status', '200'],
-            ['content-type', 'application/json'],
-            ['content-length', len(data)],
-            ['server', 'twisted-h2'],
+            (':status', '200'),
+            ('content-type', 'application/json'),
+            ('content-length', len(data)),
+            ('server', 'twisted-h2'),
         )
         self.conn.send_headers_on_stream(stream_id, response_headers)
         self.conn.send_data_on_stream(stream_id, data, end_stream=True)
