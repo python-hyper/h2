@@ -224,26 +224,29 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = self.get_stream_by_id(stream_id)
-        frames = stream.send_headers(
+        frames, events = stream.send_headers(
             headers, self.encoder, end_stream
         )
         self._prepare_for_sending(frames)
+        return events
 
     def send_data_on_stream(self, stream_id, data, end_stream=False):
         """
         Send data on a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames = self.streams[stream_id].send_data(data, end_stream)
+        frames, events = self.streams[stream_id].send_data(data, end_stream)
         self._prepare_for_sending(frames)
+        return events
 
     def end_stream(self, stream_id):
         """
         End a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames = self.streams[stream_id].end_stream()
+        frames, events = self.streams[stream_id].end_stream()
         self._prepare_for_sending(frames)
+        return events
 
     def increment_flow_control_window(self, increment, stream_id=None):
         """
