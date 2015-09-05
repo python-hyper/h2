@@ -13,7 +13,7 @@ import h2.exceptions
 from hyperframe import frame
 
 
-class TestBasicConnection(object):
+class TestConnectionBasic(object):
     """
     Basic connection tests.
     """
@@ -23,46 +23,33 @@ class TestBasicConnection(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'fake-serv/0.1.0')
+    ]
 
     def test_begin_connection(self):
         c = h2.connection.H2Connection()
-        frames = c.send_headers_on_stream(1, self.example_request_headers)
-        assert len(frames) == 1
+        events = c.initiate_connection()
+        assert not events
+        assert c.data_to_send.startswith(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n')
 
-    def test_sending_some_data(self):
+    def test_sending_headers(self):
         c = h2.connection.H2Connection()
-        frames = c.send_headers_on_stream(1, self.example_request_headers)
-        frames.append(c.send_data_on_stream(1, b'test', end_stream=True))
-        assert len(frames) == 2
+        c.initiate_connection()
 
-    def test_receive_headers_frame(self):
-        f = frame.HeadersFrame(1)
-        f.data = b'fake headers'
-        f.flags = set(['END_STREAM', 'END_HEADERS'])
+        # Clear the data, then send headers.
+        c.data_to_send = b''
+        events = c.send_headers_on_stream(1, self.example_request_headers)
+        assert not events
+        assert c.data_to_send
 
+    def test_sending_data(self):
         c = h2.connection.H2Connection()
-        assert c.receive_frame(f) is None
+        c.initiate_connection()
+        c.send_headers_on_stream(1, self.example_request_headers)
 
-    def test_send_headers_end_stream(self):
-        c = h2.connection.H2Connection()
-        frames = c.send_headers_on_stream(
-            1, self.example_request_headers, end_stream=True
-        )
-        assert len(frames) == 1
-        assert frames[-1].flags == set(['END_STREAM', 'END_HEADERS'])
-
-    def test_no_data_after_headers_end_stream(self):
-        c = h2.connection.H2Connection()
-        c.send_headers_on_stream(
-            1, self.example_request_headers, end_stream=True
-        )
-        with pytest.raises(h2.exceptions.ProtocolError):
-            c.send_data_on_stream(1, b'test')
-
-    def test_data_is_split(self):
-        lots_of_data = b'data' * 65535
-
-        c = h2.connection.H2Connection()
-        frames = c.send_headers_on_stream(1, self.example_request_headers)
-        frames.extend(c.send_data_on_stream(1, lots_of_data, end_stream=True))
-        assert len(frames) == 5
+        # Clear the data, then send some data.
+        events = c.send_data_on_stream(1, b'some data')
+        assert not events
+        assert c.data_to_send
