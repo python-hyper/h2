@@ -306,6 +306,14 @@ class H2Stream(object):
         df.flags.add('END_STREAM')
         return df, []
 
+    def reset_stream(self):
+        """
+        Forcefully reset a stream.
+        """
+        self.state_machine.process_input(StreamInputs.SEND_RST_STREAM)
+        rsf = RstStreamFrame(self.stream_id)
+        return rsf, []
+
     def increase_flow_control_window(self, increment):
         """
         Increase the size of the flow control window for the remote side.

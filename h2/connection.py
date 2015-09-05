@@ -166,6 +166,7 @@ class H2Connection(object):
             HeadersFrame: self._receive_headers_frame,
             PushPromiseFrame: self._receive_push_promise_frame,
             SettingsFrame: self._receive_settings_frame,
+            DataFrame: self._receive_data_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -278,6 +279,14 @@ class H2Connection(object):
         """
         self.state_machine.process_input(ConnectionInputs.SEND_PING)
         self._prepare_for_sending([PingFrame(0)])
+
+    def reset_stream(self, stream_id):
+        """
+        Reset a stream frame.
+        """
+        frames, events = self.streams[stream_id].reset_stream()
+        self._prepare_for_sending(frames)
+        return events
 
     def close_connection(self, error_code=None):
         """
