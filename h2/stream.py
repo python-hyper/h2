@@ -168,9 +168,10 @@ class H2StreamStateMachine(object):
         try:
             func, target_state = self._transitions[(self.state, input_)]
         except KeyError:
+            old_state = self.state
             self.state = StreamState.CLOSED
             raise ProtocolError(
-                "Invalid input %s in state %s", input_, self.state
+                "Invalid input %s in state %s", input_, old_state
             )
         else:
             self.state = target_state
