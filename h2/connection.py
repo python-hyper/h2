@@ -150,6 +150,7 @@ class H2Connection(object):
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
         self.local_settings = {}
+        self.remote_settings = {}
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -369,6 +370,11 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_SETTINGS
         )
-        # TODO: Do something with settings!
+
+        # This is an ack of the local settings. Right now, do nothing.
+        if 'ACK' in frame.flags:
+            return [], events
+
+        self.remote_settings.update(frame.settings)
         frame.flags.add('ACK')
         return [frame], events
