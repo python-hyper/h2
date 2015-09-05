@@ -45,6 +45,11 @@ class ConnectionInputs(Enum):
 class H2ConnectionStateMachine(object):
     """
     A single HTTP/2 connection state machine.
+
+    This state machine, while defined in its own class, is logically part of
+    the H2Connection class also defined in this file. The state machine itself
+    maintains very little state directly, instead focusing entirely on managing
+    state transitions.
     """
     # For the purposes of this state machine we treat HEADERS and their
     # associated CONTINUATION frames as a single jumbo frame. The protocol
