@@ -194,10 +194,6 @@ class H2Connection(object):
         Provides any data that needs to be sent at the start of the connection
         if this component is initiating the connection (that is, if this is a
         client).
-
-        Unlike other methods in this class, this *does not* return a Frame.
-        Instead, it returns an opaque byte string that should be transmitted
-        verbatim.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
         preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
