@@ -44,6 +44,7 @@ class H2Protocol(Protocol):
         self.conn.send_data_on_stream(stream_id, data, end_stream=True)
 
         self.transport.write(self.conn.data_to_send)
+        self.conn.data_to_send = b''
 
 
 class H2Factory(Factory):
