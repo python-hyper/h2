@@ -203,6 +203,7 @@ class H2Connection(object):
             f.settings[setting] = value
 
         self.data_to_send += preamble + f.serialize()
+        return []
 
     def get_stream_by_id(self, stream_id):
         """
