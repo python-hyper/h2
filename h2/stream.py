@@ -140,6 +140,7 @@ class H2StreamStateMachine(object):
             (StreamState.OPEN, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
             # State: half-closed remote
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS): (self.response_sent, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA): (None, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
@@ -148,6 +149,7 @@ class H2StreamStateMachine(object):
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
             # State: half-closed local
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS): (self.response_received, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (self.data_received, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
