@@ -222,7 +222,7 @@ class H2Connection(object):
         except KeyError:
             return self.begin_new_stream(stream_id)
 
-    def send_headers_on_stream(self, stream_id, headers, end_stream=False):
+    def send_headers(self, stream_id, headers, end_stream=False):
         """
         Send headers on a given stream.
         """
@@ -234,7 +234,7 @@ class H2Connection(object):
         self._prepare_for_sending(frames)
         return events
 
-    def send_data_on_stream(self, stream_id, data, end_stream=False):
+    def send_data(self, stream_id, data, end_stream=False):
         """
         Send data on a given stream.
         """

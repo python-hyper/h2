@@ -42,8 +42,8 @@ class H2Protocol(Protocol):
             ('content-length', len(data)),
             ('server', 'twisted-h2'),
         )
-        self.conn.send_headers_on_stream(stream_id, response_headers)
-        self.conn.send_data_on_stream(stream_id, data, end_stream=True)
+        self.conn.send_headers(stream_id, response_headers)
+        self.conn.send_data(stream_id, data, end_stream=True)
 
         self.transport.write(self.conn.data_to_send)
         self.conn.data_to_send = b''

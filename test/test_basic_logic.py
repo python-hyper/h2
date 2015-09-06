@@ -40,16 +40,16 @@ class TestConnectionBasic(object):
 
         # Clear the data, then send headers.
         c.data_to_send = b''
-        events = c.send_headers_on_stream(1, self.example_request_headers)
+        events = c.send_headers(1, self.example_request_headers)
         assert not events
         assert c.data_to_send
 
     def test_sending_data(self):
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers_on_stream(1, self.example_request_headers)
+        c.send_headers(1, self.example_request_headers)
 
         # Clear the data, then send some data.
-        events = c.send_data_on_stream(1, b'some data')
+        events = c.send_data(1, b'some data')
         assert not events
         assert c.data_to_send
