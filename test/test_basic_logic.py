@@ -9,9 +9,9 @@ import h2.connection
 import h2.exceptions
 
 
-class TestConnectionBasic(object):
+class TestBasicClient(object):
     """
-    Basic connection tests.
+    Basic client-side tests.
     """
     example_request_headers = [
         (':authority', 'example.com'),
