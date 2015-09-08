@@ -53,3 +53,27 @@ class TestBasicClient(object):
         events = c.send_data(1, b'some data')
         assert not events
         assert c.data_to_send == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
+
+
+class TestBasicServer(object):
+    """
+    Basic server-side tests.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'hyper-h2/0.1.0')
+    ]
+
+    def test_ignores_preamble(self):
+        c = h2.connection.H2Connection(client_side=False)
+        preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+
+        events = c.receive_data(preamble)
+        assert not events
+        assert not c.data_to_send
