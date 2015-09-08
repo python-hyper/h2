@@ -38,7 +38,10 @@ class TestConnectionBasic(object):
         c.data_to_send = b''
         events = c.send_headers(1, self.example_request_headers)
         assert not events
-        assert c.data_to_send
+        assert c.data_to_send == (
+            b'\x00\x00\r\x01\x04\x00\x00\x00\x01'
+            b'A\x88/\x91\xd3]\x05\\\x87\xa7\x84\x87\x82'
+        )
 
     def test_sending_data(self):
         c = h2.connection.H2Connection()
@@ -49,4 +52,4 @@ class TestConnectionBasic(object):
         c.data_to_send = b''
         events = c.send_data(1, b'some data')
         assert not events
-        assert c.data_to_send
+        assert c.data_to_send == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
