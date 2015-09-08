@@ -33,6 +33,7 @@ class FrameBuffer(object):
 
         self.data += data
 
+    # The methods below support the iterator protocol.
     def __iter__(self):
         return self
 
@@ -47,3 +48,6 @@ class FrameBuffer(object):
         f.parse_body(memoryview(self.data[9:9+length]))
         self.data = self.data[9+length:]
         return f
+
+    def __next__(self):
+        return self.next()
