@@ -46,6 +46,7 @@ class TestConnectionBasic(object):
         c.send_headers(1, self.example_request_headers)
 
         # Clear the data, then send some data.
+        c.data_to_send = b''
         events = c.send_data(1, b'some data')
         assert not events
         assert c.data_to_send
