@@ -5,12 +5,8 @@ test_basic_logic
 
 Test the basic logic of the h2 state machines.
 """
-import pytest
-
 import h2.connection
 import h2.exceptions
-
-from hyperframe import frame
 
 
 class TestConnectionBasic(object):
