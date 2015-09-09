@@ -5,6 +5,8 @@ test_basic_logic
 
 Test the basic logic of the h2 state machines.
 """
+import pytest
+
 import h2.connection
 import h2.exceptions
 
@@ -77,3 +79,27 @@ class TestBasicServer(object):
         events = c.receive_data(preamble)
         assert not events
         assert not c.data_to_send
+
+    def test_drip_feed_preamble(self):
+        c = h2.connection.H2Connection(client_side=False)
+        preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+        events = []
+
+        # TODO: Switch this to a hypothesis test?
+        chunk_size = 3
+
+        for i in range(0, len(preamble), chunk_size):
+            events += c.receive_data(preamble[i:i+chunk_size])
+
+        assert not events
+        assert not c.data_to_send
+
+    def test_no_preamble(self):
+        c = h2.connection.H2Connection(client_side=False)
+        encoded_headers_frame = (
+            b'\x00\x00\r\x01\x04\x00\x00\x00\x01'
+            b'A\x88/\x91\xd3]\x05\\\x87\xa7\x84\x87\x82'
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(encoded_headers_frame)
