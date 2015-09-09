@@ -143,6 +143,21 @@ class TestBasicServer(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(encoded_headers_frame)
 
+    def test_initiate_connection_sends_server_preamble(self, frame_factory):
+        """
+        For server-side connections, initiate_connection sends a server
+        preamble.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        expected_settings = frame_factory.build_settings_frame(
+            c.local_settings
+        )
+        expected_data = expected_settings.serialize()
+
+        events = c.initiate_connection()
+        assert not events
+        assert c.data_to_send == expected_data
+
     def test_headers_event(self, frame_factory):
         """
         When a headers frame is received a RequestReceived event fires.

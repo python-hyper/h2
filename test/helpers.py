@@ -5,7 +5,7 @@ helpers
 
 This module contains helpers for the h2 tests.
 """
-from hyperframe.frame import HeadersFrame, DataFrame
+from hyperframe.frame import HeadersFrame, DataFrame, SettingsFrame
 from hpack.hpack import Encoder
 
 
@@ -40,4 +40,15 @@ class FrameFactory(object):
         f = DataFrame(stream_id)
         f.data = data
         f.flags = flags
+        return f
+
+    def build_settings_frame(self, settings, ack=False):
+        """
+        Builds a single settings frame.
+        """
+        f = SettingsFrame(0)
+        if ack:
+            f.flags.add('ACK')
+
+        f.settings = settings
         return f
