@@ -138,3 +138,27 @@ class TestBasicServer(object):
         assert isinstance(event, h2.events.RequestReceived)
         assert event.stream_id == 1
         assert event.headers == self.example_request_headers
+
+    def test_data_event(self, frame_factory):
+        """
+        Test that data received on a stream fires a DataReceived event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f1 = frame_factory.build_headers_frame(
+            self.example_request_headers, stream_id=3
+        )
+        f2 = frame_factory.build_data_frame(
+            b'some request data',
+            stream_id=3,
+        )
+        data = b''.join(map(lambda f: f.serialize(), [f1, f2]))
+        events = c.receive_data(data)
+
+        assert len(events) == 2
+        event = events[1]
+
+        assert isinstance(event, h2.events.DataReceived)
+        assert event.stream_id == 3
+        assert event.data == b'some request data'
