@@ -27,14 +27,21 @@ class TestBasicClient(object):
         ('server', 'fake-serv/0.1.0')
     ]
 
-    def test_begin_connection(self):
+    def test_begin_connection(self, frame_factory):
         """
         Client connections emit the HTTP/2 preamble.
         """
         c = h2.connection.H2Connection()
+        expected_settings = frame_factory.build_settings_frame(
+            c.local_settings
+        )
+        expected_data = (
+            b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' + expected_settings.serialize()
+        )
+
         events = c.initiate_connection()
         assert not events
-        assert c.data_to_send.startswith(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n')
+        assert c.data_to_send == expected_data
 
     def test_sending_headers(self):
         """
