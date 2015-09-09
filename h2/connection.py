@@ -67,6 +67,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.IDLE, ConnectionInputs.RECV_HEADERS): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.IDLE, ConnectionInputs.SEND_SETTINGS): (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_WINDOW_UPDATE): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.IDLE),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.CLIENT_OPEN),
