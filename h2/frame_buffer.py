@@ -44,7 +44,7 @@ class FrameBuffer(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def next(self):  # Python 2
         if len(self.data) < 9:
             raise StopIteration()
 
@@ -56,5 +56,5 @@ class FrameBuffer(object):
         self.data = self.data[9+length:]
         return f
 
-    def __next__(self):
+    def __next__(self):  # Python 3
         return self.next()
