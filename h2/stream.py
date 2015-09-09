@@ -11,7 +11,9 @@ from hyperframe.frame import (
     RstStreamFrame
 )
 
-from .events import RequestReceived, ResponseReceived, DataReceived
+from .events import (
+    RequestReceived, ResponseReceived, DataReceived, WindowUpdated
+)
 from .exceptions import ProtocolError
 
 
@@ -116,14 +118,14 @@ class H2StreamStateMachine(object):
             # State: reserved local
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS): (None, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.RESERVED_LOCAL),
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
             (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
             # State: reserved remote
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS): (None, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.RESERVED_REMOTE),
             (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
@@ -135,7 +137,7 @@ class H2StreamStateMachine(object):
             (StreamState.OPEN, StreamInputs.SEND_END_STREAM): (None, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (None, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
             (StreamState.OPEN, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
@@ -144,7 +146,7 @@ class H2StreamStateMachine(object):
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA): (None, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
 
@@ -153,9 +155,12 @@ class H2StreamStateMachine(object):
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (self.data_received, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+
+            # State: closed
+            (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.CLOSED),
         }
 
     def process_input(self, input_):
@@ -226,6 +231,14 @@ class H2StreamStateMachine(object):
         Fires when data is received.
         """
         event = DataReceived()
+        event.stream_id = self.stream_id
+        return [event]
+
+    def window_updated(self):
+        """
+        Fires when a window update frame is received.
+        """
+        event = WindowUpdated()
         event.stream_id = self.stream_id
         return [event]
 
@@ -365,7 +378,7 @@ class H2Stream(object):
         events = self.state_machine.process_input(
             StreamInputs.RECV_WINDOW_UPDATE
         )
-        # TODO: Actually increment flow control!
+        events[0].delta = increment
         return [], events
 
     def close(self, error_code=0):

@@ -13,6 +13,7 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
+from .events import WindowUpdated
 from .exceptions import ProtocolError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
@@ -176,6 +177,7 @@ class H2Connection(object):
             PushPromiseFrame: self._receive_push_promise_frame,
             SettingsFrame: self._receive_settings_frame,
             DataFrame: self._receive_data_frame,
+            WindowUpdateFrame: self._receive_window_update_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -389,3 +391,26 @@ class H2Connection(object):
         self.remote_settings.update(frame.settings)
         frame.flags.add('ACK')
         return [frame], events
+
+    def _receive_window_update_frame(self, frame):
+        """
+        Receive a WINDOW_UPDATE frame on the connection.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_WINDOW_UPDATE
+        )
+
+        if frame.stream_id:
+            stream = self.get_stream_by_id(frame.stream_id)
+            frames, stream_events = stream.receive_window_update(
+                frame.window_increment
+            )
+        else:
+            # FIXME: Should we split this into one event per active stream?
+            window_updated_event = WindowUpdated()
+            window_updated_event.stream_id = 0
+            window_updated_event.delta = frame.window_increment
+            stream_events = [window_updated_event]
+            frames = []
+
+        return frames, events + stream_events
