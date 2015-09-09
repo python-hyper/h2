@@ -151,6 +151,7 @@ class H2Connection(object):
         self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
         self.decoder = Decoder()
+        self.client_side = client_side
 
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
@@ -198,12 +199,14 @@ class H2Connection(object):
 
     def initiate_connection(self):
         """
-        Provides any data that needs to be sent at the start of the connection
-        if this component is initiating the connection (that is, if this is a
-        client).
+        Provides any data that needs to be sent at the start of the connection.
+        Must be called for both clients and servers.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
-        preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+        if self.client_side:
+            preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+        else:
+            preamble = b''
 
         f = SettingsFrame(0)
         for setting, value in self.local_settings.items():
