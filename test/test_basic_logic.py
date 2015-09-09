@@ -66,6 +66,28 @@ class TestBasicClient(object):
         assert not events
         assert c.data_to_send == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
 
+    def test_receiving_a_response(self, frame_factory):
+        """
+        When receiving a response, the ResponseReceived event fires.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        # Clear the data
+        c.data_to_send = b''
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.example_response_headers
+
 
 class TestBasicServer(object):
     """
