@@ -1,5 +1,5 @@
 pytest
 pytest-cov
 pytest-xdist
-hypothesis
+-e git://github.com/Lukasa/hypothesis.git@issue/143#egg=hypothesis
 hypothesis-pytest
