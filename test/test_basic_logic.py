@@ -206,3 +206,47 @@ class TestBasicServer(object):
         assert isinstance(event, h2.events.DataReceived)
         assert event.stream_id == 3
         assert event.data == b'some request data'
+
+    def test_window_update_no_stream(self, frame_factory):
+        """
+        WindowUpdate frames received without streams fire an appropriate
+        WindowUpdated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=0,
+            increment=5
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.WindowUpdated)
+        assert event.stream_id == 0
+        assert event.delta == 5
+
+    def test_window_update_with_stream(self, frame_factory):
+        """
+        WindowUpdate frames received with streams fire an appropriate
+        WindowUpdated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f1 = frame_factory.build_headers_frame(self.example_request_headers)
+        f2 = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=66
+        )
+        data = b''.join(map(lambda f: f.serialize(), [f1, f2]))
+        events = c.receive_data(data)
+
+        assert len(events) == 2
+        event = events[1]
+
+        assert isinstance(event, h2.events.WindowUpdated)
+        assert event.stream_id == 1
+        assert event.delta == 66

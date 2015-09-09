@@ -5,7 +5,9 @@ helpers
 
 This module contains helpers for the h2 tests.
 """
-from hyperframe.frame import HeadersFrame, DataFrame, SettingsFrame
+from hyperframe.frame import (
+    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame
+)
 from hpack.hpack import Encoder
 
 
@@ -51,4 +53,12 @@ class FrameFactory(object):
             f.flags.add('ACK')
 
         f.settings = settings
+        return f
+
+    def build_window_update_frame(self, stream_id, increment):
+        """
+        Builds a single WindowUpdate frame.
+        """
+        f = WindowUpdateFrame(stream_id)
+        f.window_increment = increment
         return f
