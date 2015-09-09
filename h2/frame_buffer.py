@@ -8,6 +8,8 @@ frames.
 """
 from hyperframe.frame import Frame
 
+from .exceptions import ProtocolError
+
 
 class FrameBuffer(object):
     """
@@ -16,9 +18,8 @@ class FrameBuffer(object):
     """
     def __init__(self, server=False):
         self.data = b''
-        self.preamble_len = (
-            len(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n') if server else 0
-        )
+        self._preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' if server else b''
+        self._preamble_len = len(self._preamble)
 
     def add_data(self, data):
         """
@@ -26,10 +27,16 @@ class FrameBuffer(object):
 
         :param data: A bytestring containing the byte buffer.
         """
-        if self.preamble_len:
+        if self._preamble_len:
             data_len = len(data)
-            data = data[self.preamble_len:]
-            self.preamble_len -= min(data_len, self.preamble_len)
+            of_which_preamble = min(self._preamble_len, data_len)
+
+            if self._preamble[:of_which_preamble] != data[:of_which_preamble]:
+                raise ProtocolError("Invalid HTTP/2 preamble.")
+
+            data = data[of_which_preamble:]
+            self._preamble_len -= of_which_preamble
+            self._preamble = self._preamble[of_which_preamble:]
 
         self.data += data
 
