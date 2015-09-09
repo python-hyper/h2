@@ -8,6 +8,7 @@ Test the basic logic of the h2 state machines.
 import pytest
 
 import h2.connection
+import h2.events
 import h2.exceptions
 
 
@@ -119,3 +120,21 @@ class TestBasicServer(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(encoded_headers_frame)
+
+    def test_headers_event(self, frame_factory):
+        """
+        When a headers frame is received a RequestReceived event fires.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        data = f.serialize()
+        events = c.receive_data(data)
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.RequestReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.example_request_headers
