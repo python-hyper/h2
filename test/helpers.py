@@ -18,6 +18,9 @@ class FrameFactory(object):
     def __init__(self):
         self.encoder = Encoder()
 
+    def preamble(self):
+        return b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+
     def build_headers_frame(self, headers, flags=None):
         """
         Builds a single valid headers frame out of the contained headers.
