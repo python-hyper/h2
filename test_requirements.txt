@@ -1,3 +1,5 @@
 pytest
 pytest-cov
 pytest-xdist
+hypothesis
+hypothesis-pytest
