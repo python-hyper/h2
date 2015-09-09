@@ -176,7 +176,11 @@ class H2StreamStateMachine(object):
         else:
             self.state = target_state
             if func is not None:
-                return func()
+                try:
+                    return func()
+                except ProtocolError:
+                    self.state = StreamState.CLOSED
+                    raise
 
             return []
 
@@ -191,7 +195,9 @@ class H2StreamStateMachine(object):
         """
         Fires when something that should be a response is sent.
         """
-        assert self.client is False  # FIXME: Better error handling here.
+        if self.client is True:
+            raise ProtocolError("Client cannot send responses.")
+
         return []
 
     def request_received(self):
@@ -208,8 +214,9 @@ class H2StreamStateMachine(object):
         """
         Fires when a response is received.
         """
-        assert self.client is not None
-        assert self.client  # FIXME: Better error handling here.
+        if self.client is not True:
+            raise ProtocolError("Non-clients cannot receive responses.")
+
         event = ResponseReceived()
         event.stream_id = self.stream_id
         return [event]
