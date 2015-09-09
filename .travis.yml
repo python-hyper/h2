@@ -15,5 +15,5 @@ script:
         py.test test/
       else
         py.test -n 4 --cov hyper test/
-        coverage report -m --fail-under 100
+        coverage report -m
       fi
