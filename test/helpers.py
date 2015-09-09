@@ -9,23 +9,32 @@ from hyperframe.frame import HeadersFrame, DataFrame
 from hpack.hpack import Encoder
 
 
-def build_headers_frame(headers, encoder=None):
+class FrameFactory(object):
     """
-    Builds a single valid headers frame out of the contained headers.
+    A class containing lots of helper methods and state to build frames. This
+    allows test cases to easily build correct HTTP/2 frames to feed to
+    hyper-h2.
     """
-    f = HeadersFrame(1)
-    e = encoder if encoder else Encoder()
-    f.data = e.encode(headers)
-    f.flags.add('END_HEADERS')
-    return f
+    def __init__(self):
+        self.encoder = Encoder()
 
+    def build_headers_frame(self, headers, flags=None):
+        """
+        Builds a single valid headers frame out of the contained headers.
+        """
+        f = HeadersFrame(1)
+        f.data = self.encoder.encode(headers)
+        f.flags.add('END_HEADERS')
+        if flags:
+            f.flags.update(flags)
+        return f
 
-def build_data_frames(data, flags=None):
-    """
-    Builds a single data frame out of a chunk of data.
-    """
-    flags = flags if flags is not None else set()
-    f = DataFrame(1)
-    f.data = data
-    f.flags = flags
-    return f
+    def build_data_frame(self, data, flags=None):
+        """
+        Builds a single data frame out of a chunk of data.
+        """
+        flags = set(flags) if flags is not None else set()
+        f = DataFrame(1)
+        f.data = data
+        f.flags = flags
+        return f
