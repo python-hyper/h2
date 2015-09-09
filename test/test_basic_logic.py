@@ -27,12 +27,18 @@ class TestBasicClient(object):
     ]
 
     def test_begin_connection(self):
+        """
+        Client connections emit the HTTP/2 preamble.
+        """
         c = h2.connection.H2Connection()
         events = c.initiate_connection()
         assert not events
         assert c.data_to_send.startswith(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n')
 
     def test_sending_headers(self):
+        """
+        Single headers frames are correctly encoded.
+        """
         c = h2.connection.H2Connection()
         c.initiate_connection()
 
@@ -46,6 +52,9 @@ class TestBasicClient(object):
         )
 
     def test_sending_data(self):
+        """
+        Single data frames are encoded correctly.
+        """
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers)
@@ -73,6 +82,9 @@ class TestBasicServer(object):
     ]
 
     def test_ignores_preamble(self):
+        """
+        The preamble does not cause any events or frames to be written.
+        """
         c = h2.connection.H2Connection(client_side=False)
         preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
 
@@ -82,6 +94,9 @@ class TestBasicServer(object):
 
     @pytest.mark.parametrize("chunk_size", range(1, 24))
     def test_drip_feed_preamble(self, chunk_size):
+        """
+        The preamble can be sent in in less than a single buffer.
+        """
         c = h2.connection.H2Connection(client_side=False)
         preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
         events = []
@@ -92,7 +107,10 @@ class TestBasicServer(object):
         assert not events
         assert not c.data_to_send
 
-    def test_no_preamble(self):
+    def test_no_preamble_errors(self):
+        """
+        Server side connections require the preamble.
+        """
         c = h2.connection.H2Connection(client_side=False)
         encoded_headers_frame = (
             b'\x00\x00\r\x01\x04\x00\x00\x00\x01'
