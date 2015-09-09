@@ -364,6 +364,7 @@ class H2Connection(object):
         )
         stream = self.get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_data(
+            frame.data,
             'END_STREAM' in frame.flags
         )
         return frames, events + stream_events

@@ -337,7 +337,7 @@ class H2Stream(object):
         events[0].headers = headers
         return [], events
 
-    def receive_data(self, end_stream):
+    def receive_data(self, data, end_stream):
         """
         Receive some data.
         """
@@ -348,6 +348,7 @@ class H2Stream(object):
                 StreamInputs.RECV_END_STREAM
             )
 
+        events[0].data = data
         return [], events
 
     def receive_window_update(self, increment):
