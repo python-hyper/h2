@@ -17,6 +17,11 @@ class H2Protocol(Protocol):
     def __init__(self):
         self.conn = H2Connection(client_side=False)
 
+    def connectionMade(self):
+        self.conn.initiate_connection()
+        self.transport.write(self.conn.data_to_send)
+        self.conn.data_to_send = b''
+
     def dataReceived(self, data):
         events = self.conn.receive_data(data)
         if self.conn.data_to_send:
