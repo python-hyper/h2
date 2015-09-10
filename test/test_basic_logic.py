@@ -382,3 +382,28 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send == expected_data
+
+    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    def test_reset_stream_with_error_code(self, frame_factory, error_code):
+        """
+        Resetting a stream with an error code emits a RST_STREAM frame with
+        that error code.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            stream_id=3
+        )
+        c.receive_data(f.serialize())
+        c.data_to_send = b''
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=3, error_code=error_code
+        )
+        expected_data = expected_frame.serialize()
+
+        events = c.reset_stream(stream_id=3, error_code=error_code)
+
+        assert not events
+        assert c.data_to_send == expected_data
