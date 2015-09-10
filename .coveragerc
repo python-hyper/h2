@@ -1,3 +1,7 @@
+[run]
+branch = True
+
 [report]
+show_missing = True
 exclude_lines =
     .*:.* # Python \d.*
