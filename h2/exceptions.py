@@ -7,7 +7,13 @@ Exceptions for the HTTP/2 module.
 """
 
 
-class ProtocolError(Exception):
+class H2Error(Exception):
+    """
+    The base class for all exceptions for the HTTP/2 module.
+    """
+
+
+class ProtocolError(H2Error):
     """
     An action was attempted in violation of the HTTP/2 protocol.
     """
