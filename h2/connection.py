@@ -34,13 +34,15 @@ class ConnectionInputs(Enum):
     SEND_WINDOW_UPDATE = 4
     SEND_PING = 5
     SEND_SETTINGS = 6
-    RECV_HEADERS = 7
-    RECV_PUSH_PROMISE = 8
-    RECV_DATA = 9
-    RECV_GOAWAY = 10
-    RECV_WINDOW_UPDATE = 11
-    RECV_PING = 12
-    RECV_SETTINGS = 13
+    SEND_RST_STREAM = 7
+    RECV_HEADERS = 8
+    RECV_PUSH_PROMISE = 9
+    RECV_DATA = 10
+    RECV_GOAWAY = 11
+    RECV_WINDOW_UPDATE = 12
+    RECV_PING = 13
+    RECV_SETTINGS = 14
+    RECV_RST_STREAM = 15
 
 
 class H2ConnectionStateMachine(object):
@@ -88,6 +90,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PING): (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_RST_STREAM): (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_RST_STREAM): (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, server side.
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.SERVER_OPEN),
@@ -103,6 +107,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PING): (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_RST_STREAM): (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_RST_STREAM): (None, ConnectionState.SERVER_OPEN),
     }
 
     def __init__(self):
