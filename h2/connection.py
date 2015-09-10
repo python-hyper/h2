@@ -14,7 +14,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 
 from .events import WindowUpdated, RemoteSettingsChanged
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, NoSuchStreamError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
 
@@ -308,7 +308,14 @@ class H2Connection(object):
         Reset a stream frame.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
-        frames, events = self.streams[stream_id].reset_stream(error_code)
+
+        try:
+            stream = self.streams[stream_id]
+        except KeyError:
+            raise NoSuchStreamError(stream_id)
+        else:
+            frames, events = stream.reset_stream(error_code)
+
         self._prepare_for_sending(frames)
         return events
 
