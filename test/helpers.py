@@ -6,7 +6,7 @@ helpers
 This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
-    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame
+    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame
 )
 from hpack.hpack import Encoder
 
@@ -61,4 +61,14 @@ class FrameFactory(object):
         """
         f = WindowUpdateFrame(stream_id)
         f.window_increment = increment
+        return f
+
+    def build_ping_frame(self, flags=None):
+        """
+        Builds a single Ping frame.
+        """
+        f = PingFrame(0)
+        if flags:
+            f.flags = set(flags)
+
         return f

@@ -250,3 +250,20 @@ class TestBasicServer(object):
         assert isinstance(event, h2.events.WindowUpdated)
         assert event.stream_id == 1
         assert event.delta == 66
+
+    def test_receiving_ping_frame(self, frame_factory):
+        """
+        Ping frames should be immediately ACKed.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        sent_frame = frame_factory.build_ping_frame()
+        expected_frame = frame_factory.build_ping_frame(flags=["ACK"])
+        expected_data = expected_frame.serialize()
+
+        c.data_to_send = b''
+        events = c.receive_data(sent_frame.serialize())
+
+        assert not events
+        assert c.data_to_send == expected_data
