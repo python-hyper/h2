@@ -309,3 +309,19 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send == expected_data
+
+    def test_settings_ack_is_ignored(self, frame_factory):
+        """
+        Receiving a SETTINGS ACK should cause no events or data to be emitted.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_settings_frame(
+            settings={}, ack=True
+        )
+
+        events = c.receive_data(f.serialize())
+
+        assert not events
+        assert not c.data_to_send
