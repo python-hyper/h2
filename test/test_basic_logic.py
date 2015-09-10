@@ -7,7 +7,10 @@ Test the basic logic of the h2 state machines.
 """
 import pytest
 
+import hyperframe
+
 import h2.connection
+import h2.errors
 import h2.events
 import h2.exceptions
 
@@ -330,6 +333,23 @@ class TestBasicServer(object):
         """
         Closing the connection with no error code emits a GOAWAY frame with
         error code 0.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_goaway_frame(last_stream_id=0)
+        expected_data = f.serialize()
+
+        c.data_to_send = b''
+        events = c.close_connection()
+
+        assert not events
+        assert c.data_to_send == expected_data
+
+    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    def test_close_connection_with_error_code(self, frame_factory, error_code):
+        """
+        Closing the connection with an error code emits a GOAWAY frame with
+        that error code.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
