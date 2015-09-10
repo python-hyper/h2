@@ -9,6 +9,7 @@ Events are returned by the H2 state machine to allow implementations to keep
 track of events triggered by receiving data. Each time data is provided to the
 H2 state machine it processes the data and returns a list of Event objects.
 """
+from collections import namedtuple
 
 
 class RequestReceived(object):
@@ -55,3 +56,43 @@ class WindowUpdated(object):
     def __init__(self):
         self.stream_id = None
         self.delta = None
+
+
+class RemoteSettingsChanged(object):
+    """
+    The RemoteSettingsChanged event is fired whenever the remote peer changes
+    its settings. It contains a complete inventory of changed settings,
+    including their previous values.
+
+    In HTTP/2, settings changes need to be acknowledged. hyper-h2 does not
+    automatically acknowledge them, because it is possible that the caller may
+    not be happy with the changed setting (or would like to know about it).
+    When this event is received, the caller should confirm that the new
+    settings are acceptable, and then acknowledge them. If they are not
+    acceptable, the user should close the connection.
+    """
+    #: A value structure for storing changed settings.
+    ChangedSetting = namedtuple(
+        'ChangedSetting', ['setting', 'original_value', 'new_value']
+    )
+
+    def __init__(self):
+        self.changed_settings = {}
+
+    @classmethod
+    def from_settings(cls, old_settings, new_settings):
+        """
+        Build a RemoteSettingsChanged event from a set of changed settings.
+
+        :param old_settings: A complete collection of old settings, in the form
+                             of a dictionary of ``{setting: value}``.
+        :param new_settings: All the changed settings and their new values, in
+                             the form of a dictionary of ``{setting: value}``.
+        """
+        e = cls()
+        for setting, new_value in new_settings.items():
+            original_value = old_settings.get(setting)
+            change = cls.ChangedSetting(setting, original_value, new_value)
+            e.changed_settings[setting] = change
+
+        return e
