@@ -353,11 +353,13 @@ class TestBasicServer(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
-        f = frame_factory.build_goaway_frame(last_stream_id=0)
+        f = frame_factory.build_goaway_frame(
+            error_code=error_code, last_stream_id=0
+        )
         expected_data = f.serialize()
 
         c.data_to_send = b''
-        events = c.close_connection()
+        events = c.close_connection(error_code)
 
         assert not events
         assert c.data_to_send == expected_data
