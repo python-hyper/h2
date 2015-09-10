@@ -7,7 +7,7 @@ This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
     HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
-    GoAwayFrame
+    GoAwayFrame, RstStreamFrame
 )
 from hpack.hpack import Encoder
 
@@ -88,4 +88,12 @@ class FrameFactory(object):
         f = GoAwayFrame(0)
         f.error_code = error_code
         f.last_stream_id = last_stream_id
+        return f
+
+    def build_rst_stream_frame(self, stream_id, error_code=0):
+        """
+        Builds a single RST_STREAM frame.
+        """
+        f = RstStreamFrame(stream_id)
+        f.error_code = error_code
         return f
