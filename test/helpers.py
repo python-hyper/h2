@@ -6,7 +6,8 @@ helpers
 This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
-    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame
+    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
+    GoAwayFrame
 )
 from hpack.hpack import Encoder
 
@@ -78,4 +79,13 @@ class FrameFactory(object):
         if flags:
             f.flags = set(flags)
 
+        return f
+
+    def build_goaway_frame(self, last_stream_id, error_code=0):
+        """
+        Builds a single GOAWAY frame.
+        """
+        f = GoAwayFrame(0)
+        f.error_code = error_code
+        f.last_stream_id = last_stream_id
         return f
