@@ -70,6 +70,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.IDLE, ConnectionInputs.RECV_SETTINGS): (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.SEND_WINDOW_UPDATE): (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_PING): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_PING): (None, ConnectionState.IDLE),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.CLIENT_OPEN),
@@ -178,6 +180,7 @@ class H2Connection(object):
             SettingsFrame: self._receive_settings_frame,
             DataFrame: self._receive_data_frame,
             WindowUpdateFrame: self._receive_window_update_frame,
+            PingFrame: self._receive_ping_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -414,3 +417,14 @@ class H2Connection(object):
             frames = []
 
         return frames, events + stream_events
+
+    def _receive_ping_frame(self, frame):
+        """
+        Receive a PING frame on the connection.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_PING
+        )
+        f = PingFrame(0)
+        f.flags = set(['ACK'])
+        return [f], events
