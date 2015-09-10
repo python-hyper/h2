@@ -407,3 +407,21 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send == expected_data
+
+    def test_cannot_reset_nonexistent_stream(self, frame_factory):
+        """
+        Resetting nonexistent streams raises NoSuchStreamError.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            stream_id=3
+        )
+        c.receive_data(f.serialize())
+        c.data_to_send = b''
+
+        with pytest.raises(h2.exceptions.NoSuchStreamError) as e:
+            c.reset_stream(stream_id=1)
+
+        assert e.value.stream_id == 1
