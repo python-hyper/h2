@@ -10,7 +10,7 @@ import json
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet import reactor
 from h2.connection import H2Connection
-from h2.events import RequestReceived, DataReceived
+from h2.events import RequestReceived, DataReceived, RemoteSettingsChanged
 
 
 class H2Protocol(Protocol):
@@ -33,6 +33,8 @@ class H2Protocol(Protocol):
                 self.requestReceived(event.headers, event.stream_id)
             elif isinstance(event, DataReceived):
                 self.dataFrameReceived(event.stream_id)
+            elif isinstance(event, RemoteSettingsChanged):
+                self.settingsChanged(event)
 
     def requestReceived(self, headers, stream_id):
         headers = dict(headers)  # Invalid conversion, fix later.
@@ -55,6 +57,11 @@ class H2Protocol(Protocol):
 
     def dataFrameReceived(self, stream_id):
         self.conn.reset_stream(stream_id)
+        self.transport.write(self.conn.data_to_send)
+        self.conn.data_to_send = b''
+
+    def settingsChanged(self, event):
+        self.conn.acknowledge_settings(event)
         self.transport.write(self.conn.data_to_send)
         self.conn.data_to_send = b''
 
