@@ -287,3 +287,25 @@ class TestBasicServer(object):
 
         assert isinstance(event, h2.events.RemoteSettingsChanged)
         assert len(event.changed_settings) == len(helpers.SAMPLE_SETTINGS)
+
+    def test_acknowledging_settings(self, frame_factory):
+        """
+        Acknowledging settings causes appropriate Settings frame to be emitted.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        received_frame = frame_factory.build_settings_frame(
+            settings=helpers.SAMPLE_SETTINGS
+        )
+        expected_frame = frame_factory.build_settings_frame(
+            settings={}, ack=True
+        )
+        expected_data = expected_frame.serialize()
+
+        event = c.receive_data(received_frame.serialize())[0]
+        c.data_to_send = b''
+        events = c.acknowledge_settings(event)
+
+        assert not events
+        assert c.data_to_send == expected_data

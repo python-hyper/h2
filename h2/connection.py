@@ -317,6 +317,25 @@ class H2Connection(object):
             f.last_stream_id = self.highest_stream_id
             self._prepare_for_sending([f])
 
+    def acknowledge_settings(self, event):
+        """
+        Acknowledge settings that have been received.
+
+        :param event: The RemoteSettingsChanged event that is being
+                      acknowledged.
+        :returns: A list of events.
+        """
+        assert isinstance(event, RemoteSettingsChanged)
+        self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
+
+        self.remote_settings.update(
+            (k, v.new_value) for k, v in event.changed_settings.items()
+        )
+        f = SettingsFrame(0)
+        f.flags.add('ACK')
+        self._prepare_for_sending([f])
+        return []
+
     def receive_data(self, data):
         """
         Pass some received HTTP/2 data to the connection for handling.
