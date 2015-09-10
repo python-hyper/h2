@@ -363,3 +363,22 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send == expected_data
+
+    def test_reset_stream(self, frame_factory):
+        """
+        Resetting a stream with no error code emits a RST_STREAM frame with
+        error code 0.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+        c.data_to_send = b''
+
+        expected_frame = frame_factory.build_rst_stream_frame(stream_id=1)
+        expected_data = expected_frame.serialize()
+
+        events = c.reset_stream(stream_id=1)
+
+        assert not events
+        assert c.data_to_send == expected_data
