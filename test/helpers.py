@@ -11,6 +11,13 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder
 
 
+SAMPLE_SETTINGS = {
+    SettingsFrame.HEADER_TABLE_SIZE: 4096,
+    SettingsFrame.ENABLE_PUSH: 1,
+    SettingsFrame.MAX_CONCURRENT_STREAMS: 2,
+}
+
+
 class FrameFactory(object):
     """
     A class containing lots of helper methods and state to build frames. This
