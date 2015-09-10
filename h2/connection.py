@@ -303,11 +303,12 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_PING)
         self._prepare_for_sending([PingFrame(0)])
 
-    def reset_stream(self, stream_id):
+    def reset_stream(self, stream_id, error_code=0):
         """
         Reset a stream frame.
         """
-        frames, events = self.streams[stream_id].reset_stream()
+        self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
+        frames, events = self.streams[stream_id].reset_stream(error_code)
         self._prepare_for_sending(frames)
         return events
 
