@@ -13,7 +13,7 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
-from .events import WindowUpdated
+from .events import WindowUpdated, RemoteSettingsChanged
 from .exceptions import ProtocolError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
@@ -391,9 +391,10 @@ class H2Connection(object):
         if 'ACK' in frame.flags:
             return [], events
 
-        self.remote_settings.update(frame.settings)
-        frame.flags.add('ACK')
-        return [frame], events
+        events.append(RemoteSettingsChanged.from_settings(
+            self.remote_settings, frame.settings
+        ))
+        return [], events
 
     def _receive_window_update_frame(self, frame):
         """

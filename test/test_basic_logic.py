@@ -11,6 +11,8 @@ import h2.connection
 import h2.events
 import h2.exceptions
 
+import helpers
+
 
 class TestBasicClient(object):
     """
@@ -267,3 +269,21 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send == expected_data
+
+    def test_receiving_settings_frame_event(self, frame_factory):
+        """
+        Settings frames should cause a RemoteSettingsChanged event to fire.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_settings_frame(
+            settings=helpers.SAMPLE_SETTINGS
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.RemoteSettingsChanged)
+        assert len(event.changed_settings) == len(helpers.SAMPLE_SETTINGS)
