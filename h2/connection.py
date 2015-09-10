@@ -72,6 +72,7 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.IDLE, ConnectionInputs.RECV_WINDOW_UPDATE): (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.SEND_PING): (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_PING): (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_GOAWAY): (None, ConnectionState.CLOSED),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS): (None, ConnectionState.CLIENT_OPEN),
@@ -304,18 +305,18 @@ class H2Connection(object):
         self._prepare_for_sending(frames)
         return events
 
-    def close_connection(self, error_code=None):
+    def close_connection(self, error_code=0):
         """
-        Close a connection. If an error code is provided, a GOAWAY frame will
-        be emitted. Otherwise, no frame will be emitted.
+        Close a connection, emitting a GOAWAY frame.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
 
-        if error_code is not None:
-            f = GoAwayFrame(0)
-            f.error_code = error_code
-            f.last_stream_id = self.highest_stream_id
-            self._prepare_for_sending([f])
+        f = GoAwayFrame(0)
+        f.error_code = error_code
+        f.last_stream_id = self.highest_stream_id
+        self._prepare_for_sending([f])
+
+        return []
 
     def acknowledge_settings(self, event):
         """

@@ -325,3 +325,19 @@ class TestBasicServer(object):
 
         assert not events
         assert not c.data_to_send
+
+    def test_close_connection(self, frame_factory):
+        """
+        Closing the connection with no error code emits a GOAWAY frame with
+        error code 0.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_goaway_frame(last_stream_id=0)
+        expected_data = f.serialize()
+
+        c.data_to_send = b''
+        events = c.close_connection()
+
+        assert not events
+        assert c.data_to_send == expected_data
