@@ -296,12 +296,23 @@ class H2Connection(object):
         )
         self._prepare_for_sending(frames)
 
-    def ping(self):
+    def ping(self, opaque_data):
         """
         Send a PING frame.
+
+        :param opaque_data: A bytestring of length 8 that will be sent in the
+                            PING frame.
+        :returns: A list of events.
         """
+        if not isinstance(opaque_data, bytes) or len(opaque_data) != 8:
+            raise ValueError("Invalid value for ping data: %r" % opaque_data)
+
         self.state_machine.process_input(ConnectionInputs.SEND_PING)
-        self._prepare_for_sending([PingFrame(0)])
+        f = PingFrame(0)
+        f.opaque_data = opaque_data
+        self._prepare_for_sending([f])
+
+        return []
 
     def reset_stream(self, stream_id, error_code=0):
         """

@@ -321,10 +321,10 @@ class H2Stream(object):
         """
         End a stream without sending data.
         """
-        self.state_machine.process_input(StreamInputs.END_STREAM)
+        self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
         df = DataFrame(self.stream_id)
         df.flags.add('END_STREAM')
-        return df, []
+        return [df], []
 
     def increase_flow_control_window(self, increment):
         """

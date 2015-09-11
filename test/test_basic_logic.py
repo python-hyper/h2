@@ -428,3 +428,43 @@ class TestBasicServer(object):
             c.reset_stream(stream_id=1)
 
         assert e.value.stream_id == 1
+
+    def test_basic_sending_ping_frame_logic(self, frame_factory):
+        """
+        Sending ping frames serializes a ping frame on stream 0 with
+        approriate opaque data.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.data_to_send = b''
+
+        ping_data = b'\x01\x02\x03\x04\x05\x06\x07\x08'
+
+        expected_frame = frame_factory.build_ping_frame(ping_data)
+        expected_data = expected_frame.serialize()
+
+        events = c.ping(ping_data)
+
+        assert not events
+        assert c.data_to_send == expected_data
+
+    @pytest.mark.parametrize(
+        'opaque_data',
+        [
+            b'',
+            b'\x01\x02\x03\x04\x05\x06\x07',
+            u'abcdefgh',
+            b'too many bytes',
+        ]
+    )
+    def test_ping_frame_opaque_data_must_be_length_8_bytestring(self,
+                                                                frame_factory,
+                                                                opaque_data):
+        """
+        Sending a ping frame only works with 8-byte bytestrings.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        with pytest.raises(ValueError):
+            c.ping(opaque_data)
