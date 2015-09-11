@@ -100,6 +100,23 @@ class TestBasicClient(object):
         assert event.stream_id == 1
         assert event.headers == self.example_response_headers
 
+    def test_end_stream_without_data(self, frame_factory):
+        """
+        Ending a stream without data emits a zero-length DATA frame with
+        END_STREAM set.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+
+        # Clear the data
+        c.data_to_send = b''
+        f = frame_factory.build_data_frame(b'', flags=['END_STREAM'])
+        events = c.end_stream(1)
+
+        assert not events
+        assert c.data_to_send == f.serialize()
+
 
 class TestBasicServer(object):
     """
