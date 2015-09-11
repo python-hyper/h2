@@ -263,8 +263,11 @@ class TestBasicServer(object):
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
 
-        sent_frame = frame_factory.build_ping_frame()
-        expected_frame = frame_factory.build_ping_frame(flags=["ACK"])
+        ping_data = b'\x01' * 8
+        sent_frame = frame_factory.build_ping_frame(ping_data)
+        expected_frame = frame_factory.build_ping_frame(
+            ping_data, flags=["ACK"]
+        )
         expected_data = expected_frame.serialize()
 
         c.data_to_send = b''

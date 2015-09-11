@@ -71,11 +71,12 @@ class FrameFactory(object):
         f.window_increment = increment
         return f
 
-    def build_ping_frame(self, flags=None):
+    def build_ping_frame(self, ping_data, flags=None):
         """
         Builds a single Ping frame.
         """
         f = PingFrame(0)
+        f.opaque_data = ping_data
         if flags:
             f.flags = set(flags)
 

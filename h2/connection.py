@@ -462,4 +462,5 @@ class H2Connection(object):
         )
         f = PingFrame(0)
         f.flags = set(['ACK'])
+        f.opaque_data = frame.opaque_data
         return [f], events
