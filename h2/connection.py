@@ -13,7 +13,7 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
-from .events import WindowUpdated, RemoteSettingsChanged
+from .events import WindowUpdated, RemoteSettingsChanged, PingAcknowledged
 from .exceptions import ProtocolError, NoSuchStreamError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
@@ -471,7 +471,16 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PING
         )
-        f = PingFrame(0)
-        f.flags = set(['ACK'])
-        f.opaque_data = frame.opaque_data
-        return [f], events
+        flags = []
+
+        if 'ACK' in frame.flags:
+            evt = PingAcknowledged()
+            evt.ping_data = frame.opaque_data
+            events.append(evt)
+        else:
+            f = PingFrame(0)
+            f.flags = set(['ACK'])
+            f.opaque_data = frame.opaque_data
+            flags.append(f)
+
+        return flags, events

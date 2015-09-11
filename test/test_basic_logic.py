@@ -485,3 +485,24 @@ class TestBasicServer(object):
 
         with pytest.raises(ValueError):
             c.ping(opaque_data)
+
+    def test_receiving_ping_acknowledgement(self, frame_factory):
+        """
+        Receiving a PING acknolwedgement fires a PingAcknolwedged event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.data_to_send = b''
+
+        ping_data = b'\x01\x02\x03\x04\x05\x06\x07\x08'
+
+        f = frame_factory.build_ping_frame(
+            ping_data, flags=['ACK']
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.PingAcknowledged)
+        assert event.ping_data == ping_data

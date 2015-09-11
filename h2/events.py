@@ -96,3 +96,13 @@ class RemoteSettingsChanged(object):
             e.changed_settings[setting] = change
 
         return e
+
+
+class PingAcknowledged(object):
+    """
+    The PingAcknowledged event is fired whenever a user-emitted PING is
+    acknowledged. This contains the data in the ACK'ed PING, allowing the
+    user to correlate PINGs and calculate RTT.
+    """
+    def __init__(self):
+        self.ping_data = None
