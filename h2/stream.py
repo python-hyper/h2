@@ -12,7 +12,7 @@ from hyperframe.frame import (
 )
 
 from .events import (
-    RequestReceived, ResponseReceived, DataReceived, WindowUpdated
+    RequestReceived, ResponseReceived, DataReceived, WindowUpdated, StreamEnded
 )
 from .exceptions import ProtocolError
 
@@ -135,7 +135,7 @@ class H2StreamStateMachine(object):
             (StreamState.OPEN, StreamInputs.SEND_DATA): (None, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.RECV_DATA): (self.data_received, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.SEND_END_STREAM): (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (self.stream_ended, StreamState.HALF_CLOSED_REMOTE),
             (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
@@ -153,7 +153,7 @@ class H2StreamStateMachine(object):
             # State: half-closed local
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS): (self.response_received, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (self.data_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (self.stream_ended, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
@@ -239,6 +239,14 @@ class H2StreamStateMachine(object):
         Fires when a window update frame is received.
         """
         event = WindowUpdated()
+        event.stream_id = self.stream_id
+        return [event]
+
+    def stream_ended(self):
+        """
+        Fires when a stream is cleanly ended.
+        """
+        event = StreamEnded()
         event.stream_id = self.stream_id
         return [event]
 

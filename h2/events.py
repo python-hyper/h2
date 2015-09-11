@@ -106,3 +106,13 @@ class PingAcknowledged(object):
     """
     def __init__(self):
         self.ping_data = None
+
+
+class StreamEnded(object):
+    """
+    The StreamEnded event is fired whenever a stream is ended by a remote
+    party. The stream may not be fully closed if it has not been closed
+    locally, but no further data or headers should be expected on that stream.
+    """
+    def __init__(self):
+        self.stream_id = None

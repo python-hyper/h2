@@ -506,3 +506,31 @@ class TestBasicServer(object):
 
         assert isinstance(event, h2.events.PingAcknowledged)
         assert event.ping_data == ping_data
+
+    def test_stream_ended_remotely(self, frame_factory):
+        """
+        When the remote stream ends with a non-empty data frame a DataReceived
+        event and a StreamEnded event are fired.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.data_to_send = b''
+
+        f1 = frame_factory.build_headers_frame(
+            self.example_request_headers, stream_id=3
+        )
+        f2 = frame_factory.build_data_frame(
+            b'some request data',
+            flags=['END_STREAM'],
+            stream_id=3,
+        )
+        data = b''.join(map(lambda f: f.serialize(), [f1, f2]))
+        events = c.receive_data(data)
+
+        assert len(events) == 3
+        data_event = events[1]
+        stream_ended_event = events[2]
+
+        assert isinstance(data_event, h2.events.DataReceived)
+        assert isinstance(stream_ended_event, h2.events.StreamEnded)
+        stream_ended_event.stream_id == 3
