@@ -110,57 +110,96 @@ class H2StreamStateMachine(object):
         # invalid and immediately causes a transition to ``closed``.
         self._transitions = {
             # State: idle
-            (StreamState.IDLE, StreamInputs.SEND_HEADERS): (self.request_sent, StreamState.OPEN),
-            (StreamState.IDLE, StreamInputs.RECV_HEADERS): (self.request_received, StreamState.OPEN),
-            (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE): (None, StreamState.RESERVED_LOCAL),
-            (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE): (None, StreamState.RESERVED_REMOTE),
+            (StreamState.IDLE, StreamInputs.SEND_HEADERS):
+                (self.request_sent, StreamState.OPEN),
+            (StreamState.IDLE, StreamInputs.RECV_HEADERS):
+                (self.request_received, StreamState.OPEN),
+            (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
+                (None, StreamState.RESERVED_LOCAL),
+            (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
+                (None, StreamState.RESERVED_REMOTE),
 
             # State: reserved local
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS): (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
+                (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
+                (None, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),
 
             # State: reserved remote
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS): (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
+                (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
+                (None, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),
 
             # State: open
-            (StreamState.OPEN, StreamInputs.SEND_HEADERS): (self.response_sent, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_HEADERS): (self.response_received, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_DATA): (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_DATA): (self.data_received, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_END_STREAM): (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.OPEN, StreamInputs.RECV_END_STREAM): (self.stream_ended, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-            (StreamState.OPEN, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.OPEN, StreamInputs.SEND_HEADERS):
+                (self.response_sent, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_HEADERS):
+                (self.response_received, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_DATA):
+                (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_DATA):
+                (self.data_received, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_END_STREAM):
+                (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.OPEN, StreamInputs.RECV_END_STREAM):
+                (self.stream_ended, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE):
+                (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_RST_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),
 
             # State: half-closed remote
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS): (self.response_sent, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA): (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM): (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
+                (self.response_sent, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
+                (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
+                (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),
 
             # State: half-closed local
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS): (self.response_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA): (self.data_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM): (self.stream_ended, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE): (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM): (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM): (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
+                (self.response_received, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA):
+                (self.data_received, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM):
+                (self.stream_ended, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
+                (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM):
+                (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),
 
             # State: closed
-            (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE): (self.window_updated, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
+                (self.window_updated, StreamState.CLOSED),
         }
 
     def process_input(self, input_):
