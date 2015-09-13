@@ -9,6 +9,8 @@ python:
 install:
   - "pip install ."
   - "pip install -r test_requirements.txt"
+  - "pip install flake8"
+before_script: "flake8 --max-complexity 10 h2 test"
 script:
   - >
       if [[ $TRAVIS_PYTHON_VERSION == pypy ]]; then
