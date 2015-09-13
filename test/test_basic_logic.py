@@ -7,8 +7,6 @@ Test the basic logic of the h2 state machines.
 """
 import pytest
 
-import hyperframe
-
 import h2.connection
 import h2.errors
 import h2.events
