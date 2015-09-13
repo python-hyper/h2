@@ -4,7 +4,7 @@ hyper-h2: HTTP/2 Protocol Stack
 
 .. image:: https://raw.github.com/Lukasa/hyper/development/docs/source/images/hyper.png
 
-.. image:: https://travis-ci.org/Lukasa/hyper.png?branch=master
+.. image:: https://travis-ci.org/python-hyper/hyper-h2.png?branch=master
     :target: https://travis-ci.org/Lukasa/hyper
 
 This repository contains a pure-Python implementation of a HTTP/2 protocol
