@@ -18,5 +18,4 @@ script:
         py.test test/
       else
         py.test -n 4 --cov h2 test/
-        coverage report -m
       fi
