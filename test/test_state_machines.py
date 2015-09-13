@@ -7,6 +7,8 @@ These tests validate the state machines directly. Writing meaningful tests for
 this case can be tricky, so the majority of these tests use Hypothesis to try
 to talk about general behaviours rather than specific cases
 """
+import pytest
+
 import h2.connection
 import h2.exceptions
 import h2.stream
@@ -32,6 +34,15 @@ class TestConnectionStateMachine(object):
         else:
             assert c.state in h2.connection.ConnectionState
 
+    def test_state_machine_only_allows_connection_states(self):
+        """
+        The Connection state machine only allows ConnectionState inputs.
+        """
+        c = h2.connection.H2ConnectionStateMachine()
+
+        with pytest.raises(ValueError):
+            c.process_input(1)
+
 
 class TestStreamStateMachine(object):
     """
@@ -49,3 +60,12 @@ class TestStreamStateMachine(object):
             assert s.state == h2.stream.StreamState.CLOSED
         else:
             assert s.state in h2.stream.StreamState
+
+    def test_state_machine_only_allows_stream_states(self):
+        """
+        The Stream state machine only allows StreamState inputs.
+        """
+        s = h2.stream.H2StreamStateMachine(stream_id=1)
+
+        with pytest.raises(ValueError):
+            s.process_input(1)
