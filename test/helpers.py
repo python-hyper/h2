@@ -104,14 +104,14 @@ class FrameFactory(object):
 
     def build_push_promise_frame(self,
                                  stream_id,
-                                 related_stream_id,
+                                 promised_stream_id,
                                  headers,
                                  flags=[]):
         """
         Builds a single PUSH_PROMISE frame.
         """
         f = PushPromiseFrame(stream_id)
-        f.promised_stream_id = related_stream_id
+        f.promised_stream_id = promised_stream_id
         f.data = self.encoder.encode(headers)
         f.flags = set(flags)
         return f

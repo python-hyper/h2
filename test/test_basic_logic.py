@@ -558,7 +558,7 @@ class TestBasicServer(object):
         frame_factory.refresh_encoder()
         expected_frame = frame_factory.build_push_promise_frame(
             stream_id=1,
-            related_stream_id=2,
+            promised_stream_id=2,
             headers=self.example_request_headers,
             flags=['END_HEADERS'],
         )
