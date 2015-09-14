@@ -412,6 +412,17 @@ class H2Stream(object):
 
         return frames, events
 
+    def locally_pushed(self):
+        """
+        Mark this stream as one that was pushed by this peer. Must be called
+        immediately after initialization. Sends no frames, simply updates the
+        state machine.
+        """
+        events = self.state_machine.process_input(
+            StreamInputs.SEND_PUSH_PROMISE
+        )
+        return [], events
+
     def send_data(self, data, end_stream=False):
         """
         Prepare some data frames. Optionally end the stream.
@@ -447,6 +458,17 @@ class H2Stream(object):
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
         return wuf, []
+
+    def remotely_pushed(self):
+        """
+        Mark this stream as one that was pushed by the remote peer. Must be
+        called immediately after initialization. Sends no frames, simply
+        updates the state machine.
+        """
+        events = self.state_machine.process_input(
+            StreamInputs.RECV_PUSH_PROMISE
+        )
+        return [], events
 
     def receive_headers(self, headers, end_stream):
         """
