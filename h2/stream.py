@@ -8,7 +8,7 @@ An implementation of a HTTP/2 stream.
 from enum import Enum
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
-    RstStreamFrame
+    RstStreamFrame, PushPromiseFrame,
 )
 
 from .events import (
@@ -380,35 +380,31 @@ class H2Stream(object):
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
         events = self.state_machine.process_input(StreamInputs.SEND_HEADERS)
-        encoded_headers = encoder.encode(headers)
-
-        # Slice into blocks of max_outbound_frame_size. Be careful with this:
-        # it only works right because we never send padded frames or priority
-        # information on the frames. Revisit this if we do.
-        header_blocks = [
-            encoded_headers[i:i+self.max_outbound_frame_size]
-            for i in range(
-                0, len(encoded_headers), self.max_outbound_frame_size
-            )
-        ]
-
-        frames = []
         hf = HeadersFrame(self.stream_id)
-        hf.data = header_blocks[0]
-        frames.append(hf)
-
-        for block in header_blocks[1:]:
-            cf = ContinuationFrame(self.stream_id)
-            cf.data = block
-            frames.append(cf)
-
-        frames[-1].flags.add('END_HEADERS')
+        frames = self._build_headers_frames(headers, encoder, hf)
 
         if end_stream:
             # Not a bug: the END_STREAM flag is valid on the initial HEADERS
             # frame, not the CONTINUATION frames that follow.
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[0].flags.add('END_STREAM')
+
+        return frames, events
+
+    def push_stream_in_band(self, related_stream_id, headers, encoder):
+        """
+        Returns a list of PUSH_PROMISE/CONTINUATION frames to emit as a pushed
+        stream header. Called on the stream that has the PUSH_PROMISE frame
+        sent on it.
+        """
+        # Because encoding headers makes an irreversible change to the header
+        # compression context, we make the state transition *first*.
+        events = self.state_machine.process_input(
+            StreamInputs.SEND_PUSH_PROMISE
+        )
+        ppf = PushPromiseFrame(self.stream_id)
+        ppf.promised_stream_id = related_stream_id
+        frames = self._build_headers_frames(headers, encoder, ppf)
 
         return frames, events
 
@@ -524,3 +520,34 @@ class H2Stream(object):
         """
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
         return [], events
+
+    def _build_headers_frames(self,
+                              headers,
+                              encoder,
+                              first_frame):
+        """
+        Helper method to build headers or push promise frames.
+        """
+        encoded_headers = encoder.encode(headers)
+
+        # Slice into blocks of max_outbound_frame_size. Be careful with this:
+        # it only works right because we never send padded frames or priority
+        # information on the frames. Revisit this if we do.
+        header_blocks = [
+            encoded_headers[i:i+self.max_outbound_frame_size]
+            for i in range(
+                0, len(encoded_headers), self.max_outbound_frame_size
+            )
+        ]
+
+        frames = []
+        first_frame.data = header_blocks[0]
+        frames.append(first_frame)
+
+        for block in header_blocks[1:]:
+            cf = ContinuationFrame(self.stream_id)
+            cf.data = block
+            frames.append(cf)
+
+        frames[-1].flags.add('END_HEADERS')
+        return frames
