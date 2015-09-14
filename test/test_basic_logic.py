@@ -260,7 +260,6 @@ class TestBasicClient(object):
         # the headers.
         buffer = h2.frame_buffer.FrameBuffer(server=True)
         buffer.add_data(c.data_to_send)
-
         frames = list(buffer)
 
         # Remove a settings frame.
@@ -278,6 +277,10 @@ class TestBasicClient(object):
 
         assert frames[0].flags == set(['END_STREAM'])
         assert frames[-1].flags == set(['END_HEADERS'])
+
+        assert all(
+            map(lambda f: len(f.data) <= c.max_outbound_frame_size, frames)
+        )
 
 
 class TestBasicServer(object):
