@@ -7,7 +7,7 @@ This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
     HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
-    GoAwayFrame, RstStreamFrame
+    GoAwayFrame, RstStreamFrame, PushPromiseFrame
 )
 from hpack.hpack import Encoder
 
@@ -26,6 +26,9 @@ class FrameFactory(object):
     hyper-h2.
     """
     def __init__(self):
+        self.encoder = Encoder()
+
+    def refresh_encoder(self):
         self.encoder = Encoder()
 
     def preamble(self):
@@ -97,4 +100,18 @@ class FrameFactory(object):
         """
         f = RstStreamFrame(stream_id)
         f.error_code = error_code
+        return f
+
+    def build_push_promise_frame(self,
+                                 stream_id,
+                                 related_stream_id,
+                                 headers,
+                                 flags=[]):
+        """
+        Builds a single PUSH_PROMISE frame.
+        """
+        f = PushPromiseFrame(stream_id)
+        f.promised_stream_id = related_stream_id
+        f.data = self.encoder.encode(headers)
+        f.flags = set(flags)
         return f

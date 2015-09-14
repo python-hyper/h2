@@ -543,3 +543,31 @@ class TestBasicServer(object):
         assert isinstance(data_event, h2.events.DataReceived)
         assert isinstance(stream_ended_event, h2.events.StreamEnded)
         stream_ended_event.stream_id == 3
+
+    def test_can_push_stream(self, frame_factory):
+        """
+        Pushing a stream causes a PUSH_PROMISE frame to be emitted.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        frame_factory.refresh_encoder()
+        expected_frame = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            related_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+
+        c.data_to_send = b''
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=self.example_request_headers
+        )
+
+        assert c.data_to_send == expected_frame.serialize()
