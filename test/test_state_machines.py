@@ -5,7 +5,7 @@ test_state_machines
 
 These tests validate the state machines directly. Writing meaningful tests for
 this case can be tricky, so the majority of these tests use Hypothesis to try
-to talk about general behaviours rather than specific cases
+to talk about general behaviours rather than specific cases.
 """
 import pytest
 
