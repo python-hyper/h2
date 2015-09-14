@@ -5,14 +5,22 @@ test_basic_logic
 
 Test the basic logic of the h2 state machines.
 """
+import random
+import sys
+
+import hyperframe
 import pytest
 
 import h2.connection
 import h2.errors
 import h2.events
 import h2.exceptions
+import h2.frame_buffer
 
 import helpers
+
+
+IS_PYTHON3 = sys.version_info >= (3, 0)
 
 
 class TestBasicClient(object):
@@ -227,6 +235,49 @@ class TestBasicClient(object):
         events = c.increment_flow_control_window(increment=5)
         assert not events
         assert c.data_to_send == expected_frame.serialize()
+
+    def test_oversize_headers(self):
+        """
+        Sending headers that are oversized generates a stream of CONTINUATION
+        frames.
+        """
+        all_bytes = [chr(x) for x in range(0, 256)]
+        if IS_PYTHON3:
+            all_bytes = [x.encode('latin1') for x in all_bytes]
+
+        large_binary_string = b''.join(
+            random.choice(all_bytes) for _ in range(0, 256)
+        )
+        test_headers = {'key': large_binary_string}
+        c = h2.connection.H2Connection()
+
+        # Greatly shrink the max frame size to force us over.
+        c.max_outbound_frame_size = 48
+        c.initiate_connection()
+        c.send_headers(1, test_headers, end_stream=True)
+
+        # Use the frame buffer here, because we don't care about decoding
+        # the headers.
+        buffer = h2.frame_buffer.FrameBuffer(server=True)
+        buffer.add_data(c.data_to_send)
+
+        frames = list(buffer)
+
+        # Remove a settings frame.
+        frames.pop(0)
+        assert len(frames) > 1
+        headers_frame = frames[0]
+        continuation_frames = frames[1:]
+
+        assert isinstance(headers_frame, hyperframe.frame.HeadersFrame)
+        assert all(
+            map(
+                lambda f: isinstance(f, hyperframe.frame.ContinuationFrame),
+                continuation_frames)
+        )
+
+        assert frames[0].flags == set(['END_STREAM'])
+        assert frames[-1].flags == set(['END_HEADERS'])
 
 
 class TestBasicServer(object):
