@@ -166,6 +166,30 @@ class TestBasicClient(object):
         assert response_event.stream_id == 2
         assert response_event.headers == self.example_response_headers
 
+    def test_receiving_response_no_body(self, frame_factory):
+        """
+        Receiving a response without a body fires two events, ResponseReceived
+        and StreamEnded.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        # Clear the data
+        c.data_to_send = b''
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers,
+            flags=['END_STREAM']
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 2
+        response_event = events[0]
+        end_stream = events[1]
+
+        assert isinstance(response_event, h2.events.ResponseReceived)
+        assert isinstance(end_stream, h2.events.StreamEnded)
+
 
 class TestBasicServer(object):
     """
