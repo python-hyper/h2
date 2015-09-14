@@ -325,15 +325,22 @@ class H2Connection(object):
 
         self._prepare_for_sending(frames)
 
-    def push_stream(self, stream_id, related_stream_id, request_headers):
+    def push_stream(self, stream_id, promised_stream_id, request_headers):
         """
         Send a push promise.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
-        frames = self.streams[stream_id].push_stream(
-            request_headers, related_stream_id
+        stream = self.get_stream_by_id(stream_id)
+
+        new_stream = self.begin_new_stream(promised_stream_id)
+        self.streams[promised_stream_id] = new_stream
+
+        frames, events = stream.push_stream_in_band(
+            promised_stream_id, request_headers, self.encoder
         )
-        self._prepare_for_sending(frames)
+        new_frames, new_events = new_stream.locally_pushed()
+        self._prepare_for_sending(frames + new_frames)
+        return events + new_events
 
     def ping(self, opaque_data):
         """
