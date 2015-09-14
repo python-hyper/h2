@@ -449,11 +449,21 @@ class H2Connection(object):
         """
         Receive a push-promise frame on the connection.
         """
+        pushed_headers = self.decoder.decode(frame.data)
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
         )
         stream = self.get_stream_by_id(frame.stream_id)
-        frames, stream_events = stream.receive_push_promise()
+        frames, stream_events = stream.receive_push_promise_in_band(
+            frame.promised_stream_id,
+            pushed_headers,
+        )
+
+        new_stream = self.begin_new_stream(frame.promised_stream_id)
+        self.streams[frame.promised_stream_id] = new_stream
+        new_stream.remotely_pushed()
+
         return frames, events + stream_events
 
     def _receive_data_frame(self, frame):

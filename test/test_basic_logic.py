@@ -126,6 +126,46 @@ class TestBasicClient(object):
         with pytest.raises(ValueError):
             c.send_headers(1, self.example_request_headers, end_stream=True)
 
+    def test_receiving_pushed_stream(self, frame_factory):
+        """
+        Pushed streams fire a PushedStreamReceived event, followed by
+        ResponseReceived when the response headers are received.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+
+        f1 = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        f2 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+        f3 = frame_factory.build_headers_frame(
+            self.example_response_headers,
+            stream_id=2,
+        )
+        data = b''.join(x.serialize() for x in [f1, f2, f3])
+
+        events = c.receive_data(data)
+
+        assert len(events) == 3
+        stream_push_event = events[1]
+        response_event = events[2]
+        assert isinstance(stream_push_event, h2.events.PushedStreamReceived)
+        assert isinstance(response_event, h2.events.ResponseReceived)
+
+        assert stream_push_event.pushed_stream_id == 2
+        assert stream_push_event.parent_stream_id == 1
+        assert (
+            stream_push_event.headers == self.example_request_headers
+        )
+        assert response_event.stream_id == 2
+        assert response_event.headers == self.example_response_headers
+
 
 class TestBasicServer(object):
     """

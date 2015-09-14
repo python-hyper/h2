@@ -12,7 +12,8 @@ from hyperframe.frame import (
 )
 
 from .events import (
-    RequestReceived, ResponseReceived, DataReceived, WindowUpdated, StreamEnded
+    RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
+    StreamEnded, PushedStreamReceived
 )
 from .exceptions import ProtocolError
 
@@ -142,7 +143,7 @@ class H2StreamStateMachine(object):
 
             # State: reserved remote
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
-                (None, StreamState.HALF_CLOSED_LOCAL),
+                (self.response_received, StreamState.HALF_CLOSED_LOCAL),
             (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
                 (None, StreamState.RESERVED_REMOTE),
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
@@ -343,7 +344,7 @@ class H2StreamStateMachine(object):
         Fires on the already-existing stream when a PUSH_PROMISE frame is
         received. We may only receive PUSH_PROMISE frames if we're a client.
 
-        Fires a StreamPushedEvent.
+        Fires a PushedStreamReceived event.
         """
         if not self.client:
             if self.client is None:
@@ -352,8 +353,9 @@ class H2StreamStateMachine(object):
                 msg = "Cannot receive pushed streams as a server"
             raise ProtocolError(msg)
 
-        # TODO: return event!
-        return []
+        event = PushedStreamReceived()
+        event.parent_stream_id = self.stream_id
+        return [event]
 
 
 class H2Stream(object):
@@ -454,6 +456,19 @@ class H2Stream(object):
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
         return wuf, []
+
+    def receive_push_promise_in_band(self, promised_stream_id, headers):
+        """
+        Receives a push promise frame sent on this stream, pushing a remote
+        stream. This is called on the stream that has the PUSH_PROMISE sent
+        on it.
+        """
+        events = self.state_machine.process_input(
+            StreamInputs.RECV_PUSH_PROMISE
+        )
+        events[0].pushed_stream_id = promised_stream_id
+        events[0].headers = headers
+        return [], events
 
     def remotely_pushed(self):
         """
