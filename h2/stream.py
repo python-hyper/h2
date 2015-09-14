@@ -96,6 +96,15 @@ class H2StreamStateMachine(object):
     # allows/requires this by preventing other frames from being interleved in
     # between HEADERS/CONTINUATION frames.
     #
+    # There is a confusing relationship around PUSH_PROMISE frames. The state
+    # machine above considers them to be frames belonging to the new stream,
+    # which is *somewhat* true. However, they are sent with the stream ID of
+    # their related stream, and are only sendable in some cases.
+    # For this reason, our state machine implementation below allows for
+    # PUSH_PROMISE frames both in the IDLE state (as in the diagram), but also
+    # in the OPEN, HALF_CLOSED_LOCAL, and HALF_CLOSED_REMOTE states.
+    # Essentially, for hyper-h2, PUSH_PROMISE frames are effectively sent on
+    # two streams.
 
     def __init__(self, stream_id):
         self.state = StreamState.IDLE
@@ -115,9 +124,9 @@ class H2StreamStateMachine(object):
             (StreamState.IDLE, StreamInputs.RECV_HEADERS):
                 (self.request_received, StreamState.OPEN),
             (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
-                (None, StreamState.RESERVED_LOCAL),
+                (self.send_new_pushed_stream, StreamState.RESERVED_LOCAL),
             (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
-                (None, StreamState.RESERVED_REMOTE),
+                (self.recv_new_pushed_stream, StreamState.RESERVED_REMOTE),
 
             # State: reserved local
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
@@ -164,6 +173,10 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
                 (None, StreamState.CLOSED),
+            (StreamState.OPEN, StreamInputs.SEND_PUSH_PROMISE):
+                (self.send_push_promise, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
+                (self.recv_push_promise, StreamState.OPEN),
 
             # State: half-closed remote
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
@@ -180,6 +193,8 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
                 (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
+                (self.send_push_promise, StreamState.HALF_CLOSED_REMOTE),
 
             # State: half-closed local
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -196,6 +211,8 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
                 (None, StreamState.CLOSED),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
+                (self.recv_push_promise, StreamState.HALF_CLOSED_LOCAL),
 
             # State: closed
             (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
@@ -288,6 +305,55 @@ class H2StreamStateMachine(object):
         event = StreamEnded()
         event.stream_id = self.stream_id
         return [event]
+
+    def send_new_pushed_stream(self):
+        """
+        Fires on the newly pushed stream, when pushed by the local peer.
+
+        No event here, but definitionally this peer must be a server.
+        """
+        if self.client is not None:
+            raise ProtocolError("Newly pushed streams must be idle.")
+        self.client = False
+        return []
+
+    def recv_new_pushed_stream(self):
+        """
+        Fires on the newly pushed stream, when pushed by the remote peer.
+
+        No event here, but definitionally this peer must be a client.
+        """
+        if self.client is not None:
+            raise ProtocolError("Newly pushed streams must be idle.")
+        self.client = True
+        return []
+
+    def send_push_promise(self):
+        """
+        Fires on the already-existing stream when a PUSH_PROMISE frame is sent.
+        We may only send PUSH_PROMISE frames if we're a server.
+        """
+        if self.client is True:
+            raise ProtocolError("Cannot push streams from client peers.")
+
+        return []
+
+    def recv_push_promise(self):
+        """
+        Fires on the already-existing stream when a PUSH_PROMISE frame is
+        received. We may only receive PUSH_PROMISE frames if we're a client.
+
+        Fires a StreamPushedEvent.
+        """
+        if not self.client:
+            if self.client is None:
+                msg = "Idle streams cannot receive pushes"
+            else:
+                msg = "Cannot receive pushed streams as a server"
+            raise ProtocolError(msg)
+
+        # TODO: return event!
+        return []
 
 
 class H2Stream(object):
