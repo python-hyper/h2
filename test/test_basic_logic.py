@@ -115,6 +115,17 @@ class TestBasicClient(object):
         assert not events
         assert c.data_to_send == f.serialize()
 
+    def test_cannot_send_headers_on_lower_stream_id(self):
+        """
+        Once stream ID x has been used, cannot use stream ID y where y < x.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(3, self.example_request_headers, end_stream=False)
+
+        with pytest.raises(ValueError):
+            c.send_headers(1, self.example_request_headers, end_stream=True)
+
 
 class TestBasicServer(object):
     """
