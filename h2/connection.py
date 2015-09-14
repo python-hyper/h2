@@ -315,15 +315,18 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
         if stream_id is not None:
-            frames = self.streams[stream_id].increase_flow_control_window(
+            stream = self.streams[stream_id]
+            frames, events = stream.increase_flow_control_window(
                 increment
             )
         else:
             f = WindowUpdateFrame(0)
             f.window_increment = increment
             frames = [f]
+            events = []
 
         self._prepare_for_sending(frames)
+        return events
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
         """

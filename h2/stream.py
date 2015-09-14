@@ -455,7 +455,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
-        return wuf, []
+        return [wuf], []
 
     def receive_push_promise_in_band(self, promised_stream_id, headers):
         """

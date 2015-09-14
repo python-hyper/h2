@@ -190,6 +190,44 @@ class TestBasicClient(object):
         assert isinstance(response_event, h2.events.ResponseReceived)
         assert isinstance(end_stream, h2.events.StreamEnded)
 
+    def test_we_can_increment_stream_flow_control(self, frame_factory):
+        """
+        It is possible for the user to increase the flow control window for
+        streams.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.data_to_send = b''
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=5
+        )
+
+        events = c.increment_flow_control_window(increment=5, stream_id=1)
+        assert not events
+        assert c.data_to_send == expected_frame.serialize()
+
+    def test_we_can_increment_connection_flow_control(self, frame_factory):
+        """
+        It is possible for the user to increase the flow control window for
+        the entire connection.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.data_to_send = b''
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=0,
+            increment=5
+        )
+
+        events = c.increment_flow_control_window(increment=5)
+        assert not events
+        assert c.data_to_send == expected_frame.serialize()
+
 
 class TestBasicServer(object):
     """
