@@ -9,6 +9,7 @@ they fail appropriately.
 import pytest
 
 import h2.connection
+import h2.exceptions
 
 
 class TestInvalidFrameSequences(object):
