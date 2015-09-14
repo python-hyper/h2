@@ -268,7 +268,7 @@ class H2Connection(object):
         self.data_to_send += preamble + f.serialize()
         return []
 
-    def get_stream_by_id(self, stream_id):
+    def get_or_create_stream(self, stream_id):
         """
         Gets a stream by its stream ID. Will create one if one does not already
         exist.
@@ -278,12 +278,22 @@ class H2Connection(object):
         except KeyError:
             return self.begin_new_stream(stream_id)
 
+    def get_stream_by_id(self, stream_id):
+        """
+        Gets a stream by its stream ID. Raises NoSuchStreamError if the stream
+        ID does not correspond to a known stream.
+        """
+        try:
+            return self.streams[stream_id]
+        except KeyError:
+            raise NoSuchStreamError(stream_id)
+
     def send_headers(self, stream_id, headers, end_stream=False):
         """
         Send headers on a given stream.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-        stream = self.get_stream_by_id(stream_id)
+        stream = self.get_or_create_stream(stream_id)
         frames, events = stream.send_headers(
             headers, self.encoder, end_stream
         )
@@ -368,13 +378,8 @@ class H2Connection(object):
         Reset a stream frame.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
-
-        try:
-            stream = self.streams[stream_id]
-        except KeyError:
-            raise NoSuchStreamError(stream_id)
-        else:
-            frames, events = stream.reset_stream(error_code)
+        stream = self.get_stream_by_id(stream_id)
+        frames, events = stream.reset_stream(error_code)
 
         self._prepare_for_sending(frames)
         return events
@@ -441,7 +446,7 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
         )
-        stream = self.get_stream_by_id(frame.stream_id)
+        stream = self.get_or_create_stream(frame.stream_id)
         frames, stream_events = stream.receive_headers(
             headers,
             'END_STREAM' in frame.flags
