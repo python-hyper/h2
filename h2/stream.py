@@ -313,8 +313,7 @@ class H2StreamStateMachine(object):
 
         No event here, but definitionally this peer must be a server.
         """
-        if self.client is not None:
-            raise ProtocolError("Newly pushed streams must be idle.")
+        assert self.client is None
         self.client = False
         return []
 
@@ -324,8 +323,7 @@ class H2StreamStateMachine(object):
 
         No event here, but definitionally this peer must be a client.
         """
-        if self.client is not None:
-            raise ProtocolError("Newly pushed streams must be idle.")
+        assert self.client is None
         self.client = True
         return []
 
