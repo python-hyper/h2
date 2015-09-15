@@ -9,7 +9,7 @@ from enum import Enum
 
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
-    PushPromiseFrame, SettingsFrame
+    PushPromiseFrame, SettingsFrame, RstStreamFrame,
 )
 from hpack.hpack import Encoder, Decoder
 
@@ -227,6 +227,7 @@ class H2Connection(object):
             DataFrame: self._receive_data_frame,
             WindowUpdateFrame: self._receive_window_update_frame,
             PingFrame: self._receive_ping_frame,
+            RstStreamFrame: self._receive_rst_stream_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -548,3 +549,15 @@ class H2Connection(object):
             flags.append(f)
 
         return flags, events
+
+    def _receive_rst_stream_frame(self, frame):
+        """
+        Receive a RST_STREAM frame on the connection.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_RST_STREAM
+        )
+        stream = self.get_stream_by_id(frame.stream_id)
+        stream_frames, stream_events = stream.stream_reset(frame)
+
+        return stream_frames, events + stream_events

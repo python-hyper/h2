@@ -118,6 +118,17 @@ class StreamEnded(object):
         self.stream_id = None
 
 
+class StreamReset(object):
+    """
+    The StreamReset event is fired whenever a stream is forcefully reset by the
+    remote party. When this event is received, no further data can be sent on
+    the stream.
+    """
+    def __init__(self):
+        self.stream_id = None
+        self.error_code = None
+
+
 class PushedStreamReceived(object):
     """
     The PushedStreamReceived event is fired whenever a pushed stream has been

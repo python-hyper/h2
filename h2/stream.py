@@ -13,7 +13,7 @@ from hyperframe.frame import (
 
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
-    StreamEnded, PushedStreamReceived
+    StreamEnded, PushedStreamReceived, StreamReset
 )
 from .exceptions import ProtocolError
 
@@ -139,7 +139,7 @@ class H2StreamStateMachine(object):
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM):
                 (None, StreamState.CLOSED),
             (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),
+                (self.stream_reset, StreamState.CLOSED),
 
             # State: reserved remote
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
@@ -151,7 +151,7 @@ class H2StreamStateMachine(object):
             (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM):
                 (None, StreamState.CLOSED),
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),
+                (self.stream_reset, StreamState.CLOSED),
 
             # State: open
             (StreamState.OPEN, StreamInputs.SEND_HEADERS):
@@ -173,7 +173,7 @@ class H2StreamStateMachine(object):
             (StreamState.OPEN, StreamInputs.SEND_RST_STREAM):
                 (None, StreamState.CLOSED),
             (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),
+                (self.stream_reset, StreamState.CLOSED),
             (StreamState.OPEN, StreamInputs.SEND_PUSH_PROMISE):
                 (self.send_push_promise, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
@@ -193,7 +193,7 @@ class H2StreamStateMachine(object):
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM):
                 (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),
+                (self.stream_reset, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
                 (self.send_push_promise, StreamState.HALF_CLOSED_REMOTE),
 
@@ -211,7 +211,7 @@ class H2StreamStateMachine(object):
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM):
                 (None, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),
+                (self.stream_reset, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
                 (self.recv_push_promise, StreamState.HALF_CLOSED_LOCAL),
 
@@ -304,6 +304,14 @@ class H2StreamStateMachine(object):
         Fires when a stream is cleanly ended.
         """
         event = StreamEnded()
+        event.stream_id = self.stream_id
+        return [event]
+
+    def stream_reset(self):
+        """
+        Fired when a stream is forcefully reset.
+        """
+        event = StreamReset()
         event.stream_id = self.stream_id
         return [event]
 
@@ -527,11 +535,12 @@ class H2Stream(object):
         rsf.error_code = error_code
         return [rsf], []
 
-    def stream_reset(self):
+    def stream_reset(self, frame):
         """
         Handle a stream being reset remotely.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
+        events[0].error_code = frame.error_code
         return [], events
 
     def _build_headers_frames(self,

@@ -301,6 +301,28 @@ class TestBasicClient(object):
             map(lambda f: len(f.data) <= c.max_outbound_frame_size, frames)
         )
 
+    def test_handle_stream_reset(self, frame_factory):
+        """
+        Streams being remotely reset fires a StreamReset event.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.data_to_send = b''
+
+        f = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=5
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.StreamReset)
+        assert event.stream_id == 1
+        assert event.error_code == 5
+
 
 class TestBasicServer(object):
     """
