@@ -19,14 +19,12 @@ class H2Protocol(Protocol):
 
     def connectionMade(self):
         self.conn.initiate_connection()
-        self.transport.write(self.conn.data_to_send)
-        self.conn.data_to_send = b''
+        self.transport.write(self.conn.data_to_send())
 
     def dataReceived(self, data):
         events = self.conn.receive_data(data)
         if self.conn.data_to_send:
-            self.transport.write(self.conn.data_to_send)
-            self.conn.data_to_send = b''
+            self.transport.write(self.conn.data_to_send())
 
         for event in events:
             if isinstance(event, RequestReceived):
@@ -52,18 +50,15 @@ class H2Protocol(Protocol):
         self.conn.send_headers(stream_id, response_headers)
         self.conn.send_data(stream_id, data, end_stream=True)
 
-        self.transport.write(self.conn.data_to_send)
-        self.conn.data_to_send = b''
+        self.transport.write(self.conn.data_to_send())
 
     def dataFrameReceived(self, stream_id):
         self.conn.reset_stream(stream_id)
-        self.transport.write(self.conn.data_to_send)
-        self.conn.data_to_send = b''
+        self.transport.write(self.conn.data_to_send())
 
     def settingsChanged(self, event):
         self.conn.acknowledge_settings(event)
-        self.transport.write(self.conn.data_to_send)
-        self.conn.data_to_send = b''
+        self.transport.write(self.conn.data_to_send())
 
 
 class H2Factory(Factory):

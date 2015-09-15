@@ -52,7 +52,7 @@ class TestBasicClient(object):
 
         events = c.initiate_connection()
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_sending_headers(self):
         """
@@ -62,10 +62,10 @@ class TestBasicClient(object):
         c.initiate_connection()
 
         # Clear the data, then send headers.
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.send_headers(1, self.example_request_headers)
         assert not events
-        assert c.data_to_send == (
+        assert c.data_to_send() == (
             b'\x00\x00\r\x01\x04\x00\x00\x00\x01'
             b'A\x88/\x91\xd3]\x05\\\x87\xa7\x84\x87\x82'
         )
@@ -79,10 +79,12 @@ class TestBasicClient(object):
         c.send_headers(1, self.example_request_headers)
 
         # Clear the data, then send some data.
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.send_data(1, b'some data')
         assert not events
-        assert c.data_to_send == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
+        assert (
+            c.data_to_send() == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
+        )
 
     def test_closing_stream_sending_data(self, frame_factory):
         """
@@ -98,10 +100,10 @@ class TestBasicClient(object):
         )
 
         # Clear the data, then send some data.
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.send_data(1, b'some data', end_stream=True)
         assert not events
-        assert c.data_to_send == f.serialize()
+        assert c.data_to_send() == f.serialize()
 
     def test_receiving_a_response(self, frame_factory):
         """
@@ -112,7 +114,6 @@ class TestBasicClient(object):
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
         # Clear the data
-        c.data_to_send = b''
         f = frame_factory.build_headers_frame(
             self.example_response_headers
         )
@@ -135,12 +136,12 @@ class TestBasicClient(object):
         c.send_headers(1, self.example_request_headers, end_stream=False)
 
         # Clear the data
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         f = frame_factory.build_data_frame(b'', flags=['END_STREAM'])
         events = c.end_stream(1)
 
         assert not events
-        assert c.data_to_send == f.serialize()
+        assert c.data_to_send() == f.serialize()
 
     def test_cannot_send_headers_on_lower_stream_id(self):
         """
@@ -202,8 +203,6 @@ class TestBasicClient(object):
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
-        # Clear the data
-        c.data_to_send = b''
         f = frame_factory.build_headers_frame(
             self.example_response_headers,
             flags=['END_STREAM']
@@ -225,7 +224,7 @@ class TestBasicClient(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         expected_frame = frame_factory.build_window_update_frame(
             stream_id=1,
@@ -234,7 +233,7 @@ class TestBasicClient(object):
 
         events = c.increment_flow_control_window(increment=5, stream_id=1)
         assert not events
-        assert c.data_to_send == expected_frame.serialize()
+        assert c.data_to_send() == expected_frame.serialize()
 
     def test_we_can_increment_connection_flow_control(self, frame_factory):
         """
@@ -244,7 +243,7 @@ class TestBasicClient(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         expected_frame = frame_factory.build_window_update_frame(
             stream_id=0,
@@ -253,7 +252,7 @@ class TestBasicClient(object):
 
         events = c.increment_flow_control_window(increment=5)
         assert not events
-        assert c.data_to_send == expected_frame.serialize()
+        assert c.data_to_send() == expected_frame.serialize()
 
     def test_oversize_headers(self):
         """
@@ -278,7 +277,7 @@ class TestBasicClient(object):
         # Use the frame buffer here, because we don't care about decoding
         # the headers.
         buffer = h2.frame_buffer.FrameBuffer(server=True)
-        buffer.add_data(c.data_to_send)
+        buffer.add_data(c.data_to_send())
         frames = list(buffer)
 
         # Remove a settings frame.
@@ -308,7 +307,7 @@ class TestBasicClient(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         f = frame_factory.build_rst_stream_frame(
             stream_id=1,
@@ -348,7 +347,7 @@ class TestBasicServer(object):
 
         events = c.receive_data(preamble)
         assert not events
-        assert not c.data_to_send
+        assert not c.data_to_send()
 
     @pytest.mark.parametrize("chunk_size", range(1, 24))
     def test_drip_feed_preamble(self, chunk_size):
@@ -363,7 +362,7 @@ class TestBasicServer(object):
             events += c.receive_data(preamble[i:i+chunk_size])
 
         assert not events
-        assert not c.data_to_send
+        assert not c.data_to_send()
 
     def test_initiate_connection_sends_server_preamble(self, frame_factory):
         """
@@ -378,7 +377,7 @@ class TestBasicServer(object):
 
         events = c.initiate_connection()
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_headers_event(self, frame_factory):
         """
@@ -480,11 +479,11 @@ class TestBasicServer(object):
         )
         expected_data = expected_frame.serialize()
 
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.receive_data(sent_frame.serialize())
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_receiving_settings_frame_event(self, frame_factory):
         """
@@ -520,11 +519,11 @@ class TestBasicServer(object):
         expected_data = expected_frame.serialize()
 
         event = c.receive_data(received_frame.serialize())[0]
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.acknowledge_settings(event)
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_settings_ack_is_ignored(self, frame_factory):
         """
@@ -540,7 +539,7 @@ class TestBasicServer(object):
         events = c.receive_data(f.serialize())
 
         assert not events
-        assert not c.data_to_send
+        assert not c.data_to_send()
 
     def test_close_connection(self, frame_factory):
         """
@@ -552,11 +551,11 @@ class TestBasicServer(object):
         f = frame_factory.build_goaway_frame(last_stream_id=0)
         expected_data = f.serialize()
 
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.close_connection()
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
     def test_close_connection_with_error_code(self, frame_factory, error_code):
@@ -571,11 +570,11 @@ class TestBasicServer(object):
         )
         expected_data = f.serialize()
 
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         events = c.close_connection(error_code)
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_reset_stream(self, frame_factory):
         """
@@ -586,7 +585,7 @@ class TestBasicServer(object):
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(self.example_request_headers)
         c.receive_data(f.serialize())
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         expected_frame = frame_factory.build_rst_stream_frame(stream_id=1)
         expected_data = expected_frame.serialize()
@@ -594,7 +593,7 @@ class TestBasicServer(object):
         events = c.reset_stream(stream_id=1)
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
     def test_reset_stream_with_error_code(self, frame_factory, error_code):
@@ -609,7 +608,7 @@ class TestBasicServer(object):
             stream_id=3
         )
         c.receive_data(f.serialize())
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         expected_frame = frame_factory.build_rst_stream_frame(
             stream_id=3, error_code=error_code
@@ -619,7 +618,7 @@ class TestBasicServer(object):
         events = c.reset_stream(stream_id=3, error_code=error_code)
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     def test_cannot_reset_nonexistent_stream(self, frame_factory):
         """
@@ -632,7 +631,6 @@ class TestBasicServer(object):
             stream_id=3
         )
         c.receive_data(f.serialize())
-        c.data_to_send = b''
 
         with pytest.raises(h2.exceptions.NoSuchStreamError) as e:
             c.reset_stream(stream_id=1)
@@ -646,7 +644,7 @@ class TestBasicServer(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
 
         ping_data = b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
@@ -656,7 +654,7 @@ class TestBasicServer(object):
         events = c.ping(ping_data)
 
         assert not events
-        assert c.data_to_send == expected_data
+        assert c.data_to_send() == expected_data
 
     @pytest.mark.parametrize(
         'opaque_data',
@@ -685,7 +683,6 @@ class TestBasicServer(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
-        c.data_to_send = b''
 
         ping_data = b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
@@ -707,7 +704,6 @@ class TestBasicServer(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
-        c.data_to_send = b''
 
         f1 = frame_factory.build_headers_frame(
             self.example_request_headers, stream_id=3
@@ -747,11 +743,11 @@ class TestBasicServer(object):
             flags=['END_HEADERS'],
         )
 
-        c.data_to_send = b''
+        c.clear_outbound_data_buffer()
         c.push_stream(
             stream_id=1,
             promised_stream_id=2,
             request_headers=self.example_request_headers
         )
 
-        assert c.data_to_send == expected_frame.serialize()
+        assert c.data_to_send() == expected_frame.serialize()

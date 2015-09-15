@@ -217,7 +217,7 @@ class H2Connection(object):
         self._header_frames = []
 
         # Data that needs to be sent.
-        self.data_to_send = b''
+        self._data_to_send = b''
 
         # When in doubt use dict-dispatch.
         self._frame_dispatch_table = {
@@ -233,7 +233,7 @@ class H2Connection(object):
     def _prepare_for_sending(self, frames):
         if not frames:
             return
-        self.data_to_send += b''.join(f.serialize() for f in frames)
+        self._data_to_send += b''.join(f.serialize() for f in frames)
 
     def begin_new_stream(self, stream_id):
         """
@@ -266,7 +266,7 @@ class H2Connection(object):
         for setting, value in self.local_settings.items():
             f.settings[setting] = value
 
-        self.data_to_send += preamble + f.serialize()
+        self._data_to_send += preamble + f.serialize()
         return []
 
     def get_or_create_stream(self, stream_id):
@@ -416,6 +416,36 @@ class H2Connection(object):
         f.flags.add('ACK')
         self._prepare_for_sending([f])
         return []
+
+    def data_to_send(self, amt=None):
+        """
+        Returns some data for sending out of the internal data buffer.
+
+        This method is analagous to 'read' on a file-like object, but it
+        doesn't block. Instead, it returns as much data as the user asks for,
+        or less if that much data is not available. It does not perform any
+        I/O, and so uses a different name.
+        """
+        if amt is None:
+            data = self._data_to_send
+            self._data_to_send = b''
+            return data
+        else:
+            data = self._data_to_send[:amt]
+            self._data_to_send = self._data_to_send[amt:]
+            return data
+
+    def clear_outbound_data_buffer(self):
+        """
+        Clears the outbound data buffer, such that if this call was immediately
+        followed by a call to
+        :meth:`data_to_send <h2.connection.H2Connection.data_to_send>`, that
+        call would return no data.
+
+        This method should not normally be used, but is made available to avoid
+        exposing implementation details.
+        """
+        self._data_to_send = b''
 
     def receive_data(self, data):
         """
