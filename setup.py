@@ -54,10 +54,10 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     install_requires=[
-        'hyperframe',
-        'hpack',
+        'hyperframe~=1.1.0',
+        'hpack~=1.1.0',
     ],
     extras_require={
-        ':python_version<"3.4"': ['enum34'],
+        ':python_version<"3.4"': ['enum34~=1.0.4'],
     }
 )
