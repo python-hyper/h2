@@ -322,6 +322,19 @@ class TestBasicClient(object):
         assert event.stream_id == 1
         assert event.error_code == 5
 
+    def test_can_consume_partial_data_from_connection(self):
+        """
+        We can do partial reads from the connection.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        assert len(c.data_to_send(2)) == 2
+        assert len(c.data_to_send(3)) == 3
+        assert 0 < len(c.data_to_send(500)) < 500
+        assert len(c.data_to_send(10)) == 0
+        assert len(c.data_to_send()) == 0
+
 
 class TestBasicServer(object):
     """
