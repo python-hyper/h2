@@ -80,3 +80,13 @@ class TestStreamStateMachine(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             s.process_input(h2.stream.StreamInputs.RECV_PUSH_PROMISE)
+
+    def test_stream_state_machine_forbids_sending_pushes_from_clients(self):
+        """
+        Streams where this peer is a client do not allow sending pushed frames.
+        """
+        s = h2.stream.H2StreamStateMachine(stream_id=1)
+        s.process_input(h2.stream.StreamInputs.SEND_HEADERS)
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            s.process_input(h2.stream.StreamInputs.SEND_PUSH_PROMISE)
