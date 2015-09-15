@@ -257,7 +257,7 @@ class H2StreamStateMachine(object):
         """
         Fires when something that should be a response is sent.
         """
-        if self.client is True:
+        if self.client is True or self.client is None:
             raise ProtocolError("Client cannot send responses.")
 
         return []
