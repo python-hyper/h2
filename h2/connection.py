@@ -170,7 +170,7 @@ class H2ConnectionStateMachine(object):
             )
         else:
             self.state = target_state
-            if func is not None:
+            if func is not None:  # pragma: no cover
                 return func()
 
             return []
