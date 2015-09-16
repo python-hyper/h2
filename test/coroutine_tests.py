@@ -54,7 +54,7 @@ class CoroutineTestCase(object):
             try:
                 next(coro)
             except StopIteration:
-                pass
+                continue
             else:
                 pytest.fail("Coroutine %s not exhausted" % coro)
 
