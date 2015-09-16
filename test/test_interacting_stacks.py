@@ -18,13 +18,13 @@ We should also consider writing helper functions to reduce the complexity of
 these tests, so that they can be written more easily, as they are remarkably
 useful.
 """
-import threaded_tests
+import coroutine_tests
 
 import h2.connection
 import h2.events
 
 
-class TestCommunication(threaded_tests.ThreadedTestCase):
+class TestCommunication(coroutine_tests.CoroutineTestCase):
     """
     Test that two communicating state machines can work together.
     """
@@ -45,31 +45,25 @@ class TestCommunication(threaded_tests.ThreadedTestCase):
             'Content-Length': '0',
         }
 
-        def client(sock, send_event, recv_event):
+        def client():
             c = h2.connection.H2Connection()
 
             # Do the handshake. First send the preamble.
             c.initiate_connection()
-            sock.sendall(c.data_to_send())
-            send_event.set()
+            data = yield c.data_to_send()
 
-            # Then receive the remote preamble.
-            recv_event.wait(0.2)
-            recv_event.clear()
-            events = c.receive_data(sock.recv(65535))
+            # Next, handle the remote preamble.
+            events = c.receive_data(data)
             assert len(events) == 1
             assert isinstance(events[0], h2.events.RemoteSettingsChanged)
 
             # Send a request.
             events = c.send_headers(1, request_headers, end_stream=True)
             assert not events
-            sock.sendall(c.data_to_send())
-            send_event.set()
+            data = yield c.data_to_send()
 
             # Validate the response.
-            recv_event.wait(0.2)
-            recv_event.clear()
-            events = c.receive_data(sock.recv(65535))
+            events = c.receive_data(data)
             assert len(events) == 2
             assert isinstance(events[0], h2.events.ResponseReceived)
             assert events[0].stream_id == 1
@@ -77,27 +71,22 @@ class TestCommunication(threaded_tests.ThreadedTestCase):
             assert isinstance(events[1], h2.events.StreamEnded)
             assert events[1].stream_id == 1
 
-            sock.close()
-
-        def server(sock, send_event, recv_event):
+        @self.server
+        def server():
             c = h2.connection.H2Connection(client_side=False)
 
             # First, read for the preamble.
-            recv_event.wait(0.2)
-            recv_event.clear()
-            events = c.receive_data(sock.recv(65535))
+            data = yield
+            events = c.receive_data(data)
             assert len(events) == 1
             assert isinstance(events[0], h2.events.RemoteSettingsChanged)
 
             # Send our preamble back.
             c.initiate_connection()
-            sock.sendall(c.data_to_send())
-            send_event.set()
+            data = yield c.data_to_send()
 
             # Listen for the request.
-            recv_event.wait(0.2)
-            recv_event.clear()
-            events = c.receive_data(sock.recv(65535))
+            events = c.receive_data(data)
             assert len(events) == 2
             assert isinstance(events[0], h2.events.RequestReceived)
             assert events[0].stream_id == 1
@@ -108,9 +97,6 @@ class TestCommunication(threaded_tests.ThreadedTestCase):
             # Send our response.
             events = c.send_headers(1, response_headers, end_stream=True)
             assert not events
-            sock.sendall(c.data_to_send())
-            send_event.set()
+            yield c.data_to_send()
 
-            sock.close()
-
-        self.run_until_complete(client, server)
+        self.run_until_complete(client(), server())
