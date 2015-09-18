@@ -69,3 +69,47 @@ class TestFlowControl(object):
 
         with pytest.raises(h2.exceptions.FlowControlError):
             c.send_data(1, b'some data')
+
+    def test_increasing_connection_window_allows_sending(self, frame_factory):
+        """
+        Confirm that sending a WindowUpdate frame on the connection frees
+        up space for further frames.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+        c.outbound_flow_control_window = 5
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.send_data(1, b'some data')
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=0,
+            increment=5,
+        )
+        c.receive_data(f.serialize())
+
+        c.clear_outbound_data_buffer()
+        c.send_data(1, b'some data')
+        assert c.data_to_send()
+
+    def test_increasing_stream_window_allows_sending(self, frame_factory):
+        """
+        Confirm that sending a WindowUpdate frame on the connection frees
+        up space for further frames.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+        c.get_stream_by_id(1).outbound_flow_control_window = 5
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.send_data(1, b'some data')
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=5,
+        )
+        c.receive_data(f.serialize())
+
+        c.clear_outbound_data_buffer()
+        c.send_data(1, b'some data')
+        assert c.data_to_send()

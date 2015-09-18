@@ -584,6 +584,9 @@ class H2Connection(object):
                 frame.window_increment
             )
         else:
+            # Increment our local flow control window.
+            self.outbound_flow_control_window += frame.window_increment
+
             # FIXME: Should we split this into one event per active stream?
             window_updated_event = WindowUpdated()
             window_updated_event.stream_id = 0

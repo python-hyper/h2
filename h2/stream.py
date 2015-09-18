@@ -531,6 +531,7 @@ class H2Stream(object):
             StreamInputs.RECV_WINDOW_UPDATE
         )
         events[0].delta = increment
+        self.outbound_flow_control_window += increment
         return [], events
 
     def reset_stream(self, error_code=0):
