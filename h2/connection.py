@@ -14,7 +14,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 
 from .events import WindowUpdated, RemoteSettingsChanged, PingAcknowledged
-from .exceptions import ProtocolError, NoSuchStreamError
+from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
 
@@ -204,6 +204,10 @@ class H2Connection(object):
         self.decoder = Decoder()
         self.client_side = client_side
 
+        # The curent value of the connection flow control window on the
+        # outbound side of the connection.
+        self.outbound_flow_control_window = 65535
+
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
         self.local_settings = {}
@@ -305,9 +309,19 @@ class H2Connection(object):
         """
         Send data on a given stream.
         """
+        if len(data) > self.flow_control_window(stream_id):
+            raise FlowControlError(
+                "Cannot send %d bytes, flow control window is %d." %
+                (len(data), self.flow_control_window(stream_id))
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
         frames, events = self.streams[stream_id].send_data(data, end_stream)
         self._prepare_for_sending(frames)
+
+        self.outbound_flow_control_window -= len(data)
+        assert self.outbound_flow_control_window >= 0
+
         return events
 
     def end_stream(self, stream_id):
@@ -416,6 +430,26 @@ class H2Connection(object):
         f.flags.add('ACK')
         self._prepare_for_sending([f])
         return []
+
+    def flow_control_window(self, stream_id):
+        """
+        Returns the maximum amount of data that can be sent on stream
+        ``stream_id``.
+
+        This value will never be larger than the total data that can be sent on
+        the connection: even if the given stream allows more data, the
+        connection window provides a logical maximum to the amount of data that
+        can be sent.
+
+        The maximum data that can be sent in a single data frame on a stream
+        is either this value, or the maximum frame size, whichever is
+        *smaller*.
+        """
+        stream = self.get_stream_by_id(stream_id)
+        return min(
+            self.outbound_flow_control_window,
+            stream.outbound_flow_control_window
+        )
 
     def data_to_send(self, amt=None):
         """
@@ -550,6 +584,9 @@ class H2Connection(object):
                 frame.window_increment
             )
         else:
+            # Increment our local flow control window.
+            self.outbound_flow_control_window += frame.window_increment
+
             # FIXME: Should we split this into one event per active stream?
             window_updated_event = WindowUpdated()
             window_updated_event.stream_id = 0

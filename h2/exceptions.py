@@ -26,3 +26,10 @@ class NoSuchStreamError(H2Error):
     """
     def __init__(self, stream_id):
         self.stream_id = stream_id
+
+
+class FlowControlError(H2Error):
+    """
+    An attempted action violates flow control constraints.
+    """
+    pass
