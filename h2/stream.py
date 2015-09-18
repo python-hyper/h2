@@ -15,7 +15,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset
 )
-from .exceptions import ProtocolError, FlowControlError
+from .exceptions import ProtocolError
 
 
 class StreamState(Enum):
