@@ -15,7 +15,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset
 )
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, FlowControlError
 
 
 class StreamState(Enum):
@@ -434,6 +434,8 @@ class H2Stream(object):
     def send_data(self, data, end_stream=False):
         """
         Prepare some data frames. Optionally end the stream.
+
+        .. warning:: Does not perform flow control checks.
         """
         frames = []
         for offset in range(0, len(data), self.max_outbound_frame_size):

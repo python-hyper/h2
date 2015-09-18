@@ -5,7 +5,10 @@ test_flow_control
 
 Tests of the flow control management in h2
 """
+import pytest
+
 import h2.connection
+import h2.exceptions
 
 
 class TestFlowControl(object):
@@ -54,3 +57,15 @@ class TestFlowControl(object):
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
         assert (c.flow_control_window(2) == remaining_length)
+
+    def test_cannot_send_more_data_than_window(self):
+        """
+        Sending more data than the remaining flow control window raises a
+        FlowControlError.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+        c.outbound_flow_control_window = 5
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.send_data(1, b'some data')

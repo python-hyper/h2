@@ -14,7 +14,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 
 from .events import WindowUpdated, RemoteSettingsChanged, PingAcknowledged
-from .exceptions import ProtocolError, NoSuchStreamError
+from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
 from .frame_buffer import FrameBuffer
 from .stream import H2Stream
 
@@ -309,11 +309,16 @@ class H2Connection(object):
         """
         Send data on a given stream.
         """
+        if len(data) > self.flow_control_window(stream_id):
+            raise FlowControlError(
+                "Cannot send %d bytes, flow control window is %d." %
+                (len(data), self.flow_control_window(stream_id))
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
         frames, events = self.streams[stream_id].send_data(data, end_stream)
         self._prepare_for_sending(frames)
 
-        # TODO: We should validate this flow control window ahead of time.
         self.outbound_flow_control_window -= len(data)
         assert self.outbound_flow_control_window >= 0
 
