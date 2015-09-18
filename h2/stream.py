@@ -380,6 +380,10 @@ class H2Stream(object):
         self.max_outbound_frame_size = None
         self.max_inbound_frame_size = None
 
+        # The curent value of the stream flow control window on the outbound
+        # side of the stream.
+        self.outbound_flow_control_window = 65535
+
     def send_headers(self, headers, encoder, end_stream=False):
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
@@ -431,7 +435,6 @@ class H2Stream(object):
         """
         Prepare some data frames. Optionally end the stream.
         """
-        # TODO: Something something flow control.
         frames = []
         for offset in range(0, len(data), self.max_outbound_frame_size):
             self.state_machine.process_input(StreamInputs.SEND_DATA)
@@ -442,6 +445,9 @@ class H2Stream(object):
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[-1].flags.add('END_STREAM')
+
+        self.outbound_flow_control_window -= len(data)
+        assert self.outbound_flow_control_window >= 0
 
         return frames, []
 
