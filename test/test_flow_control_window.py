@@ -10,6 +10,8 @@ import pytest
 import h2.connection
 import h2.exceptions
 
+from hyperframe.frame import SettingsFrame
+
 
 class TestFlowControl(object):
     """
@@ -113,3 +115,39 @@ class TestFlowControl(object):
         c.clear_outbound_data_buffer()
         c.send_data(1, b'some data')
         assert c.data_to_send()
+
+    def test_flow_control_shrinks_in_response_to_settings(self, frame_factory):
+        """
+        Acknowledging SETTINGS_INITIAL_WINDOW_SIZE shrinks the flow control
+        window.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+
+        assert c.flow_control_window(1) == 65535
+
+        f = frame_factory.build_settings_frame(
+            settings={SettingsFrame.INITIAL_WINDOW_SIZE: 1280}
+        )
+        events = c.receive_data(f.serialize())
+        c.acknowledge_settings(events[0])
+
+        assert c.flow_control_window(1) == 1280
+
+    def test_flow_control_grows_in_response_to_settings(self, frame_factory):
+        """
+        Acknowledging SETTINGS_INITIAL_WINDOW_SIZE grows the flow control
+        window.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+
+        assert c.flow_control_window(1) == 65535
+
+        f = frame_factory.build_settings_frame(
+            settings={SettingsFrame.INITIAL_WINDOW_SIZE: 128000}
+        )
+        events = c.receive_data(f.serialize())
+        c.acknowledge_settings(events[0])
+
+        assert c.flow_control_window(1) == 128000
