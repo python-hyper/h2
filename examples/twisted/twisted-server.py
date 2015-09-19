@@ -17,6 +17,9 @@ from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived, RemoteSettingsChanged
 
 
+READ_CHUNK_SIZE = 8192
+
+
 class H2Protocol(Protocol):
     def __init__(self, root):
         self.conn = H2Connection(client_side=False)
@@ -95,8 +98,8 @@ class H2Protocol(Protocol):
             to_read = True
 
             while to_read:
-                data = f.read(8192)
-                to_read = len(data) == 8192
+                data = f.read(READ_CHUNK_SIZE)
+                to_read = len(data) == READ_CHUNK_SIZE
                 self.conn.send_data(stream_id, data, not to_read)
                 self.transport.write(self.conn.data_to_send())
 
