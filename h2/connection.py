@@ -211,7 +211,9 @@ class H2Connection(object):
         # This might want to be an extensible class that does sensible stuff
         # with defaults. For now, a dict will do.
         self.local_settings = {}
-        self.remote_settings = {}
+        self.remote_settings = {
+            SettingsFrame.INITIAL_WINDOW_SIZE: 65535,
+        }
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -423,6 +425,13 @@ class H2Connection(object):
         assert isinstance(event, RemoteSettingsChanged)
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
 
+        if SettingsFrame.INITIAL_WINDOW_SIZE in event.changed_settings:
+            setting = event.changed_settings[SettingsFrame.INITIAL_WINDOW_SIZE]
+            self._flow_control_change_from_settings(
+                setting.original_value,
+                setting.new_value,
+            )
+
         self.remote_settings.update(
             (k, v.new_value) for k, v in event.changed_settings.items()
         )
@@ -480,6 +489,22 @@ class H2Connection(object):
         exposing implementation details.
         """
         self._data_to_send = b''
+
+    def _flow_control_change_from_settings(self, old_value, new_value):
+        """
+        Update flow control windows in response to a change in the value of
+        SETTINGS_INITIAL_WINDOW_SIZE.
+
+        When this setting is changed, it automatically updates all flow control
+        windows by the delta in the settings values.
+        """
+        delta = new_value - old_value
+        self.outbound_flow_control_window += delta
+
+        for stream in self.streams.values():
+            stream.outbound_flow_control_window += delta
+
+        return
 
     def receive_data(self, data):
         """
