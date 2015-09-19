@@ -151,3 +151,19 @@ class TestFlowControl(object):
         c.acknowledge_settings(events[0])
 
         assert c.flow_control_window(1) == 128000
+
+    def test_new_streams_have_flow_control_per_settings(self, frame_factory):
+        """
+        After a SETTINGS_INITIAL_WINDOW_SIZE change is received, new streams
+        have appropriate new flow control windows.
+        """
+        c = h2.connection.H2Connection()
+
+        f = frame_factory.build_settings_frame(
+            settings={SettingsFrame.INITIAL_WINDOW_SIZE: 128000}
+        )
+        events = c.receive_data(f.serialize())
+        c.acknowledge_settings(events[0])
+
+        c.send_headers(1, self.example_request_headers)
+        assert c.flow_control_window(1) == 128000
