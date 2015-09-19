@@ -253,6 +253,10 @@ class H2Connection(object):
         s = H2Stream(stream_id)
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
+        s.outbound_flow_control_window = (
+            self.remote_settings[SettingsFrame.INITIAL_WINDOW_SIZE]
+        )
+
         self.streams[stream_id] = s
         self.highest_stream_id = stream_id
         return s
