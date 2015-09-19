@@ -5,16 +5,24 @@ twisted-server.py
 
 A fully-functional HTTP/2 server written for Twisted.
 """
+import functools
 import mimetypes
 import os
 import os.path
 import sys
 
 from OpenSSL import crypto
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet import reactor, ssl
 from h2.connection import H2Connection
-from h2.events import RequestReceived, DataReceived, RemoteSettingsChanged
+from h2.events import (
+    RequestReceived, DataReceived, RemoteSettingsChanged, WindowUpdated
+)
+
+
+def close_file(file, d):
+    file.close()
 
 
 READ_CHUNK_SIZE = 8192
@@ -25,6 +33,8 @@ class H2Protocol(Protocol):
         self.conn = H2Connection(client_side=False)
         self.known_proto = None
         self.root = root
+
+        self._flow_control_deferreds = {}
 
     def connectionMade(self):
         self.conn.initiate_connection()
@@ -46,6 +56,8 @@ class H2Protocol(Protocol):
                 self.dataFrameReceived(event.stream_id)
             elif isinstance(event, RemoteSettingsChanged):
                 self.settingsChanged(event)
+            elif isinstance(event, WindowUpdated):
+                self.windowUpdated(event)
 
     def requestReceived(self, headers, stream_id):
         headers = dict(headers)  # Invalid conversion, fix later.
@@ -94,16 +106,58 @@ class H2Protocol(Protocol):
         self.conn.send_headers(stream_id, response_headers)
         self.transport.write(self.conn.data_to_send())
 
-        with open(file_path, 'rb') as f:
-            to_read = True
+        f = open(file_path, 'rb')
+        d = self._send_file(f, stream_id)
+        d.addErrback(functools.partial(close_file, f))
 
-            while to_read:
-                data = f.read(READ_CHUNK_SIZE)
-                to_read = len(data) == READ_CHUNK_SIZE
-                self.conn.send_data(stream_id, data, not to_read)
-                self.transport.write(self.conn.data_to_send())
+    def windowUpdated(self, event):
+        """
+        Handle a WindowUpdated event by firing any waiting data sending
+        callbacks.
+        """
+        stream_id = event.stream_id
+
+        if stream_id and stream_id in self._flow_control_deferreds:
+            d = self._flow_control_deferreds.pop(stream_id)
+            d.callback(event.delta)
+        elif not stream_id:
+            for d in self._flow_control_deferreds.values():
+                d.callback(event.delta)
+
+            self._flow_control_deferreds = {}
 
         return
+
+    @inlineCallbacks
+    def _send_file(self, file, stream_id):
+        """
+        This callback sends more data for a given file on the stream.
+        """
+        keep_reading = True
+        while keep_reading:
+            while not self.conn.flow_control_window(stream_id):
+                yield self.wait_for_flow_control(stream_id)
+
+            chunk_size = min(
+                self.conn.flow_control_window(stream_id), READ_CHUNK_SIZE
+            )
+            data = file.read(chunk_size)
+            keep_reading = len(data) == chunk_size
+            self.conn.send_data(stream_id, data, not keep_reading)
+            self.transport.write(self.conn.data_to_send())
+
+            if not keep_reading:
+                break
+
+        file.close()
+
+    def wait_for_flow_control(self, stream_id):
+        """
+        Returns a Deferred that fires when the flow control window is opened.
+        """
+        d = Deferred()
+        self._flow_control_deferreds[stream_id] = d
+        return d
 
 
 class H2Factory(Factory):
