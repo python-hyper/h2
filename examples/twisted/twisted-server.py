@@ -5,7 +5,10 @@ twisted-server.py
 
 A fully-functional HTTP/2 server written for Twisted.
 """
-import json
+import mimetypes
+import os
+import os.path
+import sys
 
 from OpenSSL import crypto
 from twisted.internet.protocol import Protocol, Factory
@@ -15,9 +18,10 @@ from h2.events import RequestReceived, DataReceived, RemoteSettingsChanged
 
 
 class H2Protocol(Protocol):
-    def __init__(self):
+    def __init__(self, root):
         self.conn = H2Connection(client_side=False)
         self.known_proto = None
+        self.root = root
 
     def connectionMade(self):
         self.conn.initiate_connection()
@@ -43,30 +47,24 @@ class H2Protocol(Protocol):
     def requestReceived(self, headers, stream_id):
         headers = dict(headers)  # Invalid conversion, fix later.
         assert headers[':method'] == 'GET'
-        if headers[':path'] == '/':
 
-            data = json.dumps({'headers': headers}).encode("utf8")
+        path = headers[':path'].lstrip('/')
+        full_path = os.path.join(self.root, path)
 
-            response_headers = (
-                (':status', '200'),
-                ('content-type', 'application/json'),
-                ('content-length', len(data)),
-                ('server', 'twisted-h2'),
-            )
-            self.conn.send_headers(stream_id, response_headers)
-            self.conn.send_data(stream_id, data, end_stream=True)
-
-            self.transport.write(self.conn.data_to_send())
-        else:
+        if not os.path.exists(full_path):
             response_headers = (
                 (':status', '404'),
-                ('server', 'twisted-h2'),
                 ('content-length', '0'),
+                ('server', 'twisted-h2'),
             )
             self.conn.send_headers(
                 stream_id, response_headers, end_stream=True
             )
             self.transport.write(self.conn.data_to_send())
+        else:
+            self.sendFile(full_path, stream_id)
+
+        return
 
     def dataFrameReceived(self, stream_id):
         self.conn.reset_stream(stream_id)
@@ -77,11 +75,42 @@ class H2Protocol(Protocol):
         self.conn.acknowledge_settings(event)
         self.transport.write(self.conn.data_to_send())
 
+    def sendFile(self, file_path, stream_id):
+        filesize = os.stat(file_path).st_size
+        content_type, content_encoding = mimetypes.guess_type(file_path)
+        response_headers = [
+            (':status', '200'),
+            ('content-length', str(filesize)),
+            ('server', 'twisted-h2'),
+        ]
+        if content_type:
+            response_headers.append(('content-type', content_type))
+        if content_encoding:
+            response_headers.append(('content-encoding', content_encoding))
+
+        self.conn.send_headers(stream_id, response_headers)
+        self.transport.write(self.conn.data_to_send())
+
+        with open(file_path, 'rb') as f:
+            to_read = True
+
+            while to_read:
+                data = f.read(8192)
+                to_read = len(data) == 8192
+                self.conn.send_data(stream_id, data, not to_read)
+                self.transport.write(self.conn.data_to_send())
+
+        return
+
 
 class H2Factory(Factory):
-    def buildProtocol(self, addr):
-        return H2Protocol()
+    def __init__(self, root):
+        self.root = root
 
+    def buildProtocol(self, addr):
+        return H2Protocol(self.root)
+
+root = sys.argv[1]
 
 with open('server.crt', 'r') as f:
     cert_data = f.read()
@@ -96,5 +125,5 @@ options = ssl.CertificateOptions(
     nextProtocols=[b'h2', b'http/1.1'],
 )
 
-reactor.listenSSL(8080, H2Factory(), options)
+reactor.listenSSL(8080, H2Factory(root), options)
 reactor.run()
