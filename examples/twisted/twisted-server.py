@@ -39,7 +39,7 @@ class H2Protocol(Protocol):
         assert headers[':method'] == 'GET'
         assert headers[':path'] == '/'
 
-        data = json.dumps({'headers': headers})
+        data = json.dumps({'headers': headers}).encode("utf8")
 
         response_headers = (
             (':status', '200'),

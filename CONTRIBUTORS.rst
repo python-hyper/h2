@@ -9,3 +9,7 @@ Contributors
 ````````````
 
 In chronological order:
+
+- Maximilian Hils (@maximilianhils)
+
+  - Added asyncio example.
