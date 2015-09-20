@@ -124,3 +124,31 @@ class TestSettings(object):
 
         s.acknowledge()
         assert s[SettingsFrame.HEADER_TABLE_SIZE] == 4096
+
+    def test_settings_getters(self):
+        """
+        Getters exist for well-known settings.
+        """
+        s = h2.settings.Settings(client=True)
+
+        assert s.header_table_size == s[SettingsFrame.HEADER_TABLE_SIZE]
+        assert s.enable_push == s[SettingsFrame.ENABLE_PUSH]
+        assert s.initial_window_size == s[SettingsFrame.INITIAL_WINDOW_SIZE]
+        assert s.max_frame_size == s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+
+    def test_settings_setters(self):
+        """
+        Setters exist for well-known settings.
+        """
+        s = h2.settings.Settings(client=True)
+
+        s.header_table_size = 0
+        s.enable_push = 1
+        s.initial_window_size = 2
+        s.max_frame_size = 3
+
+        s.acknowledge()
+        assert s[SettingsFrame.HEADER_TABLE_SIZE] == 0
+        assert s[SettingsFrame.ENABLE_PUSH] == 1
+        assert s[SettingsFrame.INITIAL_WINDOW_SIZE] == 2
+        assert s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] == 3

@@ -57,6 +57,51 @@ class Settings(collections.MutableMapping):
             if len(v) > 1:
                 v.popleft()
 
+    # Provide easy-access to well known settings.
+    @property
+    def header_table_size(self):
+        """
+        The current value of the SETTINGS_HEADER_TABLE_SIZE setting.
+        """
+        return self[SettingsFrame.HEADER_TABLE_SIZE]
+
+    @header_table_size.setter
+    def header_table_size(self, value):
+        self[SettingsFrame.HEADER_TABLE_SIZE] = value
+
+    @property
+    def enable_push(self):
+        """
+        The current value of the SETTINGS_ENABLE_PUSH setting.
+        """
+        return self[SettingsFrame.ENABLE_PUSH]
+
+    @enable_push.setter
+    def enable_push(self, value):
+        self[SettingsFrame.ENABLE_PUSH] = value
+
+    @property
+    def initial_window_size(self):
+        """
+        The current value of the SETTINGS_INITIAL_WINDOW_SIZE setting.
+        """
+        return self[SettingsFrame.INITIAL_WINDOW_SIZE]
+
+    @initial_window_size.setter
+    def initial_window_size(self, value):
+        self[SettingsFrame.INITIAL_WINDOW_SIZE] = value
+
+    @property
+    def max_frame_size(self):
+        """
+        The current value of the SETTINGS_MAX_FRAME_SIZE setting.
+        """
+        return self[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+
+    @max_frame_size.setter
+    def max_frame_size(self, value):
+        self[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] = value
+
     # Implement the MutableMapping API.
     def __getitem__(self, key):
         val = self._settings[key][0]
