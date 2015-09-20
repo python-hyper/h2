@@ -1,4 +1,4 @@
-pytest==2.7.3
+pytest==2.8.0
 pytest-cov==2.1.0
 pytest-xdist==1.13.1
 -e git://github.com/Lukasa/hypothesis.git@issue/143#egg=hypothesis
