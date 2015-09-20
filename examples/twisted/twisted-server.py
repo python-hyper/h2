@@ -167,6 +167,7 @@ class H2Factory(Factory):
     def buildProtocol(self, addr):
         return H2Protocol(self.root)
 
+
 root = sys.argv[1]
 
 with open('server.crt', 'r') as f:
