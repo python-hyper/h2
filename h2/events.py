@@ -9,7 +9,7 @@ Events are returned by the H2 state machine to allow implementations to keep
 track of events triggered by receiving data. Each time data is provided to the
 H2 state machine it processes the data and returns a list of Event objects.
 """
-from collections import namedtuple
+from .settings import ChangedSetting
 
 
 class RequestReceived(object):
@@ -71,11 +71,6 @@ class RemoteSettingsChanged(object):
     settings are acceptable, and then acknowledge them. If they are not
     acceptable, the user should close the connection.
     """
-    #: A value structure for storing changed settings.
-    ChangedSetting = namedtuple(
-        'ChangedSetting', ['setting', 'original_value', 'new_value']
-    )
-
     def __init__(self):
         self.changed_settings = {}
 
@@ -92,7 +87,7 @@ class RemoteSettingsChanged(object):
         e = cls()
         for setting, new_value in new_settings.items():
             original_value = old_settings.get(setting)
-            change = cls.ChangedSetting(setting, original_value, new_value)
+            change = ChangedSetting(setting, original_value, new_value)
             e.changed_settings[setting] = change
 
         return e

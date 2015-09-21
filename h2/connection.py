@@ -16,6 +16,7 @@ from hpack.hpack import Encoder, Decoder
 from .events import WindowUpdated, RemoteSettingsChanged, PingAcknowledged
 from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
 from .frame_buffer import FrameBuffer
+from .settings import Settings
 from .stream import H2Stream
 
 
@@ -208,12 +209,9 @@ class H2Connection(object):
         # outbound side of the connection.
         self.outbound_flow_control_window = 65535
 
-        # This might want to be an extensible class that does sensible stuff
-        # with defaults. For now, a dict will do.
-        self.local_settings = {}
-        self.remote_settings = {
-            SettingsFrame.INITIAL_WINDOW_SIZE: 65535,
-        }
+        # Objects that store settings, including defaults.
+        self.local_settings = Settings(client=client_side)
+        self.remote_settings = Settings(client=not client_side)
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -429,16 +427,15 @@ class H2Connection(object):
         assert isinstance(event, RemoteSettingsChanged)
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
 
-        if SettingsFrame.INITIAL_WINDOW_SIZE in event.changed_settings:
-            setting = event.changed_settings[SettingsFrame.INITIAL_WINDOW_SIZE]
+        changes = self.remote_settings.acknowledge()
+
+        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
+            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
             self._flow_control_change_from_settings(
                 setting.original_value,
                 setting.new_value,
             )
 
-        self.remote_settings.update(
-            (k, v.new_value) for k, v in event.changed_settings.items()
-        )
         f = SettingsFrame(0)
         f.flags.add('ACK')
         self._prepare_for_sending([f])
@@ -590,9 +587,13 @@ class H2Connection(object):
             ConnectionInputs.RECV_SETTINGS
         )
 
-        # This is an ack of the local settings. Right now, do nothing.
+        # This is an ack of the local settings.
         if 'ACK' in frame.flags:
+            self.local_settings.acknowledge()
             return [], events
+
+        # Add the new settings.
+        self.remote_settings.update(frame.settings)
 
         events.append(RemoteSettingsChanged.from_settings(
             self.remote_settings, frame.settings
