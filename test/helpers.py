@@ -34,15 +34,15 @@ class FrameFactory(object):
     def preamble(self):
         return b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
 
-    def build_headers_frame(self, headers, flags=None, stream_id=1):
+    def build_headers_frame(self, headers, flags=[], stream_id=1):
         """
         Builds a single valid headers frame out of the contained headers.
         """
         f = HeadersFrame(stream_id)
         f.data = self.encoder.encode(headers)
         f.flags.add('END_HEADERS')
-        if flags:
-            f.flags.update(flags)
+        for flag in flags:
+            f.flags.add(flag)
         return f
 
     def build_data_frame(self, data, flags=None, stream_id=1):
