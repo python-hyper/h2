@@ -587,8 +587,9 @@ class H2Connection(object):
             ConnectionInputs.RECV_SETTINGS
         )
 
-        # This is an ack of the local settings. Right now, do nothing.
+        # This is an ack of the local settings.
         if 'ACK' in frame.flags:
+            self.local_settings.acknowledge()
             return [], events
 
         # Add the new settings.
