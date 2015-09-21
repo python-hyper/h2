@@ -54,7 +54,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     install_requires=[
-        'hyperframe~=1.1.0',
+        'hyperframe~=2.0',
         'hpack~=1.1.0',
     ],
     extras_require={
