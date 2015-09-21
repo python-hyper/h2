@@ -67,6 +67,39 @@ class TestSettings(object):
         s.acknowledge()
         assert dict(s) == new_settings
 
+    def test_acknowledging_returns_the_changed_settings(self):
+        """
+        Acknowledging settings returns the changes.
+        """
+        s = h2.settings.Settings(client=True)
+        s[SettingsFrame.HEADER_TABLE_SIZE] = 8000
+        s[SettingsFrame.ENABLE_PUSH] = 0
+
+        changes = s.acknowledge()
+        assert len(changes) == 2
+
+        table_size_change = changes[SettingsFrame.HEADER_TABLE_SIZE]
+        push_change = changes[SettingsFrame.ENABLE_PUSH]
+
+        assert table_size_change.setting == SettingsFrame.HEADER_TABLE_SIZE
+        assert table_size_change.original_value == 4096
+        assert table_size_change.new_value == 8000
+
+        assert push_change.setting == SettingsFrame.ENABLE_PUSH
+        assert push_change.original_value == 1
+        assert push_change.new_value == 0
+
+    def test_acknowledging_only_returns_changed_settings(self):
+        """
+        Acknowledging settings does not return unchanged settings.
+        """
+        s = h2.settings.Settings(client=True)
+        s[SettingsFrame.INITIAL_WINDOW_SIZE] = 70
+
+        changes = s.acknowledge()
+        assert len(changes) == 1
+        assert list(changes.keys()) == [SettingsFrame.INITIAL_WINDOW_SIZE]
+
     def test_deleting_values_deletes_all_of_them(self):
         """
         When we delete a key we lose all state about it.
@@ -111,9 +144,15 @@ class TestSettings(object):
         """
         s = h2.settings.Settings(client=True)
         s[80] = 81
-        s.acknowledge()
+        changed_settings = s.acknowledge()
 
         assert s[80] == 81
+        assert len(changed_settings) == 1
+
+        changed = changed_settings[80]
+        assert changed.setting == 80
+        assert changed.original_value is None
+        assert changed.new_value == 81
 
     def test_single_values_arent_affected_by_acknowledgement(self):
         """

@@ -56,12 +56,22 @@ class Settings(collections.MutableMapping):
         """
         The settings have been acknowledged, either by the user (remote
         settings) or by the remote peer (local settings).
+
+        :returns: A dict of {setting: ChangedSetting} that were applied.
         """
+        changed_settings = {}
+
         # If there is more than one setting in the list, we have a setting
         # value outstanding. Update them.
-        for v in self._settings.values():
+        for k, v in self._settings.items():
             if len(v) > 1:
-                v.popleft()
+                old_setting = v.popleft()
+                new_setting = v[0]
+                changed_settings[k] = ChangedSetting(
+                    k, old_setting, new_setting
+                )
+
+        return changed_settings
 
     # Provide easy-access to well known settings.
     @property
