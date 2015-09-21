@@ -12,6 +12,12 @@ import collections
 from hyperframe.frame import SettingsFrame
 
 
+#: A value structure for storing changed settings.
+ChangedSetting = collections.namedtuple(
+    'ChangedSetting', ['setting', 'original_value', 'new_value']
+)
+
+
 class Settings(collections.MutableMapping):
     """
     An object that encapsulates HTTP/2 settings state.
