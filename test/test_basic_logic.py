@@ -335,6 +335,48 @@ class TestBasicClient(object):
         assert len(c.data_to_send(10)) == 0
         assert len(c.data_to_send()) == 0
 
+    def test_we_can_update_settings(self, frame_factory):
+        """
+        Updating the settings emits a SETTINGS frame.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        new_settings = {
+            hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 52,
+            hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0,
+        }
+        events = c.update_settings(new_settings)
+        assert not events
+
+        f = frame_factory.build_settings_frame(new_settings)
+        assert c.data_to_send() == f.serialize()
+
+    def test_settings_get_acked_correctly(self, frame_factory):
+        """
+        When settings changes are ACKed, they contain the changed settings.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        new_settings = {
+            hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 52,
+            hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0,
+        }
+        c.update_settings(new_settings)
+
+        f = frame_factory.build_settings_frame({}, ack=True)
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.SettingsAcknowledged)
+        assert len(event.changed_settings) == len(new_settings)
+        for setting, value in new_settings.items():
+            assert event.changed_settings[setting].new_value == value
+
 
 class TestBasicServer(object):
     """
@@ -537,22 +579,6 @@ class TestBasicServer(object):
 
         assert not events
         assert c.data_to_send() == expected_data
-
-    def test_settings_ack_is_ignored(self, frame_factory):
-        """
-        Receiving a SETTINGS ACK should cause no events or data to be emitted.
-        """
-        c = h2.connection.H2Connection(client_side=False)
-        c.receive_data(frame_factory.preamble())
-
-        f = frame_factory.build_settings_frame(
-            settings={}, ack=True
-        )
-
-        events = c.receive_data(f.serialize())
-
-        assert not events
-        assert not c.data_to_send()
 
     def test_close_connection(self, frame_factory):
         """

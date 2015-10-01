@@ -134,3 +134,14 @@ class PushedStreamReceived(object):
         self.pushed_stream_id = None
         self.parent_stream_id = None
         self.headers = None
+
+
+class SettingsAcknowledged(object):
+    """
+    The SettingsAcknowledged event is fired whenever a settings ACK is received
+    from the remote peer. The event carries on it the settings that were
+    acknowedged, in the same format as
+    :class:`h2.events.RemoteSettingsChanged`.
+    """
+    def __init__(self):
+        self.changed_settings = {}

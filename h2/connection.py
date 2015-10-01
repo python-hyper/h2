@@ -13,7 +13,10 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
-from .events import WindowUpdated, RemoteSettingsChanged, PingAcknowledged
+from .events import (
+    WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
+    SettingsAcknowledged,
+)
 from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -441,6 +444,20 @@ class H2Connection(object):
         self._prepare_for_sending([f])
         return []
 
+    def update_settings(self, new_settings):
+        """
+        Update the local settings. This will prepare and emit the appropriate
+        SETTINGS frame.
+
+        :param new_settings: A dictionary of {setting: new value}
+        """
+        self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
+        self.local_settings.update(new_settings)
+        s = SettingsFrame(0)
+        s.settings = new_settings
+        self._prepare_for_sending([s])
+        return []
+
     def flow_control_window(self, stream_id):
         """
         Returns the maximum amount of data that can be sent on stream
@@ -589,7 +606,10 @@ class H2Connection(object):
 
         # This is an ack of the local settings.
         if 'ACK' in frame.flags:
-            self.local_settings.acknowledge()
+            changed_settings = self.local_settings.acknowledge()
+            ack_event = SettingsAcknowledged()
+            ack_event.changed_settings = changed_settings
+            events.append(ack_event)
             return [], events
 
         # Add the new settings.
