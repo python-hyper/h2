@@ -208,13 +208,15 @@ class H2Connection(object):
         self.decoder = Decoder()
         self.client_side = client_side
 
-        # The curent value of the connection flow control window on the
-        # outbound side of the connection.
-        self.outbound_flow_control_window = 65535
-
         # Objects that store settings, including defaults.
         self.local_settings = Settings(client=client_side)
         self.remote_settings = Settings(client=not client_side)
+
+        # The curent value of the connection flow control window on the
+        # outbound side of the connection.
+        self.outbound_flow_control_window = (
+            self.remote_settings.initial_window_size
+        )
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -255,7 +257,7 @@ class H2Connection(object):
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
         s.outbound_flow_control_window = (
-            self.remote_settings[SettingsFrame.INITIAL_WINDOW_SIZE]
+            self.remote_settings.initial_window_size
         )
 
         self.streams[stream_id] = s
