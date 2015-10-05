@@ -13,6 +13,7 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
+from . import errors
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged,
@@ -543,8 +544,22 @@ class H2Connection(object):
         Handle a frame received on the connection.
         """
         # I don't love using __class__ here, maybe reconsider it.
-        frames, events = self._frame_dispatch_table[frame.__class__](frame)
-        self._prepare_for_sending(frames)
+        try:
+            frames, events = self._frame_dispatch_table[frame.__class__](frame)
+        except ProtocolError:
+            # For whatever reason, receiving the frame caused a protocol error.
+            # We should prepare to emit a GoAway frame before throwing the
+            # exception up further. No need for an event: the exception will
+            # do fine.
+            f = GoAwayFrame(0)
+            f.last_stream_id = sorted(self.streams.keys())[-1]
+            f.error_code = errors.PROTOCOL_ERROR
+            self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
+            self._prepare_for_sending([f])
+            raise
+        else:
+            self._prepare_for_sending(frames)
+
         return events
 
     def _receive_headers_frame(self, frame):
@@ -567,6 +582,9 @@ class H2Connection(object):
         """
         Receive a push-promise frame on the connection.
         """
+        if not self.local_settings.enable_push:
+            raise ProtocolError("Received pushed stream")
+
         pushed_headers = self.decoder.decode(frame.data)
 
         events = self.state_machine.process_input(

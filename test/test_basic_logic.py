@@ -194,6 +194,39 @@ class TestBasicClient(object):
         assert response_event.stream_id == 2
         assert response_event.headers == self.example_response_headers
 
+    def test_cannot_receive_pushed_stream_when_enable_push_is_0(self,
+                                                                frame_factory):
+        """
+        If we have set SETTINGS_ENABLE_PUSH to 0, receiving PUSH_PROMISE frames
+        triggers the connection to be closed.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.local_settings.enable_push = 0
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+
+        f1 = frame_factory.build_settings_frame({}, ack=True)
+        f2 = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        f3 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+        c.receive_data(f1.serialize())
+        c.receive_data(f2.serialize())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f3.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            1, h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     def test_receiving_response_no_body(self, frame_factory):
         """
         Receiving a response without a body fires two events, ResponseReceived
