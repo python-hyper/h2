@@ -367,6 +367,9 @@ class H2Connection(object):
         """
         Send a push promise.
         """
+        if not self.remote_settings.enable_push:
+            raise ProtocolError("Remote peer has disabled stream push")
+
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self.get_stream_by_id(stream_id)
 

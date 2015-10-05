@@ -823,3 +823,27 @@ class TestBasicServer(object):
         )
 
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_push_streams_when_disabled(self, frame_factory):
+        """
+        When the remote peer has disabled stream pushing, we should fail.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0}
+        )
+        events = c.receive_data(f.serialize())
+        c.acknowledge_settings(events[0])
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.push_stream(
+                stream_id=1,
+                promised_stream_id=2,
+                request_headers=self.example_request_headers
+            )
