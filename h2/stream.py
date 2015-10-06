@@ -378,7 +378,6 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
-        self.max_inbound_frame_size = None
 
         # The curent value of the stream flow control window on the outbound
         # side of the stream.
