@@ -250,6 +250,34 @@ class H2Connection(object):
         self._data_to_send += b''.join(f.serialize() for f in frames)
         assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
 
+    @property
+    def open_outbound_streams(self):
+        """
+        The current number of open outbound streams.
+        """
+        outbound_numbers = int(self.client_side)
+        return len(
+            [
+                stream_id
+                for stream_id, stream in self.streams.items()
+                if (stream_id % 2 == outbound_numbers) and stream.open
+            ]
+        )
+
+    @property
+    def open_inbound_streams(self):
+        """
+        The current number of open inbound streams.
+        """
+        inbound_numbers = int(not self.client_side)
+        return len(
+            [
+                stream_id
+                for stream_id, stream in self.streams.items()
+                if (stream_id % 2 == inbound_numbers) and stream.open
+            ]
+        )
+
     def begin_new_stream(self, stream_id):
         """
         Initiate a new stream.

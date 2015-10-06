@@ -383,6 +383,21 @@ class H2Stream(object):
         # side of the stream.
         self.outbound_flow_control_window = 65535
 
+    @property
+    def open(self):
+        """
+        Whether the stream is 'open' in any sense: that is, whether it counts
+        against the number of concurrent streams.
+        """
+        # RFC 7540 Section 5.1.2 defines 'open' for this purpose to mean either
+        # the OPEN state or either of the HALF_CLOSED states. Perplexingly,
+        # this excludes the reserved states.
+        return self.state_machine.state in (
+            StreamState.OPEN,
+            StreamState.HALF_CLOSED_LOCAL,
+            StreamState.HALF_CLOSED_REMOTE,
+        )
+
     def send_headers(self, headers, encoder, end_stream=False):
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
