@@ -203,8 +203,6 @@ class H2Connection(object):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_stream_id = 0
-        self.max_outbound_frame_size = self.DEFAULT_MAX_OUTBOUND_FRAME_SIZE
-        self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
         self.decoder = Decoder()
         self.client_side = client_side
@@ -218,6 +216,10 @@ class H2Connection(object):
         self.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
         )
+
+        # Maximum frame sizes in each direction.
+        self.max_outbound_frame_size = self.remote_settings.max_frame_size
+        self.max_inbound_frame_size = self.local_settings.max_frame_size
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
