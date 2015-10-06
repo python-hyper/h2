@@ -847,3 +847,25 @@ class TestBasicServer(object):
                 promised_stream_id=2,
                 request_headers=self.example_request_headers
             )
+
+    def test_settings_remote_change_header_table_size(self, frame_factory):
+        """
+        Acknowledging a remote HEADER_TABLE_SIZE settings change causes us to
+        change the header table size of our encoder.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        assert c.encoder.header_table_size == 4096
+
+        received_frame = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+        )
+        event = c.receive_data(received_frame.serialize())[0]
+        c.clear_outbound_data_buffer()
+
+        assert c.encoder.header_table_size == 4096
+
+        c.acknowledge_settings(event)
+
+        assert c.encoder.header_table_size == 80

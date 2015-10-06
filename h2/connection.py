@@ -445,6 +445,12 @@ class H2Connection(object):
                 setting.new_value,
             )
 
+        # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
+        # RFC 7540 Section 6.5.2.
+        if SettingsFrame.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+            self.encoder.header_table_size = setting.new_value
+
         f = SettingsFrame(0)
         f.flags.add('ACK')
         self._prepare_for_sending([f])
