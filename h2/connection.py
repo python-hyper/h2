@@ -246,6 +246,7 @@ class H2Connection(object):
         if not frames:
             return
         self._data_to_send += b''.join(f.serialize() for f in frames)
+        assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
 
     def begin_new_stream(self, stream_id):
         """
