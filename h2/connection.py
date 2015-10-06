@@ -19,7 +19,8 @@ from .events import (
     SettingsAcknowledged,
 )
 from .exceptions import (
-    ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError
+    ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
+    TooManyStreamsError,
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -340,6 +341,14 @@ class H2Connection(object):
         """
         Send headers on a given stream.
         """
+        # Check we can open the stream.
+        max_open_streams = self.remote_settings.max_concurrent_streams
+        if (self.open_outbound_streams + 1) > max_open_streams:
+            raise TooManyStreamsError(
+                "Max outbound streams is %d, %d open" %
+                (max_open_streams, self.open_outbound_streams)
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = self.get_or_create_stream(stream_id)
         frames, events = stream.send_headers(
@@ -625,6 +634,14 @@ class H2Connection(object):
         """
         Receive a headers frame on the connection.
         """
+        # Check we can open the stream.
+        max_open_streams = self.local_settings.max_concurrent_streams
+        if (self.open_inbound_streams + 1) > max_open_streams:
+            raise TooManyStreamsError(
+                "Max outbound streams is %d, %d open" %
+                (max_open_streams, self.open_outbound_streams)
+            )
+
         # Let's decode the headers.
         headers = self.decoder.decode(frame.data)
         events = self.state_machine.process_input(

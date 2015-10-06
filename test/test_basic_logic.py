@@ -410,6 +410,25 @@ class TestBasicClient(object):
         for setting, value in new_settings.items():
             assert event.changed_settings[setting].new_value == value
 
+    def test_cannot_create_new_outbound_stream_over_limit(self, frame_factory):
+        """
+        When the number of outbound streams exceeds the remote peer's
+        MAX_CONCURRENT_STREAMS setting, attempting to open new streams fails.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        f = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+        )
+        event = c.receive_data(f.serialize())[0]
+        c.acknowledge_settings(event)
+
+        c.send_headers(1, self.example_request_headers)
+
+        with pytest.raises(h2.exceptions.TooManyStreamsError):
+            c.send_headers(3, self.example_request_headers)
+
 
 class TestBasicServer(object):
     """
@@ -929,5 +948,37 @@ class TestBasicServer(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_receive_new_streams_over_limit(self, frame_factory):
+        """
+        When the number of inbound streams exceeds our MAX_CONCURRENT_STREAMS
+        setting, their attempt to open new streams fails.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.update_settings(
+            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+        )
+        f = frame_factory.build_settings_frame({}, ack=True)
+        c.receive_data(f.serialize())
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_request_headers,
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            stream_id=3,
+            headers=self.example_request_headers,
+        )
+        with pytest.raises(h2.exceptions.TooManyStreamsError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
