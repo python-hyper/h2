@@ -568,8 +568,14 @@ class H2Connection(object):
         """
         Handle a frame received on the connection.
         """
-        # I don't love using __class__ here, maybe reconsider it.
         try:
+            if frame.body_len > self.max_inbound_frame_size:
+                raise ProtocolError(
+                    "Received overlong frame: length %d, max %d" %
+                    (frame.body_len, self.max_inbound_frame_size)
+                )
+
+            # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
         except ProtocolError:
             # For whatever reason, receiving the frame caused a protocol error.
@@ -631,12 +637,6 @@ class H2Connection(object):
         """
         Receive a data frame on the connection.
         """
-        if len(frame.data) > self.max_inbound_frame_size:
-            raise ProtocolError(
-                "Frame was too long: length %d, max %d" %
-                (len(frame.data), self.max_inbound_frame_size)
-            )
-
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
