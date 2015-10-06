@@ -631,6 +631,12 @@ class H2Connection(object):
         """
         Receive a data frame on the connection.
         """
+        if len(frame.data) > self.max_inbound_frame_size:
+            raise ProtocolError(
+                "Frame was too long: length %d, max %d" %
+                (len(frame.data), self.max_inbound_frame_size)
+            )
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )

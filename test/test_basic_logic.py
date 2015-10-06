@@ -910,3 +910,24 @@ class TestBasicServer(object):
 
         c.send_data(1, b'\x01' * 17000)
         assert c.data_to_send()
+
+    def test_restricting_inbound_frame_size_by_settings(self, frame_factory):
+        """
+        We throw ProtocolErrors and tear down connections if oversize frames
+        are received.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        h = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(h.serialize())
+        c.clear_outbound_data_buffer()
+
+        data_frame = frame_factory.build_data_frame(b'\x01' * 17000)
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data_frame.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
