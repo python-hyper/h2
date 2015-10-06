@@ -18,7 +18,9 @@ from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged,
 )
-from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
+from .exceptions import (
+    ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError
+)
 from .frame_buffer import FrameBuffer
 from .settings import Settings
 from .stream import H2Stream
@@ -327,6 +329,11 @@ class H2Connection(object):
                 "Cannot send %d bytes, flow control window is %d." %
                 (len(data), self.flow_control_window(stream_id))
             )
+        elif len(data) > self.max_outbound_frame_size:
+            raise FrameTooLargeError(
+                "Cannot send frame size %d, max frame size is %d" %
+                (len(data), self.max_outbound_frame_size)
+            )
 
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
         frames, events = self.streams[stream_id].send_data(data, end_stream)
@@ -453,6 +460,12 @@ class H2Connection(object):
         if SettingsFrame.HEADER_TABLE_SIZE in changes:
             setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
             self.encoder.header_table_size = setting.new_value
+
+        if SettingsFrame.SETTINGS_MAX_FRAME_SIZE in changes:
+            setting = changes[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+            self.max_outbound_frame_size = setting.new_value
+            for stream in self.streams.values():
+                stream.max_outbound_frame_size = setting.new_value
 
         f = SettingsFrame(0)
         f.flags.add('ACK')

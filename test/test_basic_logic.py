@@ -888,3 +888,25 @@ class TestBasicServer(object):
         c.clear_outbound_data_buffer()
 
         assert c.decoder.header_table_size == 80
+
+    def test_restricting_outbound_frame_size_by_settings(self, frame_factory):
+        """
+        The remote peer can shrink the maximum outbound frame size using
+        settings.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.send_headers(1, self.example_request_headers)
+
+        with pytest.raises(h2.exceptions.FrameTooLargeError):
+            c.send_data(1, b'\x01' * 17000)
+
+        received_frame = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 17001}
+        )
+        event = c.receive_data(received_frame.serialize())[0]
+        c.acknowledge_settings(event)
+        c.clear_outbound_data_buffer()
+
+        c.send_data(1, b'\x01' * 17000)
+        assert c.data_to_send()
