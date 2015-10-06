@@ -635,7 +635,7 @@ class H2Connection(object):
 
         # This is an ack of the local settings.
         if 'ACK' in frame.flags:
-            changed_settings = self.local_settings.acknowledge()
+            changed_settings = self._local_settings_acked()
             ack_event = SettingsAcknowledged()
             ack_event.changed_settings = changed_settings
             events.append(ack_event)
@@ -707,3 +707,17 @@ class H2Connection(object):
         stream_frames, stream_events = stream.stream_reset(frame)
 
         return stream_frames, events + stream_events
+
+    def _local_settings_acked(self):
+        """
+        Handle the local settings being ACKed, update internal state.
+        """
+        changes = self.local_settings.acknowledge()
+
+        # HEADER_TABLE_SIZE changes by us affect our decoder: cf.
+        # RFC 7540 Section 6.5.2.
+        if SettingsFrame.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+            self.decoder.header_table_size = setting.new_value
+
+        return changes

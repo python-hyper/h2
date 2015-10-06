@@ -869,3 +869,22 @@ class TestBasicServer(object):
         c.acknowledge_settings(event)
 
         assert c.encoder.header_table_size == 80
+
+    def test_settings_local_change_header_table_size(self, frame_factory):
+        """
+        The remote peer acknowledging a local HEADER_TABLE_SIZE settings change
+        causes us to change the header table size of our decoder.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        assert c.decoder.header_table_size == 4096
+
+        expected_frame = frame_factory.build_settings_frame({}, ack=True)
+        c.update_settings(
+            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+        )
+        c.receive_data(expected_frame.serialize())
+        c.clear_outbound_data_buffer()
+
+        assert c.decoder.header_table_size == 80
