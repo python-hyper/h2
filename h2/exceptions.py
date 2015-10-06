@@ -20,6 +20,21 @@ class ProtocolError(H2Error):
     pass
 
 
+class FrameTooLargeError(ProtocolError):
+    """
+    The frame that we tried to send was too large to be sent.
+    """
+    pass
+
+
+class TooManyStreamsError(ProtocolError):
+    """
+    An attempt was made to open a stream that would lead to too many concurrent
+    streams.
+    """
+    pass
+
+
 class NoSuchStreamError(H2Error):
     """
     A stream-specific action referenced a stream that does not exist.

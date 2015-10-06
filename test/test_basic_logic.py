@@ -194,6 +194,39 @@ class TestBasicClient(object):
         assert response_event.stream_id == 2
         assert response_event.headers == self.example_response_headers
 
+    def test_cannot_receive_pushed_stream_when_enable_push_is_0(self,
+                                                                frame_factory):
+        """
+        If we have set SETTINGS_ENABLE_PUSH to 0, receiving PUSH_PROMISE frames
+        triggers the connection to be closed.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.local_settings.enable_push = 0
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+
+        f1 = frame_factory.build_settings_frame({}, ack=True)
+        f2 = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        f3 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+        c.receive_data(f1.serialize())
+        c.receive_data(f2.serialize())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f3.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            1, h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     def test_receiving_response_no_body(self, frame_factory):
         """
         Receiving a response without a body fires two events, ResponseReceived
@@ -376,6 +409,25 @@ class TestBasicClient(object):
         assert len(event.changed_settings) == len(new_settings)
         for setting, value in new_settings.items():
             assert event.changed_settings[setting].new_value == value
+
+    def test_cannot_create_new_outbound_stream_over_limit(self, frame_factory):
+        """
+        When the number of outbound streams exceeds the remote peer's
+        MAX_CONCURRENT_STREAMS setting, attempting to open new streams fails.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        f = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+        )
+        event = c.receive_data(f.serialize())[0]
+        c.acknowledge_settings(event)
+
+        c.send_headers(1, self.example_request_headers)
+
+        with pytest.raises(h2.exceptions.TooManyStreamsError):
+            c.send_headers(3, self.example_request_headers)
 
 
 class TestBasicServer(object):
@@ -789,4 +841,144 @@ class TestBasicServer(object):
             request_headers=self.example_request_headers
         )
 
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_push_streams_when_disabled(self, frame_factory):
+        """
+        When the remote peer has disabled stream pushing, we should fail.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0}
+        )
+        events = c.receive_data(f.serialize())
+        c.acknowledge_settings(events[0])
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.push_stream(
+                stream_id=1,
+                promised_stream_id=2,
+                request_headers=self.example_request_headers
+            )
+
+    def test_settings_remote_change_header_table_size(self, frame_factory):
+        """
+        Acknowledging a remote HEADER_TABLE_SIZE settings change causes us to
+        change the header table size of our encoder.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        assert c.encoder.header_table_size == 4096
+
+        received_frame = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+        )
+        event = c.receive_data(received_frame.serialize())[0]
+        c.clear_outbound_data_buffer()
+
+        assert c.encoder.header_table_size == 4096
+
+        c.acknowledge_settings(event)
+
+        assert c.encoder.header_table_size == 80
+
+    def test_settings_local_change_header_table_size(self, frame_factory):
+        """
+        The remote peer acknowledging a local HEADER_TABLE_SIZE settings change
+        causes us to change the header table size of our decoder.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        assert c.decoder.header_table_size == 4096
+
+        expected_frame = frame_factory.build_settings_frame({}, ack=True)
+        c.update_settings(
+            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+        )
+        c.receive_data(expected_frame.serialize())
+        c.clear_outbound_data_buffer()
+
+        assert c.decoder.header_table_size == 80
+
+    def test_restricting_outbound_frame_size_by_settings(self, frame_factory):
+        """
+        The remote peer can shrink the maximum outbound frame size using
+        settings.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.send_headers(1, self.example_request_headers)
+
+        with pytest.raises(h2.exceptions.FrameTooLargeError):
+            c.send_data(1, b'\x01' * 17000)
+
+        received_frame = frame_factory.build_settings_frame(
+            {hyperframe.frame.SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 17001}
+        )
+        event = c.receive_data(received_frame.serialize())[0]
+        c.acknowledge_settings(event)
+        c.clear_outbound_data_buffer()
+
+        c.send_data(1, b'\x01' * 17000)
+        assert c.data_to_send()
+
+    def test_restricting_inbound_frame_size_by_settings(self, frame_factory):
+        """
+        We throw ProtocolErrors and tear down connections if oversize frames
+        are received.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        h = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(h.serialize())
+        c.clear_outbound_data_buffer()
+
+        data_frame = frame_factory.build_data_frame(b'\x01' * 17000)
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data_frame.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_receive_new_streams_over_limit(self, frame_factory):
+        """
+        When the number of inbound streams exceeds our MAX_CONCURRENT_STREAMS
+        setting, their attempt to open new streams fails.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.update_settings(
+            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+        )
+        f = frame_factory.build_settings_frame({}, ack=True)
+        c.receive_data(f.serialize())
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_request_headers,
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            stream_id=3,
+            headers=self.example_request_headers,
+        )
+        with pytest.raises(h2.exceptions.TooManyStreamsError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+        )
         assert c.data_to_send() == expected_frame.serialize()

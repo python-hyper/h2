@@ -118,6 +118,17 @@ class Settings(collections.MutableMapping):
     def max_frame_size(self, value):
         self[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] = value
 
+    @property
+    def max_concurrent_streams(self):
+        """
+        The current value of the SETTINGS_MAX_CONCURRENT_STREAMS setting.
+        """
+        return self.get(SettingsFrame.MAX_CONCURRENT_STREAMS, 2**32+1)
+
+    @max_concurrent_streams.setter
+    def max_concurrent_streams(self, value):
+        self[SettingsFrame.MAX_CONCURRENT_STREAMS] = value
+
     # Implement the MutableMapping API.
     def __getitem__(self, key):
         val = self._settings[key][0]

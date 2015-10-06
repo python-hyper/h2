@@ -13,11 +13,15 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
+from . import errors
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged,
 )
-from .exceptions import ProtocolError, NoSuchStreamError, FlowControlError
+from .exceptions import (
+    ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
+    TooManyStreamsError,
+)
 from .frame_buffer import FrameBuffer
 from .settings import Settings
 from .stream import H2Stream
@@ -202,19 +206,23 @@ class H2Connection(object):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_stream_id = 0
-        self.max_outbound_frame_size = self.DEFAULT_MAX_OUTBOUND_FRAME_SIZE
-        self.max_inbound_frame_size = self.DEFAULT_MAX_INBOUND_FRAME_SIZE
         self.encoder = Encoder()
         self.decoder = Decoder()
         self.client_side = client_side
 
-        # The curent value of the connection flow control window on the
-        # outbound side of the connection.
-        self.outbound_flow_control_window = 65535
-
         # Objects that store settings, including defaults.
         self.local_settings = Settings(client=client_side)
         self.remote_settings = Settings(client=not client_side)
+
+        # The curent value of the connection flow control window on the
+        # outbound side of the connection.
+        self.outbound_flow_control_window = (
+            self.remote_settings.initial_window_size
+        )
+
+        # Maximum frame sizes in each direction.
+        self.max_outbound_frame_size = self.remote_settings.max_frame_size
+        self.max_inbound_frame_size = self.local_settings.max_frame_size
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -241,6 +249,35 @@ class H2Connection(object):
         if not frames:
             return
         self._data_to_send += b''.join(f.serialize() for f in frames)
+        assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
+
+    @property
+    def open_outbound_streams(self):
+        """
+        The current number of open outbound streams.
+        """
+        outbound_numbers = int(self.client_side)
+        return len(
+            [
+                stream_id
+                for stream_id, stream in self.streams.items()
+                if (stream_id % 2 == outbound_numbers) and stream.open
+            ]
+        )
+
+    @property
+    def open_inbound_streams(self):
+        """
+        The current number of open inbound streams.
+        """
+        inbound_numbers = int(not self.client_side)
+        return len(
+            [
+                stream_id
+                for stream_id, stream in self.streams.items()
+                if (stream_id % 2 == inbound_numbers) and stream.open
+            ]
+        )
 
     def begin_new_stream(self, stream_id):
         """
@@ -255,7 +292,7 @@ class H2Connection(object):
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
         s.outbound_flow_control_window = (
-            self.remote_settings[SettingsFrame.INITIAL_WINDOW_SIZE]
+            self.remote_settings.initial_window_size
         )
 
         self.streams[stream_id] = s
@@ -304,6 +341,14 @@ class H2Connection(object):
         """
         Send headers on a given stream.
         """
+        # Check we can open the stream.
+        max_open_streams = self.remote_settings.max_concurrent_streams
+        if (self.open_outbound_streams + 1) > max_open_streams:
+            raise TooManyStreamsError(
+                "Max outbound streams is %d, %d open" %
+                (max_open_streams, self.open_outbound_streams)
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = self.get_or_create_stream(stream_id)
         frames, events = stream.send_headers(
@@ -320,6 +365,11 @@ class H2Connection(object):
             raise FlowControlError(
                 "Cannot send %d bytes, flow control window is %d." %
                 (len(data), self.flow_control_window(stream_id))
+            )
+        elif len(data) > self.max_outbound_frame_size:
+            raise FrameTooLargeError(
+                "Cannot send frame size %d, max frame size is %d" %
+                (len(data), self.max_outbound_frame_size)
             )
 
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
@@ -364,6 +414,9 @@ class H2Connection(object):
         """
         Send a push promise.
         """
+        if not self.remote_settings.enable_push:
+            raise ProtocolError("Remote peer has disabled stream push")
+
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self.get_stream_by_id(stream_id)
 
@@ -438,6 +491,18 @@ class H2Connection(object):
                 setting.original_value,
                 setting.new_value,
             )
+
+        # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
+        # RFC 7540 Section 6.5.2.
+        if SettingsFrame.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+            self.encoder.header_table_size = setting.new_value
+
+        if SettingsFrame.SETTINGS_MAX_FRAME_SIZE in changes:
+            setting = changes[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+            self.max_outbound_frame_size = setting.new_value
+            for stream in self.streams.values():
+                stream.max_outbound_frame_size = setting.new_value
 
         f = SettingsFrame(0)
         f.flags.add('ACK')
@@ -540,15 +605,43 @@ class H2Connection(object):
         """
         Handle a frame received on the connection.
         """
-        # I don't love using __class__ here, maybe reconsider it.
-        frames, events = self._frame_dispatch_table[frame.__class__](frame)
-        self._prepare_for_sending(frames)
+        try:
+            if frame.body_len > self.max_inbound_frame_size:
+                raise ProtocolError(
+                    "Received overlong frame: length %d, max %d" %
+                    (frame.body_len, self.max_inbound_frame_size)
+                )
+
+            # I don't love using __class__ here, maybe reconsider it.
+            frames, events = self._frame_dispatch_table[frame.__class__](frame)
+        except ProtocolError:
+            # For whatever reason, receiving the frame caused a protocol error.
+            # We should prepare to emit a GoAway frame before throwing the
+            # exception up further. No need for an event: the exception will
+            # do fine.
+            f = GoAwayFrame(0)
+            f.last_stream_id = sorted(self.streams.keys())[-1]
+            f.error_code = errors.PROTOCOL_ERROR
+            self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
+            self._prepare_for_sending([f])
+            raise
+        else:
+            self._prepare_for_sending(frames)
+
         return events
 
     def _receive_headers_frame(self, frame):
         """
         Receive a headers frame on the connection.
         """
+        # Check we can open the stream.
+        max_open_streams = self.local_settings.max_concurrent_streams
+        if (self.open_inbound_streams + 1) > max_open_streams:
+            raise TooManyStreamsError(
+                "Max outbound streams is %d, %d open" %
+                (max_open_streams, self.open_outbound_streams)
+            )
+
         # Let's decode the headers.
         headers = self.decoder.decode(frame.data)
         events = self.state_machine.process_input(
@@ -565,6 +658,9 @@ class H2Connection(object):
         """
         Receive a push-promise frame on the connection.
         """
+        if not self.local_settings.enable_push:
+            raise ProtocolError("Received pushed stream")
+
         pushed_headers = self.decoder.decode(frame.data)
 
         events = self.state_machine.process_input(
@@ -606,7 +702,7 @@ class H2Connection(object):
 
         # This is an ack of the local settings.
         if 'ACK' in frame.flags:
-            changed_settings = self.local_settings.acknowledge()
+            changed_settings = self._local_settings_acked()
             ack_event = SettingsAcknowledged()
             ack_event.changed_settings = changed_settings
             events.append(ack_event)
@@ -678,3 +774,17 @@ class H2Connection(object):
         stream_frames, stream_events = stream.stream_reset(frame)
 
         return stream_frames, events + stream_events
+
+    def _local_settings_acked(self):
+        """
+        Handle the local settings being ACKed, update internal state.
+        """
+        changes = self.local_settings.acknowledge()
+
+        # HEADER_TABLE_SIZE changes by us affect our decoder: cf.
+        # RFC 7540 Section 6.5.2.
+        if SettingsFrame.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+            self.decoder.header_table_size = setting.new_value
+
+        return changes

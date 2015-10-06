@@ -378,11 +378,25 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
-        self.max_inbound_frame_size = None
 
         # The curent value of the stream flow control window on the outbound
         # side of the stream.
         self.outbound_flow_control_window = 65535
+
+    @property
+    def open(self):
+        """
+        Whether the stream is 'open' in any sense: that is, whether it counts
+        against the number of concurrent streams.
+        """
+        # RFC 7540 Section 5.1.2 defines 'open' for this purpose to mean either
+        # the OPEN state or either of the HALF_CLOSED states. Perplexingly,
+        # this excludes the reserved states.
+        return self.state_machine.state in (
+            StreamState.OPEN,
+            StreamState.HALF_CLOSED_LOCAL,
+            StreamState.HALF_CLOSED_REMOTE,
+        )
 
     def send_headers(self, headers, encoder, end_stream=False):
         """
@@ -437,21 +451,18 @@ class H2Stream(object):
 
         .. warning:: Does not perform flow control checks.
         """
-        frames = []
-        for offset in range(0, len(data), self.max_outbound_frame_size):
-            self.state_machine.process_input(StreamInputs.SEND_DATA)
-            df = DataFrame(self.stream_id)
-            df.data = data[offset:offset+self.max_outbound_frame_size]
-            frames.append(df)
+        self.state_machine.process_input(StreamInputs.SEND_DATA)
 
+        df = DataFrame(self.stream_id)
+        df.data = data
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
-            frames[-1].flags.add('END_STREAM')
+            df.flags.add('END_STREAM')
 
         self.outbound_flow_control_window -= len(data)
         assert self.outbound_flow_control_window >= 0
 
-        return frames, []
+        return [df], []
 
     def end_stream(self):
         """

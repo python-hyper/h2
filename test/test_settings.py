@@ -174,6 +174,7 @@ class TestSettings(object):
         assert s.enable_push == s[SettingsFrame.ENABLE_PUSH]
         assert s.initial_window_size == s[SettingsFrame.INITIAL_WINDOW_SIZE]
         assert s.max_frame_size == s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+        assert s.max_concurrent_streams == 2**32 + 1  # A sensible default.
 
     def test_settings_setters(self):
         """
@@ -185,9 +186,11 @@ class TestSettings(object):
         s.enable_push = 1
         s.initial_window_size = 2
         s.max_frame_size = 3
+        s.max_concurrent_streams = 4
 
         s.acknowledge()
         assert s[SettingsFrame.HEADER_TABLE_SIZE] == 0
         assert s[SettingsFrame.ENABLE_PUSH] == 1
         assert s[SettingsFrame.INITIAL_WINDOW_SIZE] == 2
         assert s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] == 3
+        assert s[SettingsFrame.MAX_CONCURRENT_STREAMS] == 4
