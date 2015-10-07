@@ -29,7 +29,7 @@ class TestConnectionStateMachine(object):
 
         try:
             c.process_input(input_)
-        except (h2.exceptions.ProtocolError, AssertionError):
+        except h2.exceptions.ProtocolError:
             assert c.state == h2.connection.ConnectionState.CLOSED
         else:
             assert c.state in h2.connection.ConnectionState

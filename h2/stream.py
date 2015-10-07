@@ -243,6 +243,9 @@ class H2StreamStateMachine(object):
                 except ProtocolError:
                     self.state = StreamState.CLOSED
                     raise
+                except AssertionError as e:  # pragma: no cover
+                    self.state = StreamState.CLOSED
+                    raise ProtocolError(e)
 
             return []
 
