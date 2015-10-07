@@ -634,13 +634,14 @@ class H2Connection(object):
         """
         Receive a headers frame on the connection.
         """
-        # Check we can open the stream.
-        max_open_streams = self.local_settings.max_concurrent_streams
-        if (self.open_inbound_streams + 1) > max_open_streams:
-            raise TooManyStreamsError(
-                "Max outbound streams is %d, %d open" %
-                (max_open_streams, self.open_outbound_streams)
-            )
+        # If necessary, check we can open the stream.
+        if frame.stream_id not in self.streams:
+            max_open_streams = self.local_settings.max_concurrent_streams
+            if (self.open_inbound_streams + 1) > max_open_streams:
+                raise TooManyStreamsError(
+                    "Max outbound streams is %d, %d open" %
+                    (max_open_streams, self.open_outbound_streams)
+                )
 
         # Let's decode the headers.
         headers = self.decoder.decode(frame.data)
