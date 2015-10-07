@@ -429,6 +429,58 @@ class TestBasicClient(object):
         with pytest.raises(h2.exceptions.TooManyStreamsError):
             c.send_headers(3, self.example_request_headers)
 
+    def test_can_receive_trailers(self, frame_factory):
+        """
+        When two HEADERS blocks are received in the same stream from a
+        server, the second set are trailers.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+        f = frame_factory.build_headers_frame(self.example_response_headers)
+        c.receive_data(f.serialize())
+
+        # Send in trailers.
+        trailers = [('content-length', '0')]
+        f = frame_factory.build_headers_frame(
+            trailers,
+            flags=['END_STREAM'],
+        )
+        events = c.receive_data(f.serialize())
+        assert len(events) == 2
+
+        event = events[0]
+        assert isinstance(event, h2.events.TrailersReceived)
+        assert event.headers == trailers
+        assert event.stream_id == 1
+
+    def test_reject_trailers_not_ending_stream(self, frame_factory):
+        """
+        When trailers are received without the END_STREAM flag being present,
+        this is a ProtocolError.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        # Send in trailers.
+        c.clear_outbound_data_buffer()
+        trailers = [('content-length', '0')]
+        f = frame_factory.build_headers_frame(
+            trailers,
+            flags=[],
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
 
 class TestBasicServer(object):
     """
@@ -976,6 +1028,56 @@ class TestBasicServer(object):
             headers=self.example_request_headers,
         )
         with pytest.raises(h2.exceptions.TooManyStreamsError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_can_receive_trailers(self, frame_factory):
+        """
+        When two HEADERS blocks are received in the same stream from a
+        client, the second set are trailers.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        # Send in trailers.
+        trailers = [('content-length', '0')]
+        f = frame_factory.build_headers_frame(
+            trailers,
+            flags=['END_STREAM'],
+        )
+        events = c.receive_data(f.serialize())
+        assert len(events) == 2
+
+        event = events[0]
+        assert isinstance(event, h2.events.TrailersReceived)
+        assert event.headers == trailers
+        assert event.stream_id == 1
+
+    def test_reject_trailers_not_ending_stream(self, frame_factory):
+        """
+        When trailers are received without the END_STREAM flag being present,
+        this is a ProtocolError.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        # Send in trailers.
+        c.clear_outbound_data_buffer()
+        trailers = [('content-length', '0')]
+        f = frame_factory.build_headers_frame(
+            trailers,
+            flags=[],
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(

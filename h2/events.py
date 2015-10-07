@@ -34,6 +34,20 @@ class ResponseReceived(object):
         self.headers = None
 
 
+class TrailersReceived(object):
+    """
+    The TrailersReceived event is fired whenever trailers are received on a
+    stream. Trailers are a set of headers sent after the body of the
+    request/response, and are used to provide information that wasn't known
+    ahead of time (e.g. content-length). This event carries the HTTP header
+    fields that form the trailers and the stream ID of the stream on which they
+    were received.
+    """
+    def __init__(self):
+        self.stream_id = None
+        self.headers = None
+
+
 class DataReceived(object):
     """
     The DataReceived event is fired whenever data is received on a stream from
