@@ -353,9 +353,9 @@ class H2StreamStateMachine(object):
         Fires a PushedStreamReceived event.
         """
         if not self.client:
-            if self.client is None:
+            if self.client is None:  # pragma: no cover
                 msg = "Idle streams cannot receive pushes"
-            else:
+            else:  # pragma: no cover
                 msg = "Cannot receive pushed streams as a server"
             raise ProtocolError(msg)
 
