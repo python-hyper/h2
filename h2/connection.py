@@ -214,10 +214,13 @@ class H2Connection(object):
         self.local_settings = Settings(client=client_side)
         self.remote_settings = Settings(client=not client_side)
 
-        # The curent value of the connection flow control window on the
-        # outbound side of the connection.
+        # The curent value of the connection flow control windows on the
+        # connection.
         self.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
+        )
+        self.inbound_flow_control_window = (
+            self.local_settings.initial_window_size
         )
 
         # Maximum frame sizes in each direction.
@@ -294,6 +297,7 @@ class H2Connection(object):
         s.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
         )
+        s.inbound_flow_control_window = self.local_settings.initial_window_size
 
         self.streams[stream_id] = s
         self.highest_stream_id = stream_id
@@ -402,9 +406,11 @@ class H2Connection(object):
             frames, events = stream.increase_flow_control_window(
                 increment
             )
+            stream.inbound_flow_control_window += increment
         else:
             f = WindowUpdateFrame(0)
             f.window_increment = increment
+            self.inbound_flow_control_window += increment
             frames = [f]
             events = []
 
@@ -544,6 +550,26 @@ class H2Connection(object):
             stream.outbound_flow_control_window
         )
 
+    def remote_flow_control_window(self, stream_id):
+        """
+        Returns the maximum amount of data the remote peer can send on stream
+        ``stream_id``.
+
+        This value will never be larger than the total data that can be sent on
+        the connection: even if the given stream allows more data, the
+        connection window provides a logical maximum to the amount of data that
+        can be sent.
+
+        The maximum data that can be sent in a single data frame on a stream
+        is either this value, or the maximum frame size, whichever is
+        *smaller*.
+        """
+        stream = self.get_stream_by_id(stream_id)
+        return min(
+            self.inbound_flow_control_window,
+            stream.inbound_flow_control_window
+        )
+
     def data_to_send(self, amt=None):
         """
         Returns some data for sending out of the internal data buffer.
@@ -587,6 +613,22 @@ class H2Connection(object):
 
         for stream in self.streams.values():
             stream.outbound_flow_control_window += delta
+
+        return
+
+    def _inbound_flow_control_change_from_settings(self, old_value, new_value):
+        """
+        Update remote flow control windows in response to a change in the value
+        of SETTINGS_INITIAL_WINDOW_SIZE.
+
+        When this setting is changed, it automatically updates all remote flow
+        control windows by the delta in the settings values.
+        """
+        delta = new_value - old_value
+        self.inbound_flow_control_window += delta
+
+        for stream in self.streams.values():
+            stream.inbound_flow_control_window += delta
 
         return
 
@@ -684,13 +726,24 @@ class H2Connection(object):
         """
         Receive a data frame on the connection.
         """
+        if frame.body_len > self.remote_flow_control_window(frame.stream_id):
+            raise FlowControlError(
+                "Cannot receive %d bytes, flow control window is %d." %
+                (
+                    frame.body_len,
+                    self.remote_flow_control_window(frame.stream_id)
+                )
+            )
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
+        self.inbound_flow_control_window -= frame.body_len
         stream = self.get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_data(
             frame.data,
-            'END_STREAM' in frame.flags
+            'END_STREAM' in frame.flags,
+            frame.body_len
         )
         return frames, events + stream_events
 
@@ -788,5 +841,12 @@ class H2Connection(object):
         if SettingsFrame.HEADER_TABLE_SIZE in changes:
             setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
             self.decoder.header_table_size = setting.new_value
+
+        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
+            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
+            self._inbound_flow_control_change_from_settings(
+                setting.original_value,
+                setting.new_value,
+            )
 
         return changes
