@@ -5,6 +5,7 @@ h2/exceptions
 
 Exceptions for the HTTP/2 module.
 """
+import h2.errors
 
 
 class H2Error(Exception):
@@ -17,7 +18,7 @@ class ProtocolError(H2Error):
     """
     An action was attempted in violation of the HTTP/2 protocol.
     """
-    pass
+    error_code = h2.errors.PROTOCOL_ERROR
 
 
 class FrameTooLargeError(ProtocolError):
