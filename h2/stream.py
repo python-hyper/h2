@@ -13,7 +13,7 @@ from hyperframe.frame import (
 
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
-    StreamEnded, PushedStreamReceived, StreamReset
+    StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived
 )
 from .exceptions import ProtocolError
 
@@ -113,6 +113,12 @@ class H2StreamStateMachine(object):
 
         #: Whether this peer is the client side of this stream.
         self.client = None
+
+        # Whether trailers have been sent/received on this stream or not.
+        self.headers_sent = None
+        self.trailers_sent = None
+        self.headers_received = None
+        self.trailers_received = None
 
         # The _transitions dictionary contains a mapping of tuples of
         # (state, input) to tuples of (side_effect_function, end_state). This
@@ -243,6 +249,9 @@ class H2StreamStateMachine(object):
                 except ProtocolError:
                     self.state = StreamState.CLOSED
                     raise
+                except AssertionError as e:  # pragma: no cover
+                    self.state = StreamState.CLOSED
+                    raise ProtocolError(e)
 
             return []
 
@@ -251,14 +260,21 @@ class H2StreamStateMachine(object):
         Fires when a request is sent.
         """
         self.client = True
+        self.headers_sent = True
         return []
 
     def response_sent(self):
         """
-        Fires when something that should be a response is sent.
+        Fires when something that should be a response is sent. This 'response'
+        may actually be trailers.
         """
-        if self.client is True or self.client is None:
-            raise ProtocolError("Client cannot send responses.")
+        if not self.headers_sent:
+            if self.client is True or self.client is None:
+                raise ProtocolError("Client cannot send responses.")
+            self.headers_sent = True
+        else:
+            assert not self.trailers_sent
+            self.trailers_sent = True
 
         return []
 
@@ -266,20 +282,30 @@ class H2StreamStateMachine(object):
         """
         Fires when a request is received.
         """
-        self.client = False
+        assert not self.headers_received
+        assert not self.trailers_received
 
+        self.client = False
+        self.headers_received = True
         event = RequestReceived()
+
         event.stream_id = self.stream_id
         return [event]
 
     def response_received(self):
         """
-        Fires when a response is received.
+        Fires when a response is received. Also disambiguates between responses
+        and trailers.
         """
-        if self.client is not True:
-            raise ProtocolError("Non-clients cannot receive responses.")
+        if not self.headers_received:
+            assert self.client is True
+            self.headers_received = True
+            event = ResponseReceived()
+        else:
+            assert not self.trailers_received
+            self.trailers_received = True
+            event = TrailersReceived()
 
-        event = ResponseReceived()
         event.stream_id = self.stream_id
         return [event]
 
@@ -353,9 +379,9 @@ class H2StreamStateMachine(object):
         Fires a PushedStreamReceived event.
         """
         if not self.client:
-            if self.client is None:
+            if self.client is None:  # pragma: no cover
                 msg = "Idle streams cannot receive pushes"
-            else:
+            else:  # pragma: no cover
                 msg = "Cannot receive pushed streams as a server"
             raise ProtocolError(msg)
 
@@ -414,6 +440,9 @@ class H2Stream(object):
             # frame, not the CONTINUATION frames that follow.
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[0].flags.add('END_STREAM')
+
+        if self.state_machine.trailers_sent and not end_stream:
+            raise ProtocolError("Trailers must have END_STREAM set.")
 
         return frames, events
 
@@ -516,6 +545,10 @@ class H2Stream(object):
             events += self.state_machine.process_input(
                 StreamInputs.RECV_END_STREAM
             )
+
+        if isinstance(events[0], TrailersReceived):
+            if not end_stream:
+                raise ProtocolError("Trailers must have END_STREAM set")
 
         events[0].headers = headers
         return [], events
