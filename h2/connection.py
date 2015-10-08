@@ -365,10 +365,10 @@ class H2Connection(object):
         """
         Send data on a given stream.
         """
-        if len(data) > self.flow_control_window(stream_id):
+        if len(data) > self.local_flow_control_window(stream_id):
             raise FlowControlError(
                 "Cannot send %d bytes, flow control window is %d." %
-                (len(data), self.flow_control_window(stream_id))
+                (len(data), self.local_flow_control_window(stream_id))
             )
         elif len(data) > self.max_outbound_frame_size:
             raise FrameTooLargeError(
@@ -529,7 +529,7 @@ class H2Connection(object):
         self._prepare_for_sending([s])
         return []
 
-    def flow_control_window(self, stream_id):
+    def local_flow_control_window(self, stream_id):
         """
         Returns the maximum amount of data that can be sent on stream
         ``stream_id``.

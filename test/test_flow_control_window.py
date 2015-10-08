@@ -36,7 +36,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
-        assert c.flow_control_window(1) == self.DEFAULT_FLOW_WINDOW
+        assert c.local_flow_control_window(1) == self.DEFAULT_FLOW_WINDOW
         assert c.remote_flow_control_window(1) == self.DEFAULT_FLOW_WINDOW
 
     def test_flow_control_decreases_with_sent_data(self):
@@ -48,7 +48,7 @@ class TestFlowControl(object):
         c.send_data(1, b'some data')
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
-        assert (c.flow_control_window(1) == remaining_length)
+        assert (c.local_flow_control_window(1) == remaining_length)
 
     def test_flow_control_decreases_with_received_data(self, frame_factory):
         """
@@ -76,7 +76,7 @@ class TestFlowControl(object):
         c.send_headers(2, self.example_request_headers)
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
-        assert (c.flow_control_window(2) == remaining_length)
+        assert (c.local_flow_control_window(2) == remaining_length)
 
     def test_remote_flow_control_is_limited_by_connection(self, frame_factory):
         """
@@ -160,7 +160,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
-        assert c.flow_control_window(1) == 65535
+        assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
             settings={SettingsFrame.INITIAL_WINDOW_SIZE: 1280}
@@ -168,7 +168,7 @@ class TestFlowControl(object):
         events = c.receive_data(f.serialize())
         c.acknowledge_settings(events[0])
 
-        assert c.flow_control_window(1) == 1280
+        assert c.local_flow_control_window(1) == 1280
 
     def test_flow_control_grows_in_response_to_settings(self, frame_factory):
         """
@@ -178,7 +178,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
-        assert c.flow_control_window(1) == 65535
+        assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
             settings={SettingsFrame.INITIAL_WINDOW_SIZE: 128000}
@@ -186,7 +186,7 @@ class TestFlowControl(object):
         events = c.receive_data(f.serialize())
         c.acknowledge_settings(events[0])
 
-        assert c.flow_control_window(1) == 128000
+        assert c.local_flow_control_window(1) == 128000
 
     def test_new_streams_have_flow_control_per_settings(self, frame_factory):
         """
@@ -202,7 +202,7 @@ class TestFlowControl(object):
         c.acknowledge_settings(events[0])
 
         c.send_headers(1, self.example_request_headers)
-        assert c.flow_control_window(1) == 128000
+        assert c.local_flow_control_window(1) == 128000
 
     def test_window_update_no_stream(self, frame_factory):
         """
