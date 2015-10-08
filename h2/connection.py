@@ -615,14 +615,14 @@ class H2Connection(object):
 
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
-        except ProtocolError:
+        except ProtocolError as e:
             # For whatever reason, receiving the frame caused a protocol error.
             # We should prepare to emit a GoAway frame before throwing the
             # exception up further. No need for an event: the exception will
             # do fine.
             f = GoAwayFrame(0)
             f.last_stream_id = sorted(self.streams.keys())[-1]
-            f.error_code = errors.PROTOCOL_ERROR
+            f.error_code = e.error_code
             self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
             self._prepare_for_sending([f])
             raise
