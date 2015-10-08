@@ -405,9 +405,9 @@ class H2Stream(object):
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
 
-        # The curent value of the stream flow control window on the outbound
-        # side of the stream.
+        # The curent value of the stream flow control windows
         self.outbound_flow_control_window = 65535
+        self.inbound_flow_control_window = 65535
 
     @property
     def open(self):
@@ -553,11 +553,12 @@ class H2Stream(object):
         events[0].headers = headers
         return [], events
 
-    def receive_data(self, data, end_stream):
+    def receive_data(self, data, end_stream, flow_control_len):
         """
         Receive some data.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
+        self.inbound_flow_control_window -= flow_control_len
 
         if end_stream:
             events += self.state_machine.process_input(

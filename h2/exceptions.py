@@ -5,6 +5,7 @@ h2/exceptions
 
 Exceptions for the HTTP/2 module.
 """
+import h2.errors
 
 
 class H2Error(Exception):
@@ -17,7 +18,7 @@ class ProtocolError(H2Error):
     """
     An action was attempted in violation of the HTTP/2 protocol.
     """
-    pass
+    error_code = h2.errors.PROTOCOL_ERROR
 
 
 class FrameTooLargeError(ProtocolError):
@@ -35,16 +36,16 @@ class TooManyStreamsError(ProtocolError):
     pass
 
 
+class FlowControlError(ProtocolError):
+    """
+    An attempted action violates flow control constraints.
+    """
+    error_code = h2.errors.FLOW_CONTROL_ERROR
+
+
 class NoSuchStreamError(H2Error):
     """
     A stream-specific action referenced a stream that does not exist.
     """
     def __init__(self, stream_id):
         self.stream_id = stream_id
-
-
-class FlowControlError(H2Error):
-    """
-    An attempted action violates flow control constraints.
-    """
-    pass
