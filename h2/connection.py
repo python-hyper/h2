@@ -13,7 +13,6 @@ from hyperframe.frame import (
 )
 from hpack.hpack import Encoder, Decoder
 
-from . import errors
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged,
