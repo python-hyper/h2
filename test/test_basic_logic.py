@@ -481,6 +481,45 @@ class TestBasicClient(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    def test_can_send_trailers(self, frame_factory):
+        """
+        When a second set of headers are sent, they are properly trailers.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, self.example_request_headers)
+
+        # Now send trailers.
+        trailers = [('content-length', '0')]
+        c.send_headers(1, trailers, end_stream=True)
+
+        frame_factory.refresh_encoder()
+        f1 = frame_factory.build_headers_frame(
+            self.example_request_headers,
+        )
+        f2 = frame_factory.build_headers_frame(
+            trailers,
+            flags=['END_STREAM'],
+        )
+        assert c.data_to_send() == f1.serialize() + f2.serialize()
+
+    def test_trailers_must_have_end_stream(self, frame_factory):
+        """
+        A set of trailers must carry the END_STREAM flag.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Send headers.
+        c.send_headers(1, self.example_request_headers)
+
+        # Now send trailers.
+        trailers = [('content-length', '0')]
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(1, trailers)
+
 
 class TestBasicServer(object):
     """
@@ -1084,3 +1123,48 @@ class TestBasicServer(object):
             last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_can_send_trailers(self, frame_factory):
+        """
+        When a second set of headers are sent, they are properly trailers.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        # Send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, self.example_response_headers)
+
+        # Now send trailers.
+        trailers = [('content-length', '0')]
+        c.send_headers(1, trailers, end_stream=True)
+
+        frame_factory.refresh_encoder()
+        f1 = frame_factory.build_headers_frame(
+            self.example_response_headers,
+        )
+        f2 = frame_factory.build_headers_frame(
+            trailers,
+            flags=['END_STREAM'],
+        )
+        assert c.data_to_send() == f1.serialize() + f2.serialize()
+
+    def test_trailers_must_have_end_stream(self, frame_factory):
+        """
+        A set of trailers must carry the END_STREAM flag.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        # Send headers.
+        c.send_headers(1, self.example_response_headers)
+
+        # Now send trailers.
+        trailers = [('content-length', '0')]
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(1, trailers)

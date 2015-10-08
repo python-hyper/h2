@@ -114,7 +114,9 @@ class H2StreamStateMachine(object):
         #: Whether this peer is the client side of this stream.
         self.client = None
 
-        # Whether trailers have been received on this stream or not.
+        # Whether trailers have been sent/received on this stream or not.
+        self.headers_sent = None
+        self.trailers_sent = None
         self.headers_received = None
         self.trailers_received = None
 
@@ -258,14 +260,21 @@ class H2StreamStateMachine(object):
         Fires when a request is sent.
         """
         self.client = True
+        self.headers_sent = True
         return []
 
     def response_sent(self):
         """
-        Fires when something that should be a response is sent.
+        Fires when something that should be a response is sent. This 'response'
+        may actually be trailers.
         """
-        if self.client is True or self.client is None:
-            raise ProtocolError("Client cannot send responses.")
+        if not self.headers_sent:
+            if self.client is True or self.client is None:
+                raise ProtocolError("Client cannot send responses.")
+            self.headers_sent = True
+        else:
+            assert not self.trailers_sent
+            self.trailers_sent = True
 
         return []
 
@@ -431,6 +440,9 @@ class H2Stream(object):
             # frame, not the CONTINUATION frames that follow.
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             frames[0].flags.add('END_STREAM')
+
+        if self.state_machine.trailers_sent and not end_stream:
+            raise ProtocolError("Trailers must have END_STREAM set.")
 
         return frames, events
 
