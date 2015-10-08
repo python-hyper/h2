@@ -167,3 +167,85 @@ class TestFlowControl(object):
 
         c.send_headers(1, self.example_request_headers)
         assert c.flow_control_window(1) == 128000
+
+    def test_window_update_no_stream(self, frame_factory):
+        """
+        WindowUpdate frames received without streams fire an appropriate
+        WindowUpdated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=0,
+            increment=5
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.WindowUpdated)
+        assert event.stream_id == 0
+        assert event.delta == 5
+
+    def test_window_update_with_stream(self, frame_factory):
+        """
+        WindowUpdate frames received with streams fire an appropriate
+        WindowUpdated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        f1 = frame_factory.build_headers_frame(self.example_request_headers)
+        f2 = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=66
+        )
+        data = b''.join(map(lambda f: f.serialize(), [f1, f2]))
+        events = c.receive_data(data)
+
+        assert len(events) == 2
+        event = events[1]
+
+        assert isinstance(event, h2.events.WindowUpdated)
+        assert event.stream_id == 1
+        assert event.delta == 66
+
+    def test_we_can_increment_stream_flow_control(self, frame_factory):
+        """
+        It is possible for the user to increase the flow control window for
+        streams.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=5
+        )
+
+        events = c.increment_flow_control_window(increment=5, stream_id=1)
+        assert not events
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_we_can_increment_connection_flow_control(self, frame_factory):
+        """
+        It is possible for the user to increase the flow control window for
+        the entire connection.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=0,
+            increment=5
+        )
+
+        events = c.increment_flow_control_window(increment=5)
+        assert not events
+        assert c.data_to_send() == expected_frame.serialize()
