@@ -131,7 +131,7 @@ address first. So let's do that. Try setting up your file to look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         print(sock.accept())
@@ -237,7 +237,7 @@ function. Your ``h2server.py`` should end up looking a like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -329,7 +329,7 @@ Your ``h2server.py`` script should now look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -514,7 +514,7 @@ With these changes, your ``h2server.py`` file should look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -616,7 +616,7 @@ file, which should now look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
