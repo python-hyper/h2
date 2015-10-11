@@ -54,6 +54,40 @@ this document, we'll do just that.
 
 Some important subtleties of ``H2Connection`` objects are covered in
 :doc:`advanced-usage`: see :ref:`h2-connection-advanced` for more information.
+However, one subtlety should be covered, and that is this: Hyper-h2's
+``H2Connection`` object doesn't do I/O. Let's talk briefly about why.
+
+I/O
+~~~
+
+Any useful HTTP/2 tool eventually needs to do I/O. This is because it's not
+very useful to be able to speak to other computers using a protocol like HTTP/2
+unless you actually *speak* to them sometimes.
+
+However, doing I/O is not a trivial thing: there are lots of different ways to
+do it, and once you choose a way to do it your code usually won't work well
+with the approaches you *didn't* choose.
+
+While there are lots of different ways to do I/O, when it comes down to it
+all HTTP/2 implementations transform bytes received into events, and events
+into bytes to send. So there's no reason to have lots of different versions of
+this core protocol code: one for Twisted, one for gevent, one for threading,
+and one for synchronous code.
+
+This is why we said at the top that Hyper-h2 is a *HTTP/2 Protocol Stack*, not
+a *fully-fledged implementation*. Hyper-h2 knows how to transform bytes into
+events and back, but that's it. The I/O and smarts might be different, but
+the core HTTP/2 logic is the same: that's what Hyper-h2 provides.
+
+Not doing I/O makes Hyper-h2 general, and also relatively simple. It has an
+easy-to-understand performance envelope, it's easy to test (and as a result
+easy to get correct behaviour out of), and it behaves in a reproducible way.
+These are all great traits to have in a library that is doing something quite
+complex.
+
+This document will talk you through how to build a relatively simple HTTP/2
+implementation using Hyper-h2, to give you an understanding of where it fits in
+your software.
 
 
 .. _h2-events-basic:
