@@ -103,7 +103,8 @@ framework of some kind: see the `examples directory`_ in the repository for
 some examples of how you'd do that.
 
 Before we start, create a new file called ``h2server.py``: we'll use that as
-our workspace.
+our workspace. Additionally, you should install Hyper-h2: follow the
+instructions in :doc:`installation`.
 
 Step 1: Sockets
 ~~~~~~~~~~~~~~~
