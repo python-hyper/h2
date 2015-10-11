@@ -2,8 +2,9 @@ Getting Started: Writing Your Own HTTP/2 Server
 ===============================================
 
 This document explains how to get started writing fully-fledged HTTP/2
-implementations using Hyper-h2. It covers the basic concepts you need to
-understand, and talks you through writing a very simple HTTP/2 server.
+implementations using Hyper-h2 as the underlying protocol stack. It covers the
+basic concepts you need to understand, and talks you through writing a very
+simple HTTP/2 server.
 
 This document assumes you're moderately familiar with writing Python, and have
 *some* understanding of how computer networks work. If you don't, you'll find

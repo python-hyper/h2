@@ -7,7 +7,7 @@ Hyper-h2: A pure-Python HTTP/2 protocol stack
 =============================================
 
 Hyper-h2 is a HTTP/2 protocol stack, written entirely in Python. The goal of
-Hyper-h2 is to be a common HTTP/2 implementation for the Python ecosystem,
+Hyper-h2 is to be a common HTTP/2 stack for the Python ecosystem,
 usable in all programs regardless of concurrency model or environment.
 
 To achieve this, Hyper-h2 is entirely self-contained: it does no I/O of any
