@@ -668,9 +668,9 @@ see something like the following output from ``hyper``:
 
 Here you can see the HTTP/2 request 'special headers' that ``hyper`` sends.
 These are similar to the ``:status`` header we have to send on our response:
-they encode import parts of the HTTP request in a clearly-defined way. If you
-were writing a client stack using Hyper-h2, you'd need to make sure you were
-sending those headers.
+they encode important parts of the HTTP request in a clearly-defined way. If
+you were writing a client stack using Hyper-h2, you'd need to make sure you
+were sending those headers.
 
 Congratulations!
 ~~~~~~~~~~~~~~~~
