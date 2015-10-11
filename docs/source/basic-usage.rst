@@ -261,8 +261,10 @@ socket, in a loop. We then passed that data to the connection object, which
 returned us a single event object:
 :class:`RemoteSettingsChanged <h2.events.RemoteSettingsChanged>`.
 
-But what we didn't see was ``hyper`` making a request, and ``hyper`` was
-clearly hanging, waiting for something. Why?
+But what we didn't see was anything else. So it seems like all ``hyper`` did
+was change its settings, but nothing else. If you look at the other ``hyper``
+window, you'll notice that it hangs for a while and then eventually fails with
+a socket timeout. It was waiting for something: what?
 
 Well, it turns out that at the start of a connection, both sides need to send
 a bit of data, called "the HTTP/2 preamble". We don't need to get into too much
