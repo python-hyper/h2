@@ -23,18 +23,17 @@ abstract representation of the state of a single HTTP/2 connection, and holds
 all the important protocol state. When using Hyper-h2, this object will be the
 first thing you create and the object that does most of the heavy lifting.
 
-The interface to this object is relatively simple. For emitting data, at the
-"top" of the object you call it with methods indicating what actions you want
-to perform: for example, you may want to
-:meth:`send headers <h2.connection.H2Connection.send_headers>` or
-:meth:`send data <h2.connection.H2Connection.send_data>`. At the "bottom" of
-the object, you
-:meth:`get some bytes <h2.connection.H2Connection.data_to_send>` from the
-object that represent the HTTP/2-encoded representation of your actions, and
-send them out over the network.
+The interface to this object is relatively simple. For sending data, at the
+call the object with methods indicating what actions you want to perform: for
+example, you may want to send headers (you'd use the
+:meth:`send_headers <h2.connection.H2Connection.send_headers>` method), or
+send data (you'd use the
+:meth:`send_data <h2.connection.H2Connection.send_data>` method). After you've
+decided what actions you want to perform, you get some bytes out of the object
+that represent the HTTP/2-encoded representation of your actions, and send them
+out over the network however you see fit.
 
-When you receive data from the network, you
-:meth:`pass it in <h2.connection.H2Connection.receive_data>` to the
+When you receive data from the network, you pass that data in to the
 ``H2Connection`` object, which returns a list of *events*.
 These events, covered in more detail later in :ref:`h2-events-basic`, define
 the set of actions the remote peer has performed on the connection, as
