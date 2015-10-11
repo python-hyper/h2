@@ -2,8 +2,9 @@ Getting Started: Writing Your Own HTTP/2 Server
 ===============================================
 
 This document explains how to get started writing fully-fledged HTTP/2
-implementations using Hyper-h2. It covers the basic concepts you need to
-understand, and talks you through writing a very simple HTTP/2 server.
+implementations using Hyper-h2 as the underlying protocol stack. It covers the
+basic concepts you need to understand, and talks you through writing a very
+simple HTTP/2 server.
 
 This document assumes you're moderately familiar with writing Python, and have
 *some* understanding of how computer networks work. If you don't, you'll find
@@ -22,24 +23,24 @@ abstract representation of the state of a single HTTP/2 connection, and holds
 all the important protocol state. When using Hyper-h2, this object will be the
 first thing you create and the object that does most of the heavy lifting.
 
-The interface to this object is relatively simple. For emitting data, at the
-"top" of the object you call it with methods indicating what actions you want
-to perform: for example, you may want to
-:meth:`send headers <h2.connection.H2Connection.send_headers>` or
-:meth:`send data <h2.connection.H2Connection.send_data>`. At the "bottom" of
-the object, you
-:meth:`get some bytes <h2.connection.H2Connection.data_to_send>` from the
-object that represent the HTTP/2-encoded representation of your actions, and
-send them out over the network.
+The interface to this object is relatively simple. For sending data, at the
+call the object with methods indicating what actions you want to perform: for
+example, you may want to send headers (you'd use the
+:meth:`send_headers <h2.connection.H2Connection.send_headers>` method), or
+send data (you'd use the
+:meth:`send_data <h2.connection.H2Connection.send_data>` method). After you've
+decided what actions you want to perform, you get some bytes out of the object
+that represent the HTTP/2-encoded representation of your actions, and send them
+out over the network however you see fit.
 
-When you receive data from the network, you
-:meth:`pass it in <h2.connection.H2Connection.receive_data>` to the
+When you receive data from the network, you pass that data in to the
 ``H2Connection`` object, which returns a list of *events*.
 These events, covered in more detail later in :ref:`h2-events-basic`, define
 the set of actions the remote peer has performed on the connection, as
 represented by the HTTP/2-encoded data you just passed to the object.
 
-Thus, you end up with a simple loop:
+Thus, you end up with a simple loop (which you may recognise as a more-specific
+form of an `event loop`_):
 
     1. First, you perform some actions.
     2. You send the data created by performing those actions to the network.
@@ -53,6 +54,40 @@ this document, we'll do just that.
 
 Some important subtleties of ``H2Connection`` objects are covered in
 :doc:`advanced-usage`: see :ref:`h2-connection-advanced` for more information.
+However, one subtlety should be covered, and that is this: Hyper-h2's
+``H2Connection`` object doesn't do I/O. Let's talk briefly about why.
+
+I/O
+~~~
+
+Any useful HTTP/2 tool eventually needs to do I/O. This is because it's not
+very useful to be able to speak to other computers using a protocol like HTTP/2
+unless you actually *speak* to them sometimes.
+
+However, doing I/O is not a trivial thing: there are lots of different ways to
+do it, and once you choose a way to do it your code usually won't work well
+with the approaches you *didn't* choose.
+
+While there are lots of different ways to do I/O, when it comes down to it
+all HTTP/2 implementations transform bytes received into events, and events
+into bytes to send. So there's no reason to have lots of different versions of
+this core protocol code: one for Twisted, one for gevent, one for threading,
+and one for synchronous code.
+
+This is why we said at the top that Hyper-h2 is a *HTTP/2 Protocol Stack*, not
+a *fully-fledged implementation*. Hyper-h2 knows how to transform bytes into
+events and back, but that's it. The I/O and smarts might be different, but
+the core HTTP/2 logic is the same: that's what Hyper-h2 provides.
+
+Not doing I/O makes Hyper-h2 general, and also relatively simple. It has an
+easy-to-understand performance envelope, it's easy to test (and as a result
+easy to get correct behaviour out of), and it behaves in a reproducible way.
+These are all great traits to have in a library that is doing something quite
+complex.
+
+This document will talk you through how to build a relatively simple HTTP/2
+implementation using Hyper-h2, to give you an understanding of where it fits in
+your software.
 
 
 .. _h2-events-basic:
@@ -102,7 +137,8 @@ framework of some kind: see the `examples directory`_ in the repository for
 some examples of how you'd do that.
 
 Before we start, create a new file called ``h2server.py``: we'll use that as
-our workspace.
+our workspace. Additionally, you should install Hyper-h2: follow the
+instructions in :doc:`installation`.
 
 Step 1: Sockets
 ~~~~~~~~~~~~~~~
@@ -130,7 +166,7 @@ address first. So let's do that. Try setting up your file to look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         print(sock.accept())
@@ -236,7 +272,7 @@ function. Your ``h2server.py`` should end up looking a like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -259,8 +295,10 @@ socket, in a loop. We then passed that data to the connection object, which
 returned us a single event object:
 :class:`RemoteSettingsChanged <h2.events.RemoteSettingsChanged>`.
 
-But what we didn't see was ``hyper`` making a request, and ``hyper`` was
-clearly hanging, waiting for something. Why?
+But what we didn't see was anything else. So it seems like all ``hyper`` did
+was change its settings, but nothing else. If you look at the other ``hyper``
+window, you'll notice that it hangs for a while and then eventually fails with
+a socket timeout. It was waiting for something: what?
 
 Well, it turns out that at the start of a connection, both sides need to send
 a bit of data, called "the HTTP/2 preamble". We don't need to get into too much
@@ -328,7 +366,7 @@ Your ``h2server.py`` script should now look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -513,7 +551,7 @@ With these changes, your ``h2server.py`` file should look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -615,7 +653,7 @@ file, which should now look like this:
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', 8080))
-    sock.listen()
+    sock.listen(5)
 
     while True:
         handle(sock.accept()[0])
@@ -652,6 +690,7 @@ it, there are a few directions you could investigate:
 
 
 
+.. _event loop: https://en.wikipedia.org/wiki/Event_loop
 .. _httpbin.org/get: https://httpbin.org/get
 .. _examples directory: https://github.com/python-hyper/hyper-h2/tree/master/examples
 .. _standard library's socket module: https://docs.python.org/3.5/library/socket.html
