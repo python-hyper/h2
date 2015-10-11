@@ -39,7 +39,8 @@ These events, covered in more detail later in :ref:`h2-events-basic`, define
 the set of actions the remote peer has performed on the connection, as
 represented by the HTTP/2-encoded data you just passed to the object.
 
-Thus, you end up with a simple loop:
+Thus, you end up with a simple loop (which you may recognise as a more-specific
+form of an `event loop`_):
 
     1. First, you perform some actions.
     2. You send the data created by performing those actions to the network.
@@ -652,6 +653,7 @@ it, there are a few directions you could investigate:
 
 
 
+.. _event loop: https://en.wikipedia.org/wiki/Event_loop
 .. _httpbin.org/get: https://httpbin.org/get
 .. _examples directory: https://github.com/python-hyper/hyper-h2/tree/master/examples
 .. _standard library's socket module: https://docs.python.org/3.5/library/socket.html
