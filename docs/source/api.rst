@@ -75,6 +75,13 @@ Protocol Errors
    :members:
 
 
+HTTP/2 Error Codes
+------------------
+
+.. automodule:: h2.errors
+   :members:
+
+
 Settings
 --------
 
