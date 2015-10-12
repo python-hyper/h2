@@ -49,6 +49,32 @@ Events
    :members:
 
 
+Exceptions
+----------
+
+.. autoclass:: h2.exceptions.H2Error
+   :members:
+
+.. autoclass:: h2.exceptions.NoSuchStreamError
+   :members:
+
+
+Protocol Errors
+~~~~~~~~~~~~~~~
+
+.. autoclass:: h2.exceptions.ProtocolError
+   :members:
+
+.. autoclass:: h2.exceptions.FrameTooLargeError
+   :members:
+
+.. autoclass:: h2.exceptions.TooManyStreamsError
+   :members:
+
+.. autoclass:: h2.exceptions.FlowControlError
+   :members:
+
+
 Settings
 --------
 
