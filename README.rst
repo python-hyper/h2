@@ -14,14 +14,12 @@ programming paradigm.
 
 You use it like this::
 
-    import h2
+    import h2.connection
 
-    conn = h2.Connection()
+    conn = h2.connection.Connection()
     frames, stream_id = conn.send_headers(headers)
     data_frames = conn.send_data(stream_id, data)
-    response_headers = conn.recv_header_frames(received_header_frames)
-    response_data = conn.recv_data_frames(received_data_frames)
-
+    events = conn.receive_data(socket_data)
 
 This repository does not provide a parsing layer, a network layer, or any rules
 about concurrency. Instead, it's a purely in-memory solution, defined in terms
