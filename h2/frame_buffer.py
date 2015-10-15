@@ -62,10 +62,18 @@ class FrameBuffer(object):
         if len(self.data) < length + 9:
             raise StopIteration()
 
+        # Don't try to parse the body if we didn't get a frame we know about:
+        # there's nothing we can do with it anyway.
         if f is not None:
             f.parse_body(memoryview(self.data[9:9+length]))
 
         self.data = self.data[9+length:]
+
+        # If we got a frame we didn't understand, rather than return None it'd
+        # be better if we just tried to get the next frame in the sequence
+        # instead. Recurse back into ourselves to do that.
+        # This is safe because the amount of work we have to do here is
+        # strictly bounded by the length of the buffer.
         return f if f is not None else self.next()
 
     def __next__(self):  # Python 3
