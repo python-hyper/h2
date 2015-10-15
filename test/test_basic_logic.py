@@ -1086,3 +1086,16 @@ class TestBasicServer(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(1, trailers)
+
+    @pytest.mark.parametrize("frame_id", range(12, 256))
+    def test_unknown_frames_are_ignored(self, frame_factory, frame_id):
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_data_frame(data=b'abcdefghtdst')
+        f.type = frame_id
+
+        events = c.receive_data(f.serialize())
+        assert not events
+        assert not c.data_to_send()
