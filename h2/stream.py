@@ -35,12 +35,14 @@ class StreamInputs(Enum):
     SEND_DATA = 3
     SEND_WINDOW_UPDATE = 4
     SEND_END_STREAM = 5
-    RECV_HEADERS = 6
-    RECV_PUSH_PROMISE = 7
-    RECV_RST_STREAM = 8
-    RECV_DATA = 9
-    RECV_WINDOW_UPDATE = 10
-    RECV_END_STREAM = 11
+    SEND_PRIORITY = 6
+    RECV_HEADERS = 7
+    RECV_PUSH_PROMISE = 8
+    RECV_RST_STREAM = 9
+    RECV_DATA = 10
+    RECV_WINDOW_UPDATE = 11
+    RECV_END_STREAM = 12
+    RECV_PRIORITY = 13
 
 
 class H2StreamStateMachine(object):
@@ -134,6 +136,10 @@ class H2StreamStateMachine(object):
                 (self.send_new_pushed_stream, StreamState.RESERVED_LOCAL),
             (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
                 (self.recv_new_pushed_stream, StreamState.RESERVED_REMOTE),
+            (StreamState.IDLE, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.IDLE),
+            (StreamState.IDLE, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.IDLE),
 
             # State: reserved local
             (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
@@ -146,6 +152,10 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
                 (self.stream_reset, StreamState.CLOSED),
+            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.RESERVED_LOCAL),
+            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.RESERVED_LOCAL),
 
             # State: reserved remote
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
@@ -158,6 +168,10 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
                 (self.stream_reset, StreamState.CLOSED),
+            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.RESERVED_REMOTE),
+            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.RESERVED_REMOTE),
 
             # State: open
             (StreamState.OPEN, StreamInputs.SEND_HEADERS):
@@ -184,6 +198,10 @@ class H2StreamStateMachine(object):
                 (self.send_push_promise, StreamState.OPEN),
             (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
                 (self.recv_push_promise, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.OPEN),
+            (StreamState.OPEN, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.OPEN),
 
             # State: half-closed remote
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
@@ -202,6 +220,10 @@ class H2StreamStateMachine(object):
                 (self.stream_reset, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
                 (self.send_push_promise, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.HALF_CLOSED_REMOTE),
+            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.HALF_CLOSED_REMOTE),
 
             # State: half-closed local
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -220,10 +242,18 @@ class H2StreamStateMachine(object):
                 (self.stream_reset, StreamState.CLOSED),
             (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
                 (self.recv_push_promise, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.HALF_CLOSED_LOCAL),
+            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.HALF_CLOSED_LOCAL),
 
             # State: closed
             (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
                 (self.window_updated, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.SEND_PRIORITY):
+                (None, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
+                (None, StreamState.CLOSED),
         }
 
     def process_input(self, input_):
@@ -596,6 +626,13 @@ class H2Stream(object):
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
         events[0].error_code = frame.error_code
         return [], events
+
+    def priority_changed_remote(self, frame):
+        """
+        The remote side of the stream sent priority information.
+        """
+        # TODO: Write a proper priority implementation.
+        return []
 
     def _build_headers_frames(self,
                               headers,
