@@ -1,7 +1,7 @@
 Release History
 ===============
 
-dev
----
+1.0.0 (2015-10-15)
+------------------
 
-- Conception
+- First production release!
