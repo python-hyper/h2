@@ -6,6 +6,7 @@ h2/frame_buffer
 A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
+from hyperframe.exceptions import UnknownFrameError
 from hyperframe.frame import Frame
 
 from .exceptions import ProtocolError
@@ -48,13 +49,24 @@ class FrameBuffer(object):
         if len(self.data) < 9:
             raise StopIteration()
 
-        f, length = Frame.parse_frame_header(self.data[:9])
+        try:
+            f, length = Frame.parse_frame_header(self.data[:9])
+        except UnknownFrameError as e:
+            # Here we do something a bit odd. We want to consume the frame data
+            # as consistently as possible, but we also don't ever want to yield
+            # None. Instead, we make sure that, if there is no frame, we
+            # recurse into ourselves.
+            length = e.length
+            f = None
+
         if len(self.data) < length + 9:
             raise StopIteration()
 
-        f.parse_body(memoryview(self.data[9:9+length]))
+        if f is not None:
+            f.parse_body(memoryview(self.data[9:9+length]))
+
         self.data = self.data[9+length:]
-        return f
+        return f if f is not None else self.next()
 
     def __next__(self):  # Python 3
         return self.next()
