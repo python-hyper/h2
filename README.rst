@@ -26,6 +26,10 @@ about concurrency. Instead, it's a purely in-memory solution, defined in terms
 of data actions and HTTP/2 frames. This is one building block of a full Python
 HTTP implementation.
 
+To install it, just run::
+
+    pip install h2
+
 Contributing
 ============
 
