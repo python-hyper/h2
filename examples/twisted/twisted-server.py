@@ -135,11 +135,11 @@ class H2Protocol(Protocol):
         """
         keep_reading = True
         while keep_reading:
-            while not self.conn.flow_control_window(stream_id):
+            while not self.conn.remote_flow_control_window(stream_id):
                 yield self.wait_for_flow_control(stream_id)
 
             chunk_size = min(
-                self.conn.flow_control_window(stream_id), READ_CHUNK_SIZE
+                self.conn.remote_flow_control_window(stream_id), READ_CHUNK_SIZE
             )
             data = file.read(chunk_size)
             keep_reading = len(data) == chunk_size
