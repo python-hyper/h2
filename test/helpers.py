@@ -7,7 +7,7 @@ This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
     HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
-    GoAwayFrame, RstStreamFrame, PushPromiseFrame
+    GoAwayFrame, RstStreamFrame, PushPromiseFrame, PriorityFrame
 )
 from hpack.hpack import Encoder
 
@@ -114,4 +114,18 @@ class FrameFactory(object):
         f.promised_stream_id = promised_stream_id
         f.data = self.encoder.encode(headers)
         f.flags = set(flags)
+        return f
+
+    def build_priority_frame(self,
+                             stream_id,
+                             weight,
+                             depends_on=0,
+                             exclusive=False):
+        """
+        Builds a single priority frame.
+        """
+        f = PriorityFrame(stream_id)
+        f.depends_on = depends_on
+        f.stream_weight = weight
+        f.exclusive = exclusive
         return f

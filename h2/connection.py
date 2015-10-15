@@ -9,7 +9,7 @@ from enum import Enum
 
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
-    PushPromiseFrame, SettingsFrame, RstStreamFrame,
+    PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
 )
 from hpack.hpack import Encoder, Decoder
 
@@ -42,14 +42,16 @@ class ConnectionInputs(Enum):
     SEND_PING = 5
     SEND_SETTINGS = 6
     SEND_RST_STREAM = 7
-    RECV_HEADERS = 8
-    RECV_PUSH_PROMISE = 9
-    RECV_DATA = 10
-    RECV_GOAWAY = 11
-    RECV_WINDOW_UPDATE = 12
-    RECV_PING = 13
-    RECV_SETTINGS = 14
-    RECV_RST_STREAM = 15
+    SEND_PRIORITY = 8
+    RECV_HEADERS = 9
+    RECV_PUSH_PROMISE = 10
+    RECV_DATA = 11
+    RECV_GOAWAY = 12
+    RECV_WINDOW_UPDATE = 13
+    RECV_PING = 14
+    RECV_SETTINGS = 15
+    RECV_RST_STREAM = 16
+    RECV_PRIORITY = 17
 
 
 class H2ConnectionStateMachine(object):
@@ -91,6 +93,10 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.SEND_GOAWAY):
             (None, ConnectionState.CLOSED),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_PRIORITY):
+            (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_PRIORITY):
+            (None, ConnectionState.IDLE),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -104,6 +110,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_PING):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_SETTINGS):
+            (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_PRIORITY):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_HEADERS):
             (None, ConnectionState.CLIENT_OPEN),
@@ -123,6 +131,8 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_RST_STREAM):
             (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PRIORITY):
+            (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, server side.
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -139,6 +149,8 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_SETTINGS):
             (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_PRIORITY):
+            (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_HEADERS):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_DATA):
@@ -150,6 +162,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PING):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_SETTINGS):
+            (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PRIORITY):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_RST_STREAM):
             (None, ConnectionState.SERVER_OPEN),
@@ -245,6 +259,7 @@ class H2Connection(object):
             WindowUpdateFrame: self._receive_window_update_frame,
             PingFrame: self._receive_ping_frame,
             RstStreamFrame: self._receive_rst_stream_frame,
+            PriorityFrame: self._receive_priority_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -828,6 +843,18 @@ class H2Connection(object):
         stream_frames, stream_events = stream.stream_reset(frame)
 
         return stream_frames, events + stream_events
+
+    def _receive_priority_frame(self, frame):
+        """
+        Receive a PRIORITY frame on the connection.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_PRIORITY
+        )
+        stream = self.get_or_create_stream(frame.stream_id)
+        stream_events = stream.priority_changed_remote(frame)
+
+        return [], events + stream_events
 
     def _local_settings_acked(self):
         """
