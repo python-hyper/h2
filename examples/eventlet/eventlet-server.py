@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-twisted-server.py
-~~~~~~~~~~~~~~~~~
+eventlet-server.py
+~~~~~~~~~~~~~~~~~~
 
 A fully-functional HTTP/2 server written for Eventlet.
 """
