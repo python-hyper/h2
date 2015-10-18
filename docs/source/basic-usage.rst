@@ -692,6 +692,11 @@ it, there are a few directions you could investigate:
   `examples directory`_. These examples are a bit more fully-featured, and can
   be reached from your web browser. Try adjusting what they do, or adding new
   features to them!
+- You may want to make this server reachable from your web browser. To do that,
+  you'll need to add proper TLS support to your server. This can be tricky, and
+  in many cases requires `PyOpenSSL`_ in addition to the other libraries you
+  have installed. Check the `Eventlet example`_ to see what PyOpenSSL code is
+  required to TLS-ify your server.
 
 
 
@@ -702,3 +707,5 @@ it, there are a few directions you could investigate:
 .. _Application Layer Protocol Negotiation: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
 .. _get your certificate here: https://raw.githubusercontent.com/python-hyper/hyper-h2/master/examples/twisted/server.crt
 .. _get your private key here: https://raw.githubusercontent.com/python-hyper/hyper-h2/master/examples/twisted/server.key
+.. _PyOpenSSL: http://pyopenssl.readthedocs.org/
+.. _Eventlet example: https://github.com/python-hyper/hyper-h2/blob/master/examples/eventlet/eventlet-server.py
