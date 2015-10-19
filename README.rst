@@ -30,6 +30,11 @@ To install it, just run::
 
     pip install h2
 
+Documentation
+=============
+
+Documentation is available at http://python-hyper.org/h2/.
+
 Contributing
 ============
 
