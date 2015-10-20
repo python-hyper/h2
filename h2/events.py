@@ -191,3 +191,21 @@ class SettingsAcknowledged(object):
         #: :class:`ChangedSetting <h2.settings.ChangedSetting>`, representing
         #: the changed settings.
         self.changed_settings = {}
+
+
+class ConnectionTerminated(object):
+    """
+    The ConnectionTerminated event is fired when a connection is torn down by
+    the remote peer using a GOAWAY frame. Once received, no further action may
+    be taken on the connection: a new connection must be established.
+    """
+    def __init__(self):
+        #: The error code cited when tearing down the connection. Should be
+        #: one of :data:`H2ERRORS <h2.errors.H2_ERRORS>`, but may not be if
+        #: unknown HTTP/2 extensions are being used.
+        self.error_code = None
+
+        #: The stream ID of the last stream the remote peer saw. This can
+        #: provide an indication of what data, if any, never reached the remote
+        #: peer and so can safely be resent.
+        self.last_stream_id = None
