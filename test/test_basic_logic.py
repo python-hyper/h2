@@ -1117,3 +1117,44 @@ class TestBasicServer(object):
         f = frame_factory.build_goaway_frame(last_stream_id=0)
 
         assert c.data_to_send() == (f.serialize() * 3)
+
+    def test_receiving_goaway_frame(self, frame_factory):
+        """
+        Receiving a GOAWAY frame causes a ConnectionTerminated event to be
+        fired and transitions the connection to the CLOSED state, and clears
+        the outbound data buffer.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_goaway_frame(last_stream_id=5, error_code=4)
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ConnectionTerminated)
+        assert event.error_code == 4
+        assert event.last_stream_id == 5
+        assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
+
+        assert not c.data_to_send()
+
+    def test_receiving_multiple_goaway_frames(self, frame_factory):
+        """
+        Multiple GOAWAY frames can be received at once, and are allowed. Each
+        one fires a ConnectionTerminated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_goaway_frame(last_stream_id=0)
+        events = c.receive_data(f.serialize() * 3)
+
+        assert len(events) == 3
+        assert all(
+            isinstance(event, h2.events.ConnectionTerminated)
+            for event in events
+        )

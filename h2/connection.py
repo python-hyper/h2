@@ -15,7 +15,7 @@ from hpack.hpack import Encoder, Decoder
 
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
-    SettingsAcknowledged,
+    SettingsAcknowledged, ConnectionTerminated
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
@@ -92,6 +92,8 @@ class H2ConnectionStateMachine(object):
         (ConnectionState.IDLE, ConnectionInputs.RECV_PING):
             (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.SEND_GOAWAY):
+            (None, ConnectionState.CLOSED),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_GOAWAY):
             (None, ConnectionState.CLOSED),
         (ConnectionState.IDLE, ConnectionInputs.SEND_PRIORITY):
             (None, ConnectionState.IDLE),
@@ -266,6 +268,7 @@ class H2Connection(object):
             PingFrame: self._receive_ping_frame,
             RstStreamFrame: self._receive_rst_stream_frame,
             PriorityFrame: self._receive_priority_frame,
+            GoAwayFrame: self._receive_goaway_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -861,6 +864,25 @@ class H2Connection(object):
         stream_events = stream.priority_changed_remote(frame)
 
         return [], events + stream_events
+
+    def _receive_goaway_frame(self, frame):
+        """
+        Receive a GOAWAY frame on the connection.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_GOAWAY
+        )
+
+        # Clear the outbound data buffer: we cannot send further data now.
+        self.clear_outbound_data_buffer()
+
+        # Fire an appropriate ConnectionTerminated event.
+        new_event = ConnectionTerminated()
+        new_event.error_code = frame.error_code
+        new_event.last_stream_id = frame.last_stream_id
+        events.append(new_event)
+
+        return [], events
 
     def _local_settings_acked(self):
         """
