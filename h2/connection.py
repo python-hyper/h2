@@ -868,12 +868,6 @@ class H2Connection(object):
         """
         changes = self.local_settings.acknowledge()
 
-        # HEADER_TABLE_SIZE changes by us affect our decoder: cf.
-        # RFC 7540 Section 6.5.2.
-        if SettingsFrame.HEADER_TABLE_SIZE in changes:
-            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
-            self.decoder.header_table_size = setting.new_value
-
         if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
             setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
             self._inbound_flow_control_change_from_settings(
