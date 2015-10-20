@@ -1121,11 +1121,12 @@ class TestBasicServer(object):
     def test_receiving_goaway_frame(self, frame_factory):
         """
         Receiving a GOAWAY frame causes a ConnectionTerminated event to be
-        fired and transitions the connection to the CLOSED state.
+        fired and transitions the connection to the CLOSED state, and clears
+        the outbound data buffer.
         """
         c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
         c.receive_data(frame_factory.preamble())
-        c.clear_outbound_data_buffer()
 
         f = frame_factory.build_goaway_frame(last_stream_id=5, error_code=4)
         events = c.receive_data(f.serialize())
@@ -1137,6 +1138,8 @@ class TestBasicServer(object):
         assert event.error_code == 4
         assert event.last_stream_id == 5
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
+
+        assert not c.data_to_send()
 
     def test_receiving_multiple_goaway_frames(self, frame_factory):
         """
