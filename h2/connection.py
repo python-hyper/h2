@@ -169,6 +169,12 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_RST_STREAM):
             (None, ConnectionState.SERVER_OPEN),
+
+        # State: closed
+        (ConnectionState.CLOSED, ConnectionInputs.SEND_GOAWAY):
+            (None, ConnectionState.CLOSED),
+        (ConnectionState.CLOSED, ConnectionInputs.RECV_GOAWAY):
+            (None, ConnectionState.CLOSED),
     }
 
     def __init__(self):
