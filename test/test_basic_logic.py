@@ -1099,3 +1099,19 @@ class TestBasicServer(object):
         events = c.receive_data(f.serialize())
         assert not events
         assert not c.data_to_send()
+
+    def test_can_send_goaway_repeatedly(self, frame_factory):
+        """
+        We can send a GOAWAY frame as many times as we like.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        c.close_connection()
+        c.close_connection()
+        c.close_connection()
+
+        f = frame_factory.build_goaway_frame(last_stream_id=0)
+
+        assert c.data_to_send() == (f.serialize() * 3)
