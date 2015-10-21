@@ -5,7 +5,7 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
-from enum import Enum
+from enum import Enum, IntEnum
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
     RstStreamFrame, PushPromiseFrame,
@@ -18,7 +18,7 @@ from .events import (
 from .exceptions import ProtocolError
 
 
-class StreamState(Enum):
+class StreamState(IntEnum):
     IDLE = 0
     RESERVED_REMOTE = 1
     RESERVED_LOCAL = 2
@@ -43,6 +43,17 @@ class StreamInputs(Enum):
     RECV_WINDOW_UPDATE = 11
     RECV_END_STREAM = 12
     RECV_PRIORITY = 13
+
+
+# This array is initialized once, and is indexed by the stream states above.
+# It indicates whether a stream in the given state is open. The reason we do
+# this is that we potentially check whether a stream in a given state is open
+# quite frequently: given that we check so often, we should do so in the
+# fastest and most performant way possible.
+STREAM_OPEN = [False for _ in range(0, len(StreamState))]
+STREAM_OPEN[StreamState.OPEN] = True
+STREAM_OPEN[StreamState.HALF_CLOSED_LOCAL] = True
+STREAM_OPEN[StreamState.HALF_CLOSED_REMOTE] = True
 
 
 class H2StreamStateMachine(object):
@@ -448,11 +459,9 @@ class H2Stream(object):
         # RFC 7540 Section 5.1.2 defines 'open' for this purpose to mean either
         # the OPEN state or either of the HALF_CLOSED states. Perplexingly,
         # this excludes the reserved states.
-        return self.state_machine.state in (
-            StreamState.OPEN,
-            StreamState.HALF_CLOSED_LOCAL,
-            StreamState.HALF_CLOSED_REMOTE,
-        )
+        # For more detail on why we're doing this in this slightly weird way,
+        # see the comment on ``STREAM_OPEN`` at the top of the file.
+        return STREAM_OPEN[self.state_machine.state]
 
     def send_headers(self, headers, encoder, end_stream=False):
         """
