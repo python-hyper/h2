@@ -17,6 +17,7 @@ Bugfixes
   frames on one connection.
 - We no longer forcefully change the decoder table size when settings changes
   are ACKed, instead waiting for remote acknowledgement of the change.
+- Improve the performance of checking whether a stream is open.
 
 1.0.0 (2015-10-15)
 ------------------
