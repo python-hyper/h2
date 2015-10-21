@@ -4,7 +4,14 @@ Release History
 dev
 ---
 
-*Bugfixes*
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added a new ``ConnectionTerminated`` event, which fires when GOAWAY frames
+  are received.
+
+Bugfixes
+~~~~~~~~
 
 - Do not throw ``ProtocolError``s when attempting to send multiple GOAWAY
   frames on one connection.
