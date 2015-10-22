@@ -9,6 +9,9 @@ API Changes (Backward-Compatible)
 
 - Added a new ``ConnectionTerminated`` event, which fires when GOAWAY frames
   are received.
+- Added a subclass of ``NoSuchStreamError``, called ``StreamClosedError``, that
+  fires when actions are taken on a stream that is closed and has had its state
+  flushed from the system.
 
 Bugfixes
 ~~~~~~~~
