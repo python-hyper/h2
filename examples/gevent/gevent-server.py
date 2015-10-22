@@ -49,16 +49,16 @@ class ConnectionManager(object):
 
     def request_received(self, event):
         stream_id = event.stream_id
-        response_data = json.dumps({'headers': event.headers}, indent=4).encode('utf-8')
+        response_data = json.dumps({'headers': dict(event.headers)}, indent=4).encode('utf-8')
 
         self.conn.send_headers(
             stream_id=stream_id,
-            headers={
-                ':status': '200',
-                'server': 'gevent-h2',
-                'content-len': str(len(response_data)),
-                'content-type': 'application/json'
-            }
+            headers=(
+                (':status', '200'),
+                ('server', 'gevent-h2'),
+                ('content-len', len(response_data)),
+                ('content-type', 'application/json')
+            )
         )
 
         self.conn.send_data(
