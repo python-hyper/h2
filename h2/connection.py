@@ -703,6 +703,15 @@ class H2Connection(object):
             self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
             self._prepare_for_sending([f])
             raise
+        except StreamClosedError as e:
+            # We need to send a RST_STREAM frame on behalf of the stream.
+            # The frame the stream wants to emit is already present in the
+            # exception.
+            # This does not require re-raising: it's an expected behaviour.
+            f = RstStreamFrame(e.stream_id)
+            f.error_code = e.error_code
+            self._prepare_for_sending([f])
+            events = []
         else:
             self._prepare_for_sending(frames)
 
