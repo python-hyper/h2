@@ -19,7 +19,7 @@ from .events import (
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
-    TooManyStreamsError,
+    TooManyStreamsError, StreamClosedError
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -365,12 +365,16 @@ class H2Connection(object):
     def get_stream_by_id(self, stream_id):
         """
         Gets a stream by its stream ID. Raises NoSuchStreamError if the stream
-        ID does not correspond to a known stream.
+        ID does not correspond to a known stream and is higher than the current
+        maximum: raises if it is lower than the current maximum.
         """
         try:
             return self.streams[stream_id]
         except KeyError:
-            raise NoSuchStreamError(stream_id)
+            if stream_id > self.highest_stream_id:
+                raise NoSuchStreamError(stream_id)
+            else:
+                raise StreamClosedError(stream_id)
 
     def send_headers(self, stream_id, headers, end_stream=False):
         """
