@@ -265,6 +265,8 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
                 (None, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
         }
 
     def process_input(self, input_):
@@ -640,7 +642,11 @@ class H2Stream(object):
         Handle a stream being reset remotely.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
-        events[0].error_code = frame.error_code
+
+        if events:
+            # We don't fire an event if this stream is already closed.
+            events[0].error_code = frame.error_code
+
         return [], events
 
     def priority_changed_remote(self, frame):

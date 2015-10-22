@@ -856,8 +856,14 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_RST_STREAM
         )
-        stream = self.get_stream_by_id(frame.stream_id)
-        stream_frames, stream_events = stream.stream_reset(frame)
+        try:
+            stream = self.get_stream_by_id(frame.stream_id)
+        except NoSuchStreamError:
+            # The stream is missing. That's ok, we just do nothing here.
+            stream_frames = []
+            stream_events = []
+        else:
+            stream_frames, stream_events = stream.stream_reset(frame)
 
         return stream_frames, events + stream_events
 
