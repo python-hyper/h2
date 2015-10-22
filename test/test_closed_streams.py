@@ -93,3 +93,27 @@ class TestClosedStreams(object):
             error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == f.serialize()
+
+    def test_closed_stream_not_present_in_streams_dict(self, frame_factory):
+        """
+        When streams have been closed, they get removed from the streams
+        dictionary the next time we count the open streams.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.initiate_connection()
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+        c.push_stream(1, 2, self.example_request_headers)
+        c.reset_stream(1)
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_rst_stream_frame(stream_id=2)
+        c.receive_data(f.serialize())
+
+        # Force a count of the streams.
+        assert not c.open_outbound_streams
+
+        # The streams dictionary should be empty.
+        assert not c.streams
