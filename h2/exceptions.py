@@ -53,3 +53,18 @@ class NoSuchStreamError(H2Error):
     def __init__(self, stream_id):
         #: The stream ID that corresponds to the non-existent stream.
         self.stream_id = stream_id
+
+
+class StreamClosedError(NoSuchStreamError):
+    """
+    A more specific form of
+    :class:`NoSuchStreamError <h2.exceptions.NoSuchStreamError>`. Indicates
+    that the stream has since been closed, and that all state relating to that
+    stream has been removed.
+    """
+    def __init__(self, stream_id):
+        #: The stream ID that corresponds to the nonexistent stream.
+        self.stream_id = stream_id
+
+        #: The relevant HTTP/2 error code.
+        self.error_code = h2.errors.STREAM_CLOSED
