@@ -32,6 +32,11 @@ class TestClosedStreams(object):
 
         f = frame_factory.build_rst_stream_frame(stream_id=1)
         events = c.receive_data(f.serialize() * 3)
+
+        # Force an iteration over all the streams to remove them.
+        c.open_outbound_streams
+
+        # Receive more data.
         events += c.receive_data(f.serialize() * 3)
 
         assert len(events) == 1
@@ -59,6 +64,14 @@ class TestClosedStreams(object):
         f = frame_factory.build_rst_stream_frame(1, h2.errors.STREAM_CLOSED)
         assert not events
         assert c.data_to_send() == f.serialize()
+
+        events = c.receive_data(f.serialize() * 3)
+        assert not events
+        assert c.data_to_send() == f.serialize() * 3
+
+        # Iterate over the streams to make sure it's gone, then confirm the
+        # behaviour is unchanged.
+        c.open_outbound_streams
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
