@@ -19,7 +19,7 @@ from .events import (
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
-    TooManyStreamsError, StreamClosedError
+    TooManyStreamsError, StreamClosedError, StreamIDTooLowError
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -318,7 +318,7 @@ class H2Connection(object):
         Initiate a new stream.
         """
         if stream_id <= self.highest_stream_id:
-            raise ValueError(
+            raise StreamIDTooLowError(
                 "Stream ID must be larger than %s", self.highest_stream_id
             )
 
