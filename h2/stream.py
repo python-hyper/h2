@@ -15,7 +15,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived
 )
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, StreamClosedError
 
 
 class StreamState(IntEnum):
@@ -267,6 +267,18 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
                 (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
+
+            # While closed, all other received frames should cause RST_STREAM
+            # frames to be emitted. END_STREAM is always carried *by* a frame,
+            # so it should do nothing.
+            (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_DATA):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
+                (None, StreamState.CLOSED),
         }
 
     def process_input(self, input_):
@@ -282,7 +294,7 @@ class H2StreamStateMachine(object):
             old_state = self.state
             self.state = StreamState.CLOSED
             raise ProtocolError(
-                "Invalid input %s in state %s", input_, old_state
+                "Invalid input %s in state %s" % (input_, old_state)
             )
         else:
             self.state = target_state
@@ -431,6 +443,13 @@ class H2StreamStateMachine(object):
         event = PushedStreamReceived()
         event.parent_stream_id = self.stream_id
         return [event]
+
+    def send_reset(self):
+        """
+        Called when we need to forcefully emit another RST_STREAM frame on
+        behalf of the state machine.
+        """
+        raise StreamClosedError(self.stream_id)
 
 
 class H2Stream(object):

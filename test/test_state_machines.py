@@ -82,6 +82,11 @@ class TestStreamStateMachine(object):
             s.process_input(input_)
         except h2.exceptions.ProtocolError:
             assert s.state == h2.stream.StreamState.CLOSED
+        except h2.exceptions.StreamClosedError:
+            # This can only happen for streams that started in the closed
+            # state.
+            assert s.state == h2.stream.StreamState.CLOSED
+            assert state == h2.stream.StreamState.CLOSED
         else:
             assert s.state in h2.stream.StreamState
 
