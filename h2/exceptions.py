@@ -46,6 +46,28 @@ class FlowControlError(ProtocolError):
     error_code = h2.errors.FLOW_CONTROL_ERROR
 
 
+class StreamIDTooLowError(ProtocolError, ValueError):
+    """
+    An attempt was made to open a stream that had an ID that is lower than the
+    highest ID we have seen on this connection.
+
+    For backwards-compatibility reasons, this is also a subclass of
+    ``ValueError``.
+    """
+    # TODO: Remove inheritance from ValueError.
+    def __init__(self, stream_id, max_stream_id):
+        #: The ID of the stream that we attempted to open.
+        self.stream_id = stream_id
+
+        #: The current highest-seen stream ID.
+        self.max_stream_id = max_stream_id
+
+    def __str__(self):
+        return "StreamIDTooLowError: %d is lower than %d" % (
+            self.stream_id, self.max_stream_id
+        )
+
+
 class NoSuchStreamError(H2Error):
     """
     A stream-specific action referenced a stream that does not exist.

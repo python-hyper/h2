@@ -80,6 +80,9 @@ Protocol Errors
 .. autoclass:: h2.exceptions.FlowControlError
    :members:
 
+.. autoclass:: h2.exceptions.StreamIDTooLowError
+   :members:
+
 
 HTTP/2 Error Codes
 ------------------
