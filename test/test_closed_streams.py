@@ -58,24 +58,26 @@ class TestClosedStreams(object):
         c.reset_stream(1)
         c.clear_outbound_data_buffer()
 
-        f = frame_factory.build_data_frame(b'hi there')
-        events = c.receive_data(f.serialize())
+        data_frame = frame_factory.build_data_frame(b'hi there')
+        events = c.receive_data(data_frame.serialize())
 
-        f = frame_factory.build_rst_stream_frame(1, h2.errors.STREAM_CLOSED)
+        rst_frame = frame_factory.build_rst_stream_frame(
+            1, h2.errors.STREAM_CLOSED
+        )
         assert not events
-        assert c.data_to_send() == f.serialize()
+        assert c.data_to_send() == rst_frame.serialize()
 
-        events = c.receive_data(f.serialize() * 3)
+        events = c.receive_data(data_frame.serialize() * 3)
         assert not events
-        assert c.data_to_send() == f.serialize() * 3
+        assert c.data_to_send() == rst_frame.serialize() * 3
 
         # Iterate over the streams to make sure it's gone, then confirm the
         # behaviour is unchanged.
         c.open_outbound_streams
 
-        events = c.receive_data(f.serialize() * 3)
+        events = c.receive_data(data_frame.serialize() * 3)
         assert not events
-        assert c.data_to_send() == f.serialize() * 3
+        assert c.data_to_send() == rst_frame.serialize() * 3
 
     def test_receiving_low_stream_id_causes_goaway(self, frame_factory):
         """
