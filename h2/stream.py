@@ -463,6 +463,13 @@ class H2Stream(object):
         # see the comment on ``STREAM_OPEN`` at the top of the file.
         return STREAM_OPEN[self.state_machine.state]
 
+    @property
+    def closed(self):
+        """
+        Whether the stream is closed.
+        """
+        return self.state_machine.state == StreamState.CLOSED
+
     def send_headers(self, headers, encoder, end_stream=False):
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers

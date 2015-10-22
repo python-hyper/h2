@@ -277,19 +277,33 @@ class H2Connection(object):
         self._data_to_send += b''.join(f.serialize() for f in frames)
         assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
 
+    def _open_streams(self, remainder):
+        """
+        A common method of counting number of open streams. Returns the number
+        of streams that are open *and* that have (stream ID % 2) == remainder.
+        While it iterates, also deletes any closed streams.
+        """
+        count = 0
+        to_delete = []
+
+        for stream_id, stream in self.streams.items():
+            if stream.open and (stream_id % 2 == remainder):
+                count += 1
+            elif stream.closed:
+                to_delete.append(stream_id)
+
+        for stream_id in to_delete:
+            del self.streams[stream_id]
+
+        return count
+
     @property
     def open_outbound_streams(self):
         """
         The current number of open outbound streams.
         """
         outbound_numbers = int(self.client_side)
-        return len(
-            [
-                stream_id
-                for stream_id, stream in self.streams.items()
-                if (stream_id % 2 == outbound_numbers) and stream.open
-            ]
-        )
+        return self._open_streams(outbound_numbers)
 
     @property
     def open_inbound_streams(self):
@@ -297,13 +311,7 @@ class H2Connection(object):
         The current number of open inbound streams.
         """
         inbound_numbers = int(not self.client_side)
-        return len(
-            [
-                stream_id
-                for stream_id, stream in self.streams.items()
-                if (stream_id % 2 == inbound_numbers) and stream.open
-            ]
-        )
+        return self._open_streams(inbound_numbers)
 
     def begin_new_stream(self, stream_id):
         """
