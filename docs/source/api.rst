@@ -61,6 +61,9 @@ Exceptions
 .. autoclass:: h2.exceptions.NoSuchStreamError
    :members:
 
+.. autoclas:: h2.exceptions.StreamClosedError
+   :members:
+
 
 Protocol Errors
 ~~~~~~~~~~~~~~~
@@ -75,6 +78,9 @@ Protocol Errors
    :members:
 
 .. autoclass:: h2.exceptions.FlowControlError
+   :members:
+
+.. autoclass:: h2.exceptions.StreamIDTooLowError
    :members:
 
 

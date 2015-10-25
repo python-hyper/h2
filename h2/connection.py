@@ -19,7 +19,7 @@ from .events import (
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
-    TooManyStreamsError,
+    TooManyStreamsError, StreamClosedError, StreamIDTooLowError
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -277,19 +277,33 @@ class H2Connection(object):
         self._data_to_send += b''.join(f.serialize() for f in frames)
         assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
 
+    def _open_streams(self, remainder):
+        """
+        A common method of counting number of open streams. Returns the number
+        of streams that are open *and* that have (stream ID % 2) == remainder.
+        While it iterates, also deletes any closed streams.
+        """
+        count = 0
+        to_delete = []
+
+        for stream_id, stream in self.streams.items():
+            if stream.open and (stream_id % 2 == remainder):
+                count += 1
+            elif stream.closed:
+                to_delete.append(stream_id)
+
+        for stream_id in to_delete:
+            del self.streams[stream_id]
+
+        return count
+
     @property
     def open_outbound_streams(self):
         """
         The current number of open outbound streams.
         """
         outbound_numbers = int(self.client_side)
-        return len(
-            [
-                stream_id
-                for stream_id, stream in self.streams.items()
-                if (stream_id % 2 == outbound_numbers) and stream.open
-            ]
-        )
+        return self._open_streams(outbound_numbers)
 
     @property
     def open_inbound_streams(self):
@@ -297,20 +311,14 @@ class H2Connection(object):
         The current number of open inbound streams.
         """
         inbound_numbers = int(not self.client_side)
-        return len(
-            [
-                stream_id
-                for stream_id, stream in self.streams.items()
-                if (stream_id % 2 == inbound_numbers) and stream.open
-            ]
-        )
+        return self._open_streams(inbound_numbers)
 
     def begin_new_stream(self, stream_id):
         """
         Initiate a new stream.
         """
         if stream_id <= self.highest_stream_id:
-            raise ValueError(
+            raise StreamIDTooLowError(
                 "Stream ID must be larger than %s", self.highest_stream_id
             )
 
@@ -357,12 +365,16 @@ class H2Connection(object):
     def get_stream_by_id(self, stream_id):
         """
         Gets a stream by its stream ID. Raises NoSuchStreamError if the stream
-        ID does not correspond to a known stream.
+        ID does not correspond to a known stream and is higher than the current
+        maximum: raises if it is lower than the current maximum.
         """
         try:
             return self.streams[stream_id]
         except KeyError:
-            raise NoSuchStreamError(stream_id)
+            if stream_id > self.highest_stream_id:
+                raise NoSuchStreamError(stream_id)
+            else:
+                raise StreamClosedError(stream_id)
 
     def send_headers(self, stream_id, headers, end_stream=False):
         """
@@ -691,6 +703,15 @@ class H2Connection(object):
             self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
             self._prepare_for_sending([f])
             raise
+        except StreamClosedError as e:
+            # We need to send a RST_STREAM frame on behalf of the stream.
+            # The frame the stream wants to emit is already present in the
+            # exception.
+            # This does not require re-raising: it's an expected behaviour.
+            f = RstStreamFrame(e.stream_id)
+            f.error_code = e.error_code
+            self._prepare_for_sending([f])
+            events = []
         else:
             self._prepare_for_sending(frames)
 
@@ -848,8 +869,14 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_RST_STREAM
         )
-        stream = self.get_stream_by_id(frame.stream_id)
-        stream_frames, stream_events = stream.stream_reset(frame)
+        try:
+            stream = self.get_stream_by_id(frame.stream_id)
+        except NoSuchStreamError:
+            # The stream is missing. That's ok, we just do nothing here.
+            stream_frames = []
+            stream_events = []
+        else:
+            stream_frames, stream_events = stream.stream_reset(frame)
 
         return stream_frames, events + stream_events
 

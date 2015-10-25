@@ -15,7 +15,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived
 )
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, StreamClosedError
 
 
 class StreamState(IntEnum):
@@ -265,6 +265,20 @@ class H2StreamStateMachine(object):
                 (None, StreamState.CLOSED),
             (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
                 (None, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
+                (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
+
+            # While closed, all other received frames should cause RST_STREAM
+            # frames to be emitted. END_STREAM is always carried *by* a frame,
+            # so it should do nothing.
+            (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_DATA):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
+                (self.send_reset, StreamState.CLOSED),
+            (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
+                (None, StreamState.CLOSED),
         }
 
     def process_input(self, input_):
@@ -280,7 +294,7 @@ class H2StreamStateMachine(object):
             old_state = self.state
             self.state = StreamState.CLOSED
             raise ProtocolError(
-                "Invalid input %s in state %s", input_, old_state
+                "Invalid input %s in state %s" % (input_, old_state)
             )
         else:
             self.state = target_state
@@ -430,6 +444,13 @@ class H2StreamStateMachine(object):
         event.parent_stream_id = self.stream_id
         return [event]
 
+    def send_reset(self):
+        """
+        Called when we need to forcefully emit another RST_STREAM frame on
+        behalf of the state machine.
+        """
+        raise StreamClosedError(self.stream_id)
+
 
 class H2Stream(object):
     """
@@ -462,6 +483,13 @@ class H2Stream(object):
         # For more detail on why we're doing this in this slightly weird way,
         # see the comment on ``STREAM_OPEN`` at the top of the file.
         return STREAM_OPEN[self.state_machine.state]
+
+    @property
+    def closed(self):
+        """
+        Whether the stream is closed.
+        """
+        return self.state_machine.state == StreamState.CLOSED
 
     def send_headers(self, headers, encoder, end_stream=False):
         """
@@ -633,7 +661,11 @@ class H2Stream(object):
         Handle a stream being reset remotely.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
-        events[0].error_code = frame.error_code
+
+        if events:
+            # We don't fire an event if this stream is already closed.
+            events[0].error_code = frame.error_code
+
         return [], events
 
     def priority_changed_remote(self, frame):

@@ -737,6 +737,11 @@ class TestBasicServer(object):
 
         assert e.value.stream_id == 1
 
+        with pytest.raises(h2.exceptions.NoSuchStreamError) as e:
+            c.reset_stream(stream_id=5)
+
+        assert e.value.stream_id == 5
+
     def test_basic_sending_ping_frame_logic(self, frame_factory):
         """
         Sending ping frames serializes a ping frame on stream 0 with
