@@ -66,60 +66,6 @@ class H2StreamStateMachine(object):
     :param stream_id: The stream ID of this stream. This is stored primarily
         for logging purposes.
     """
-    # For the sake of clarity, we reproduce the RFC 7540 state machine here:
-    #
-    #                          +--------+
-    #                  send PP |        | recv PP
-    #                 ,--------|  idle  |--------.
-    #                /         |        |         \
-    #               v          +--------+          v
-    #        +----------+          |           +----------+
-    #        |          |          | send H /  |          |
-    # ,------| reserved |          | recv H    | reserved |------.
-    # |      | (local)  |          |           | (remote) |      |
-    # |      +----------+          v           +----------+      |
-    # |          |             +--------+             |          |
-    # |          |     recv ES |        | send ES     |          |
-    # |   send H |     ,-------|  open  |-------.     | recv H   |
-    # |          |    /        |        |        \    |          |
-    # |          v   v         +--------+         v   v          |
-    # |      +----------+          |           +----------+      |
-    # |      |   half   |          |           |   half   |      |
-    # |      |  closed  |          | send R /  |  closed  |      |
-    # |      | (remote) |          | recv R    | (local)  |      |
-    # |      +----------+          |           +----------+      |
-    # |           |                |                 |           |
-    # |           | send ES /      |       recv ES / |           |
-    # |           | send R /       v        send R / |           |
-    # |           | recv R     +--------+   recv R   |           |
-    # | send R /  `----------->|        |<-----------'  send R / |
-    # | recv R                 | closed |               recv R   |
-    # `----------------------->|        |<----------------------'
-    #                          +--------+
-    #
-    #    send:   endpoint sends this frame
-    #    recv:   endpoint receives this frame
-    #
-    #    H:  HEADERS frame (with implied CONTINUATIONs)
-    #    PP: PUSH_PROMISE frame (with implied CONTINUATIONs)
-    #    ES: END_STREAM flag
-    #    R:  RST_STREAM frame
-    #
-    # For the purposes of this state machine we treat HEADERS and their
-    # associated CONTINUATION frames as a single jumbo frame. The protocol
-    # allows/requires this by preventing other frames from being interleved in
-    # between HEADERS/CONTINUATION frames.
-    #
-    # There is a confusing relationship around PUSH_PROMISE frames. The state
-    # machine above considers them to be frames belonging to the new stream,
-    # which is *somewhat* true. However, they are sent with the stream ID of
-    # their related stream, and are only sendable in some cases.
-    # For this reason, our state machine implementation below allows for
-    # PUSH_PROMISE frames both in the IDLE state (as in the diagram), but also
-    # in the OPEN, HALF_CLOSED_LOCAL, and HALF_CLOSED_REMOTE states.
-    # Essentially, for hyper-h2, PUSH_PROMISE frames are effectively sent on
-    # two streams.
-
     def __init__(self, stream_id):
         self.state = StreamState.IDLE
         self.stream_id = stream_id
@@ -133,154 +79,6 @@ class H2StreamStateMachine(object):
         self.headers_received = None
         self.trailers_received = None
 
-        # The _transitions dictionary contains a mapping of tuples of
-        # (state, input) to tuples of (side_effect_function, end_state). This
-        # map contains all allowed transitions: anything not in this map is
-        # invalid and immediately causes a transition to ``closed``.
-        self._transitions = {
-            # State: idle
-            (StreamState.IDLE, StreamInputs.SEND_HEADERS):
-                (self.request_sent, StreamState.OPEN),
-            (StreamState.IDLE, StreamInputs.RECV_HEADERS):
-                (self.request_received, StreamState.OPEN),
-            (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
-                (self.send_new_pushed_stream, StreamState.RESERVED_LOCAL),
-            (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
-                (self.recv_new_pushed_stream, StreamState.RESERVED_REMOTE),
-            (StreamState.IDLE, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.IDLE),
-            (StreamState.IDLE, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.IDLE),
-
-            # State: reserved local
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
-                (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
-                (None, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
-                (self.stream_reset, StreamState.CLOSED),
-            (StreamState.RESERVED_LOCAL, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.RESERVED_LOCAL),
-            (StreamState.RESERVED_LOCAL, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.RESERVED_LOCAL),
-
-            # State: reserved remote
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
-                (self.response_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
-                (None, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
-                (self.stream_reset, StreamState.CLOSED),
-            (StreamState.RESERVED_REMOTE, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.RESERVED_REMOTE),
-            (StreamState.RESERVED_REMOTE, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.RESERVED_REMOTE),
-
-            # State: open
-            (StreamState.OPEN, StreamInputs.SEND_HEADERS):
-                (self.response_sent, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_HEADERS):
-                (self.response_received, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_DATA):
-                (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_DATA):
-                (self.data_received, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_END_STREAM):
-                (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.OPEN, StreamInputs.RECV_END_STREAM):
-                (self.stream_ended, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE):
-                (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_RST_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
-                (self.stream_reset, StreamState.CLOSED),
-            (StreamState.OPEN, StreamInputs.SEND_PUSH_PROMISE):
-                (self.send_push_promise, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
-                (self.recv_push_promise, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.OPEN),
-            (StreamState.OPEN, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.OPEN),
-
-            # State: half-closed remote
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
-                (self.response_sent, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
-                (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
-                (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
-                (self.stream_reset, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
-                (self.send_push_promise, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.HALF_CLOSED_REMOTE),
-            (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.HALF_CLOSED_REMOTE),
-
-            # State: half-closed local
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
-                (self.response_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA):
-                (self.data_received, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM):
-                (self.stream_ended, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
-                (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM):
-                (None, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
-                (self.stream_reset, StreamState.CLOSED),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
-                (self.recv_push_promise, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.HALF_CLOSED_LOCAL),
-            (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.HALF_CLOSED_LOCAL),
-
-            # State: closed
-            (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
-                (self.window_updated, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.SEND_PRIORITY):
-                (None, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
-                (None, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
-                (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
-
-            # While closed, all other received frames should cause RST_STREAM
-            # frames to be emitted. END_STREAM is always carried *by* a frame,
-            # so it should do nothing.
-            (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
-                (self.send_reset, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.RECV_DATA):
-                (self.send_reset, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
-                (self.send_reset, StreamState.CLOSED),
-            (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
-                (None, StreamState.CLOSED),
-        }
-
     def process_input(self, input_):
         """
         Process a specific input in the state machine.
@@ -289,7 +87,7 @@ class H2StreamStateMachine(object):
             raise ValueError("Input must be an instance of StreamInputs")
 
         try:
-            func, target_state = self._transitions[(self.state, input_)]
+            func, target_state = _transitions[(self.state, input_)]
         except KeyError:
             old_state = self.state
             self.state = StreamState.CLOSED
@@ -300,7 +98,7 @@ class H2StreamStateMachine(object):
             self.state = target_state
             if func is not None:
                 try:
-                    return func()
+                    return func(self)
                 except ProtocolError:
                     self.state = StreamState.CLOSED
                     raise
@@ -450,6 +248,223 @@ class H2StreamStateMachine(object):
         behalf of the state machine.
         """
         raise StreamClosedError(self.stream_id)
+
+
+# STATE MACHINE
+#
+# The stream state machine is defined here to avoid the need to allocate it
+# repeatedly for each stream. It cannot be defined in the stream class because
+# it needs to be able to reference the callbacks defined on the class, but
+# because Python's scoping rules are weird the class object is not actually in
+# scope during the body of the class object.
+#
+# For the sake of clarity, we reproduce the RFC 7540 state machine here:
+#
+#                          +--------+
+#                  send PP |        | recv PP
+#                 ,--------|  idle  |--------.
+#                /         |        |         \
+#               v          +--------+          v
+#        +----------+          |           +----------+
+#        |          |          | send H /  |          |
+# ,------| reserved |          | recv H    | reserved |------.
+# |      | (local)  |          |           | (remote) |      |
+# |      +----------+          v           +----------+      |
+# |          |             +--------+             |          |
+# |          |     recv ES |        | send ES     |          |
+# |   send H |     ,-------|  open  |-------.     | recv H   |
+# |          |    /        |        |        \    |          |
+# |          v   v         +--------+         v   v          |
+# |      +----------+          |           +----------+      |
+# |      |   half   |          |           |   half   |      |
+# |      |  closed  |          | send R /  |  closed  |      |
+# |      | (remote) |          | recv R    | (local)  |      |
+# |      +----------+          |           +----------+      |
+# |           |                |                 |           |
+# |           | send ES /      |       recv ES / |           |
+# |           | send R /       v        send R / |           |
+# |           | recv R     +--------+   recv R   |           |
+# | send R /  `----------->|        |<-----------'  send R / |
+# | recv R                 | closed |               recv R   |
+# `----------------------->|        |<----------------------'
+#                          +--------+
+#
+#    send:   endpoint sends this frame
+#    recv:   endpoint receives this frame
+#
+#    H:  HEADERS frame (with implied CONTINUATIONs)
+#    PP: PUSH_PROMISE frame (with implied CONTINUATIONs)
+#    ES: END_STREAM flag
+#    R:  RST_STREAM frame
+#
+# For the purposes of this state machine we treat HEADERS and their
+# associated CONTINUATION frames as a single jumbo frame. The protocol
+# allows/requires this by preventing other frames from being interleved in
+# between HEADERS/CONTINUATION frames.
+#
+# There is a confusing relationship around PUSH_PROMISE frames. The state
+# machine above considers them to be frames belonging to the new stream,
+# which is *somewhat* true. However, they are sent with the stream ID of
+# their related stream, and are only sendable in some cases.
+# For this reason, our state machine implementation below allows for
+# PUSH_PROMISE frames both in the IDLE state (as in the diagram), but also
+# in the OPEN, HALF_CLOSED_LOCAL, and HALF_CLOSED_REMOTE states.
+# Essentially, for hyper-h2, PUSH_PROMISE frames are effectively sent on
+# two streams.
+#
+# The _transitions dictionary contains a mapping of tuples of
+# (state, input) to tuples of (side_effect_function, end_state). This
+# map contains all allowed transitions: anything not in this map is
+# invalid and immediately causes a transition to ``closed``.
+_transitions = {
+    # State: idle
+    (StreamState.IDLE, StreamInputs.SEND_HEADERS):
+        (H2StreamStateMachine.request_sent, StreamState.OPEN),
+    (StreamState.IDLE, StreamInputs.RECV_HEADERS):
+        (H2StreamStateMachine.request_received, StreamState.OPEN),
+    (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
+        (H2StreamStateMachine.send_new_pushed_stream,
+            StreamState.RESERVED_LOCAL),
+    (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
+        (H2StreamStateMachine.recv_new_pushed_stream,
+            StreamState.RESERVED_REMOTE),
+    (StreamState.IDLE, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.IDLE),
+    (StreamState.IDLE, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.IDLE),
+
+    # State: reserved local
+    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
+        (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
+        (None, StreamState.RESERVED_LOCAL),
+    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.RESERVED_LOCAL),
+    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.RESERVED_LOCAL),
+    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.RESERVED_LOCAL),
+
+    # State: reserved remote
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
+        (H2StreamStateMachine.response_received,
+            StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
+        (None, StreamState.RESERVED_REMOTE),
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.RESERVED_REMOTE),
+    (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.RESERVED_REMOTE, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.RESERVED_REMOTE),
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.RESERVED_REMOTE),
+
+    # State: open
+    (StreamState.OPEN, StreamInputs.SEND_HEADERS):
+        (H2StreamStateMachine.response_sent, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_HEADERS):
+        (H2StreamStateMachine.response_received, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_DATA):
+        (None, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.data_received, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_END_STREAM):
+        (None, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.OPEN, StreamInputs.RECV_END_STREAM):
+        (H2StreamStateMachine.stream_ended, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE):
+        (None, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_RST_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.OPEN, StreamInputs.SEND_PUSH_PROMISE):
+        (H2StreamStateMachine.send_push_promise, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
+        (H2StreamStateMachine.recv_push_promise, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.OPEN),
+
+    # State: half-closed remote
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
+        (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
+        (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
+        (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
+        (H2StreamStateMachine.send_push_promise,
+            StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.HALF_CLOSED_REMOTE),
+
+    # State: half-closed local
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
+        (H2StreamStateMachine.response_received,
+            StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.data_received, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_END_STREAM):
+        (H2StreamStateMachine.stream_ended, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
+        (None, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM):
+        (None, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
+        (H2StreamStateMachine.recv_push_promise,
+            StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.HALF_CLOSED_LOCAL),
+
+    # State: closed
+    (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_updated, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_PRIORITY):
+        (None, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
+        (None, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
+        (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
+
+    # While closed, all other received frames should cause RST_STREAM
+    # frames to be emitted. END_STREAM is always carried *by* a frame,
+    # so it should do nothing.
+    (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
+        (None, StreamState.CLOSED),
+}
 
 
 class H2Stream(object):
