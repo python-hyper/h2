@@ -58,7 +58,7 @@ setup(
     ],
     install_requires=[
         'hyperframe~=2.2',
-        'hpack~=1.1.0',
+        'hpack~=2.0',
     ],
     extras_require={
         ':python_version<"3.4"': ['enum34~=1.0.4'],
