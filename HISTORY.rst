@@ -26,6 +26,8 @@ Bugfixes
 - Improve the performance of checking whether a stream is open.
 - We now attempt to lazily garbage collect closed streams, to avoid having the
   state hang around indefinitely, leaking memory.
+- Avoid further per-stream allocations, leading to substantial performance
+  improvements when many short-lived streams are used.
 
 1.0.0 (2015-10-15)
 ------------------
