@@ -19,7 +19,7 @@ API Changes (Backward-Compatible)
 Bugfixes
 ~~~~~~~~
 
-- Do not throw ``ProtocolError``s when attempting to send multiple GOAWAY
+- Do not throw ``ProtocolError`` when attempting to send multiple GOAWAY
   frames on one connection.
 - We no longer forcefully change the decoder table size when settings changes
   are ACKed, instead waiting for remote acknowledgement of the change.
