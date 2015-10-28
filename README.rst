@@ -16,9 +16,10 @@ You use it like this::
 
     import h2.connection
 
-    conn = h2.connection.Connection()
-    frames, stream_id = conn.send_headers(headers)
-    data_frames = conn.send_data(stream_id, data)
+    conn = h2.connection.H2Connection()
+    conn.send_headers(stream_id=stream_id, headers=headers)
+    conn.send_data(stream_id, data)
+    socket.sendall(conn.data_to_send())
     events = conn.receive_data(socket_data)
 
 This repository does not provide a parsing layer, a network layer, or any rules
