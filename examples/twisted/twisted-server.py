@@ -183,5 +183,5 @@ options = ssl.CertificateOptions(
     nextProtocols=[b'h2', b'http/1.1'],
 )
 
-reactor.listenSSL(8080, H2Factory(root), options)
+reactor.listenSSL(8080, H2Factory(root), options, backlog=128)
 reactor.run()
