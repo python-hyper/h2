@@ -26,6 +26,10 @@ def create_listening_ssl_socket(address):
     Create and return a listening TLS socket on a given address.
     """
     ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.options |= (
+        ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_COMPRESSION
+    )
+    ssl_context.set_ciphers("ECDHE+AESGCM")
     ssl_context.load_cert_chain(certfile="cert.crt", keyfile="cert.key")
     ssl_context.set_alpn_protocols(["h2"])
 
