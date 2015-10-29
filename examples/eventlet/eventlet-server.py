@@ -70,7 +70,15 @@ def npn_advertise_cb(conn):
 
 
 # Let's set up SSL. This is a lot of work in PyOpenSSL.
+options = (
+    SSL.OP_NO_COMPRESSION |
+    SSL.OP_NO_SSLv2 |
+    SSL.OP_NO_SSLv3 |
+    SSL.OP_NO_TLSv1 |
+    SSL.OP_NO_TLSv1_1
+)
 context = SSL.Context(SSL.SSLv23_METHOD)
+context.set_options(options)
 context.set_verify(SSL.VERIFY_NONE, lambda *args: True)
 context.use_privatekey_file('server.key')
 context.use_certificate_file('server.crt')

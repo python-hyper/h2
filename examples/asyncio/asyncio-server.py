@@ -54,6 +54,9 @@ class H2Protocol(asyncio.Protocol):
 
 
 ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+ssl_context.options |= (
+    ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_COMPRESSION
+)
 ssl_context.load_cert_chain(certfile="cert.crt", keyfile="cert.key")
 ssl_context.set_alpn_protocols(["h2"])
 
