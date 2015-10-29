@@ -42,7 +42,6 @@ class H2Protocol(Protocol):
 
     def dataReceived(self, data):
         if not self.known_proto:
-            print self.transport.getNextProtocol()
             self.known_proto = True
 
         events = self.conn.receive_data(data)
@@ -86,7 +85,6 @@ class H2Protocol(Protocol):
         self.transport.write(self.conn.data_to_send())
 
     def settingsChanged(self, event):
-        print event.changed_settings
         self.conn.acknowledge_settings(event)
         self.transport.write(self.conn.data_to_send())
 
