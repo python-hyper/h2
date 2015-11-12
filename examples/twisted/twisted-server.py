@@ -14,6 +14,7 @@ import sys
 from OpenSSL import crypto
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.protocol import Protocol, Factory
+from twisted.internet import endpoints
 from twisted.internet import reactor, ssl
 from h2.connection import H2Connection
 from h2.events import (
@@ -181,5 +182,6 @@ options = ssl.CertificateOptions(
     nextProtocols=[b'h2', b'http/1.1'],
 )
 
-reactor.listenSSL(8080, H2Factory(root), options, backlog=128)
+endpoint = endpoints.SSL4ServerEndpoint(reactor, 8080, options, backlog=128)
+endpoint.listen(H2Factory(root))
 reactor.run()
