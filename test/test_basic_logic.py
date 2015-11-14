@@ -482,6 +482,32 @@ class TestBasicClient(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(1, trailers)
 
+    def test_headers_are_lowercase(self, frame_factory):
+        """
+        When headers are sent, they are forced to lower-case.
+        """
+        weird_headers = self.example_request_headers + [
+            ('ChAnGiNg-CaSe', 'AlsoHere'),
+            ('alllowercase', 'alllowercase'),
+            ('ALLCAPS', 'ALLCAPS'),
+        ]
+        expected_headers = self.example_request_headers + [
+            ('changing-case', 'AlsoHere'),
+            ('alllowercase', 'alllowercase'),
+            ('allcaps', 'ALLCAPS'),
+        ]
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        c.send_headers(1, weird_headers)
+        expected_frame = frame_factory.build_headers_frame(
+            headers=expected_headers
+        )
+
+        assert c.data_to_send() == expected_frame.serialize()
+
 
 class TestBasicServer(object):
     """
