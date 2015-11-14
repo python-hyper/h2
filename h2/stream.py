@@ -697,6 +697,13 @@ class H2Stream(object):
         """
         Helper method to build headers or push promise frames.
         """
+        # Convert headers to two-tuples.
+        try:
+            headers = headers.items()
+        except AttributeError:
+            headers = headers
+
+        headers = ((name.lower(), value) for name, value in headers)
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:
