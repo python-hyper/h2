@@ -37,12 +37,12 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             ':path': '/',
             ':authority': 'example.com',
             ':scheme': 'https',
-            'User-Agent': 'test-client/0.1.0',
+            'user-agent': 'test-client/0.1.0',
         }
         response_headers = {
             ':status': '204',
-            'Server': 'test-server/0.1.0',
-            'Content-Length': '0',
+            'server': 'test-server/0.1.0',
+            'content-length': '0',
         }
 
         def client():
