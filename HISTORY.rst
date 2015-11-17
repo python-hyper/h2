@@ -1,6 +1,15 @@
 Release History
 ===============
 
+1.1.1 (2015-11-17)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Forcibly lowercase all header names to improve compatibility with
+  implementations that demand lower-case header names.
+
 1.1.0 (2015-10-28)
 ------------------
 

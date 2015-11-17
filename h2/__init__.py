@@ -5,4 +5,4 @@ h2
 
 A HTTP/2 implementation.
 """
-__version__ = '1.1.0'
+__version__ = '1.1.1'
