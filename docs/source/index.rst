@@ -32,3 +32,4 @@ Contents
    basic-usage
    advanced-usage
    api
+   testimonials
