@@ -1,4 +1,4 @@
 pytest==2.8.3
 pytest-cov==2.2.0
 pytest-xdist==1.13.1
-hypothesis==1.14.0
+hypothesis==1.15.0
