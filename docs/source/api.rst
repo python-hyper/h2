@@ -64,7 +64,7 @@ Exceptions
 .. autoclass:: h2.exceptions.NoSuchStreamError
    :members:
 
-.. autoclas:: h2.exceptions.StreamClosedError
+.. autoclass:: h2.exceptions.StreamClosedError
    :members:
 
 
