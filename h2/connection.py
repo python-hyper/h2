@@ -740,6 +740,10 @@ class H2Connection(object):
             headers,
             'END_STREAM' in frame.flags
         )
+
+        if 'PRIORITY' in frame.flags:
+            stream_events.extend(stream.priority_changed_remote(frame))
+
         return frames, events + stream_events
 
     def _receive_push_promise_frame(self, frame):
