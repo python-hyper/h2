@@ -34,7 +34,11 @@ class FrameFactory(object):
     def preamble(self):
         return b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
 
-    def build_headers_frame(self, headers, flags=[], stream_id=1):
+    def build_headers_frame(self,
+                            headers,
+                            flags=[],
+                            stream_id=1,
+                            **priority_kwargs):
         """
         Builds a single valid headers frame out of the contained headers.
         """
@@ -43,6 +47,10 @@ class FrameFactory(object):
         f.flags.add('END_HEADERS')
         for flag in flags:
             f.flags.add(flag)
+
+        for k, v in priority_kwargs.items():
+            setattr(f, k, v)
+
         return f
 
     def build_data_frame(self, data, flags=None, stream_id=1):
