@@ -48,6 +48,9 @@ Events
 .. autoclass:: h2.events.SettingsAcknowledged
    :members:
 
+.. autoclass:: h2.events.PriorityUpdate
+   :members:
+
 .. autoclass:: h2.events.ConnectionTerminated
    :members:
 
@@ -61,7 +64,7 @@ Exceptions
 .. autoclass:: h2.exceptions.NoSuchStreamError
    :members:
 
-.. autoclas:: h2.exceptions.StreamClosedError
+.. autoclass:: h2.exceptions.StreamClosedError
    :members:
 
 

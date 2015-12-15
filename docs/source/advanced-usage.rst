@@ -1,6 +1,26 @@
 Advanced Usage
 ==============
 
+Priority
+--------
+
+.. versionadded:: 1.2.0
+
+`RFC 7540`_ has a fairly substantial and complex section describing how to
+build a HTTP/2 priority tree, and the effect that should have on sending data
+from a server.
+
+Hyper-h2 does not enforce any priority logic by default for servers. This is
+because scheduling data sends is outside the scope of this library, as it
+likely requires fairly substantial understanding of the scheduler being used.
+
+However, for servers that *do* want to follow the priority recommendations
+given by clients, the Hyper project provides `an implementation`_ of the
+`RFC 7540`_ priority tree that will be useful to plug into a server. That,
+combined with the :class:`PriorityUpdate <h2.events.PriorityUpdate>` event from
+this library, can be used to build a server that conforms to RFC 7540's
+recommendations for priority handling.
+
 .. _h2-connection-advanced:
 
 Connections: Advanced
@@ -59,3 +79,7 @@ block until all the data has been sent. This will enable you to always use the
 unbounded form of
 :meth:`data_to_send <h2.connection.H2Connection.data_to_send>`, and will help
 you avoid subtle bugs.
+
+
+.. _RFC 7540: https://tools.ietf.org/html/rfc7540
+.. _an implementation: http://python-hyper/priority/

@@ -193,6 +193,33 @@ class SettingsAcknowledged(object):
         self.changed_settings = {}
 
 
+class PriorityUpdate(object):
+    """
+    The PriorityUpdate event is fired whenever a stream sends updated priority
+    information. This can occur when the stream is opened, or at any time
+    during the stream lifetime.
+
+    This event is purely advisory, and does not need to be acted on.
+
+    .. versionadded:: 1.2.0
+    """
+    def __init__(self):
+        #: The ID of the stream whose priority information is being updated.
+        self.stream_id = None
+
+        #: The new stream weight. May be the same as the original stream
+        #: weight.
+        self.weight = None
+
+        #: The stream ID this stream now depends on. May be ``0``.
+        self.depends_on = None
+
+        #: Whether the stream *exclusively* depends on the parent stream. If it
+        #: does, this stream should inherit the current children of its new
+        #: parent.
+        self.exclusive = None
+
+
 class ConnectionTerminated(object):
     """
     The ConnectionTerminated event is fired when a connection is torn down by
