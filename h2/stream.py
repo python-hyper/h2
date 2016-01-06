@@ -690,9 +690,12 @@ class H2Stream(object):
         """
         event = PriorityUpdate()
         event.stream_id = frame.stream_id
-        event.weight = frame.stream_weight
         event.depends_on = frame.depends_on
         event.exclusive = frame.exclusive
+
+        # Weight is an integer between 1 and 256, but the byte only allows
+        # 0 to 255: add one.
+        event.weight = frame.stream_weight + 1
         return [event]
 
     def _build_headers_frames(self,

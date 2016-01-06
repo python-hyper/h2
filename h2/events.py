@@ -208,7 +208,7 @@ class PriorityUpdate(object):
         self.stream_id = None
 
         #: The new stream weight. May be the same as the original stream
-        #: weight.
+        #: weight. An integer between 1 and 256.
         self.weight = None
 
         #: The stream ID this stream now depends on. May be ``0``.

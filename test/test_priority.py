@@ -43,7 +43,7 @@ class TestPriority(object):
         assert isinstance(event, h2.events.PriorityUpdate)
         assert event.stream_id == 1
         assert event.depends_on == 0
-        assert event.weight == 255
+        assert event.weight == 256
         assert event.exclusive is False
 
     def test_headers_with_priority_info(self, frame_factory):
@@ -60,7 +60,7 @@ class TestPriority(object):
             headers=self.example_request_headers,
             stream_id=3,
             flags=['PRIORITY'],
-            stream_weight=16,
+            stream_weight=15,
             depends_on=1,
             exclusive=True,
         )
