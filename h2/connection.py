@@ -5,7 +5,7 @@ h2/connection
 
 An implementation of a HTTP/2 connection.
 """
-from enum import Enum
+from enum import Enum, IntEnum
 
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
@@ -52,6 +52,12 @@ class ConnectionInputs(Enum):
     RECV_SETTINGS = 15
     RECV_RST_STREAM = 16
     RECV_PRIORITY = 17
+
+
+class AllowedStreamIDs(IntEnum):
+    EVEN = 0
+    ODD = 1
+    ANY = 2
 
 
 class H2ConnectionStateMachine(object):
@@ -313,14 +319,23 @@ class H2Connection(object):
         inbound_numbers = int(not self.client_side)
         return self._open_streams(inbound_numbers)
 
-    def begin_new_stream(self, stream_id):
+    def begin_new_stream(self, stream_id, allowed_ids):
         """
         Initiate a new stream.
+
+        :param stream_id: The ID of the stream to open.
+        :param allowed_ids: What kind of stream ID is allowed.
         """
         if stream_id <= self.highest_stream_id:
             raise StreamIDTooLowError(
                 "Stream ID must be larger than %s", self.highest_stream_id
             )
+
+        if allowed_ids != AllowedStreamIDs.ANY:
+            if (stream_id % 2) != int(allowed_ids):
+                raise ProtocolError(
+                    "Invalid stream ID for peer."
+                )
 
         s = H2Stream(stream_id)
         s.max_inbound_frame_size = self.max_inbound_frame_size
@@ -352,15 +367,16 @@ class H2Connection(object):
         self._data_to_send += preamble + f.serialize()
         return []
 
-    def get_or_create_stream(self, stream_id):
+    def get_or_create_stream(self, stream_id, allowed_ids):
         """
         Gets a stream by its stream ID. Will create one if one does not already
-        exist.
+        exist. Use allowed_ids to circumvent the usual stream ID rules for
+        clients and servers.
         """
         try:
             return self.streams[stream_id]
         except KeyError:
-            return self.begin_new_stream(stream_id)
+            return self.begin_new_stream(stream_id, allowed_ids)
 
     def get_stream_by_id(self, stream_id):
         """
@@ -390,7 +406,9 @@ class H2Connection(object):
                 )
 
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-        stream = self.get_or_create_stream(stream_id)
+        stream = self.get_or_create_stream(
+            stream_id, AllowedStreamIDs(self.client_side)
+        )
         frames, events = stream.send_headers(
             headers, self.encoder, end_stream
         )
@@ -462,7 +480,9 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self.get_stream_by_id(stream_id)
 
-        new_stream = self.begin_new_stream(promised_stream_id)
+        new_stream = self.begin_new_stream(
+            promised_stream_id, AllowedStreamIDs.EVEN
+        )
         self.streams[promised_stream_id] = new_stream
 
         frames, events = stream.push_stream_in_band(
@@ -698,7 +718,13 @@ class H2Connection(object):
             # exception up further. No need for an event: the exception will
             # do fine.
             f = GoAwayFrame(0)
-            f.last_stream_id = sorted(self.streams.keys())[-1]
+
+            # TODO: Fix this to properly record the last stream ID we've seen.
+            if self.streams:
+                f.last_stream_id = sorted(self.streams.keys())[-1]
+            else:
+                f.last_stream_id = 0
+
             f.error_code = e.error_code
             self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
             self._prepare_for_sending([f])
@@ -721,7 +747,8 @@ class H2Connection(object):
         """
         Receive a headers frame on the connection.
         """
-        # If necessary, check we can open the stream.
+        # If necessary, check we can open the stream. Also validate that the
+        # stream ID is valid.
         if frame.stream_id not in self.streams:
             max_open_streams = self.local_settings.max_concurrent_streams
             if (self.open_inbound_streams + 1) > max_open_streams:
@@ -735,7 +762,9 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
         )
-        stream = self.get_or_create_stream(frame.stream_id)
+        stream = self.get_or_create_stream(
+            frame.stream_id, AllowedStreamIDs(not self.client_side)
+        )
         frames, stream_events = stream.receive_headers(
             headers,
             'END_STREAM' in frame.flags
@@ -764,7 +793,9 @@ class H2Connection(object):
             pushed_headers,
         )
 
-        new_stream = self.begin_new_stream(frame.promised_stream_id)
+        new_stream = self.begin_new_stream(
+            frame.promised_stream_id, AllowedStreamIDs.EVEN
+        )
         self.streams[frame.promised_stream_id] = new_stream
         new_stream.remotely_pushed()
 
@@ -891,7 +922,9 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PRIORITY
         )
-        stream = self.get_or_create_stream(frame.stream_id)
+        stream = self.get_or_create_stream(
+            frame.stream_id, AllowedStreamIDs.ANY
+        )
         stream_events = stream.priority_changed_remote(frame)
 
         return [], events + stream_events
