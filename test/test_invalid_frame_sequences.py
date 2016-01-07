@@ -51,3 +51,35 @@ class TestInvalidFrameSequences(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(encoded_headers_frame)
+
+    def test_server_connections_reject_even_streams(self, frame_factory):
+        """
+        Servers do not allow clients to initiate even-numbered streams.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers, stream_id=2
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+    def test_clients_reject_odd_stream_pushes(self, frame_factory):
+        """
+        Clients do not allow servers to push odd numbered streams.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            headers=self.example_request_headers,
+            promised_stream_id=3
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
