@@ -73,10 +73,10 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
         c.send_data(1, b'some data')
-        c.send_headers(2, self.example_request_headers)
+        c.send_headers(3, self.example_request_headers)
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
-        assert (c.local_flow_control_window(2) == remaining_length)
+        assert (c.local_flow_control_window(3) == remaining_length)
 
     def test_remote_flow_control_is_limited_by_connection(self, frame_factory):
         """
@@ -89,12 +89,12 @@ class TestFlowControl(object):
         f2 = frame_factory.build_data_frame(b'some data')
         f3 = frame_factory.build_headers_frame(
             self.example_request_headers,
-            stream_id=2,
+            stream_id=3,
         )
         c.receive_data(f1.serialize() + f2.serialize() + f3.serialize())
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
-        assert (c.remote_flow_control_window(2) == remaining_length)
+        assert (c.remote_flow_control_window(3) == remaining_length)
 
     def test_cannot_send_more_data_than_window(self):
         """

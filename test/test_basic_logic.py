@@ -956,8 +956,12 @@ class TestBasicServer(object):
         settings.
         """
         c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
         c.receive_data(frame_factory.preamble())
-        c.send_headers(1, self.example_request_headers)
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
 
         with pytest.raises(h2.exceptions.FrameTooLargeError):
             c.send_data(1, b'\x01' * 17000)
