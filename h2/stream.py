@@ -323,6 +323,8 @@ _transitions = {
         (H2StreamStateMachine.request_sent, StreamState.OPEN),
     (StreamState.IDLE, StreamInputs.RECV_HEADERS):
         (H2StreamStateMachine.request_received, StreamState.OPEN),
+    (StreamState.IDLE, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
         (H2StreamStateMachine.send_new_pushed_stream,
             StreamState.RESERVED_LOCAL),
@@ -337,6 +339,8 @@ _transitions = {
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
         (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.RESERVED_LOCAL),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
@@ -354,6 +358,8 @@ _transitions = {
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
         (H2StreamStateMachine.response_received,
             StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.RESERVED_REMOTE),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
@@ -402,6 +408,8 @@ _transitions = {
         (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
         (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_DATA):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM):
         (None, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):

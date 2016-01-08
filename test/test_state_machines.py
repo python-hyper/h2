@@ -84,9 +84,17 @@ class TestStreamStateMachine(object):
             assert s.state == h2.stream.StreamState.CLOSED
         except h2.exceptions.StreamClosedError:
             # This can only happen for streams that started in the closed
-            # state.
-            assert s.state == h2.stream.StreamState.CLOSED
-            assert state == h2.stream.StreamState.CLOSED
+            # state OR where the input was RECV_DATA and the state was not
+            # OPEN or HALF_CLOSED_LOCAL.
+            if input_ != h2.stream.StreamInputs.RECV_DATA:
+                assert s.state == h2.stream.StreamState.CLOSED
+                assert state == h2.stream.StreamState.CLOSED
+            else:
+                assert s.state == h2.stream.StreamState.CLOSED
+                assert state not in (
+                    h2.stream.StreamState.OPEN,
+                    h2.stream.StreamState.HALF_CLOSED_LOCAL,
+                )
         else:
             assert s.state in h2.stream.StreamState
 
