@@ -24,9 +24,10 @@ class ProtocolError(H2Error):
 
 class FrameTooLargeError(ProtocolError):
     """
-    The frame that we tried to send was too large to be sent.
+    The frame that we tried to send or that we received was too large.
     """
-    pass
+    #: This error code that corresponds to this kind of Protocol Error.
+    error_code = h2.errors.FRAME_SIZE_ERROR
 
 
 class TooManyStreamsError(ProtocolError):
