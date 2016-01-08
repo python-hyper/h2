@@ -7,12 +7,14 @@ An implementation of a HTTP/2 connection.
 """
 from enum import Enum, IntEnum
 
+from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
 )
 from hpack.hpack import Encoder, Decoder
 
+from .errors import PROTOCOL_ERROR
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated
@@ -694,8 +696,12 @@ class H2Connection(object):
         events = []
         self.incoming_buffer.add_data(data)
 
-        for frame in self.incoming_buffer:
-            events.extend(self.receive_frame(frame))
+        try:
+            for frame in self.incoming_buffer:
+                events.extend(self.receive_frame(frame))
+        except InvalidPaddingError:
+            self._terminate_connection(PROTOCOL_ERROR)
+            raise ProtocolError("Received frame with invalid padding.")
 
         return events
 
@@ -717,17 +723,7 @@ class H2Connection(object):
             # We should prepare to emit a GoAway frame before throwing the
             # exception up further. No need for an event: the exception will
             # do fine.
-            f = GoAwayFrame(0)
-
-            # TODO: Fix this to properly record the last stream ID we've seen.
-            if self.streams:
-                f.last_stream_id = sorted(self.streams.keys())[-1]
-            else:
-                f.last_stream_id = 0
-
-            f.error_code = e.error_code
-            self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
-            self._prepare_for_sending([f])
+            self._terminate_connection(e.error_code)
             raise
         except StreamClosedError as e:
             # We need to send a RST_STREAM frame on behalf of the stream.
@@ -742,6 +738,23 @@ class H2Connection(object):
             self._prepare_for_sending(frames)
 
         return events
+
+    def _terminate_connection(self, error_code):
+        """
+        Terminate the connection early. Used in error handling blocks to send
+        GOAWAY frames.
+        """
+        f = GoAwayFrame(0)
+
+        # TODO: Fix this to properly record the last stream ID we've seen.
+        if self.streams:
+            f.last_stream_id = sorted(self.streams.keys())[-1]
+        else:
+            f.last_stream_id = 0
+
+        f.error_code = error_code
+        self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
+        self._prepare_for_sending([f])
 
     def _receive_headers_frame(self, frame):
         """

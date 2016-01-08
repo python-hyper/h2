@@ -83,3 +83,27 @@ class TestInvalidFrameSequences(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
+
+    def test_can_handle_frames_with_invalid_padding(self, frame_factory):
+        """
+        Frames with invalid padding cause connection teardown.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        invalid_data_frame = (
+            b'\x00\x00\x05\x00\x0b\x00\x00\x00\x01\x06\x54\x65\x73\x74'
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(invalid_data_frame)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=1
+        )
+        assert c.data_to_send() == expected_frame.serialize()
