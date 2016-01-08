@@ -107,3 +107,28 @@ class TestInvalidFrameSequences(object):
             last_stream_id=1, error_code=1
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_data_on_closed_streams(self, frame_factory):
+        """
+        When a stream is not open to the remote peer, we reject receiving data
+        frames from them.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            flags=['END_STREAM']
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        bad_frame = frame_factory.build_data_frame(data=b'hello')
+        c.receive_data(bad_frame.serialize())
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=0x5,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
