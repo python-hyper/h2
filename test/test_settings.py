@@ -7,9 +7,14 @@ Test the Settings object.
 """
 import pytest
 
+import h2.errors
+import h2.exceptions
 import h2.settings
 
 from hyperframe.frame import SettingsFrame
+
+from hypothesis import given, assume
+from hypothesis.strategies import integers
 
 
 class TestSettings(object):
@@ -59,7 +64,7 @@ class TestSettings(object):
             SettingsFrame.HEADER_TABLE_SIZE: 4000,
             SettingsFrame.ENABLE_PUSH: 0,
             SettingsFrame.INITIAL_WINDOW_SIZE: 60,
-            SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 30,
+            SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 16385,
         }
         s.update(new_settings)
 
@@ -185,12 +190,87 @@ class TestSettings(object):
         s.header_table_size = 0
         s.enable_push = 1
         s.initial_window_size = 2
-        s.max_frame_size = 3
+        s.max_frame_size = 16385
         s.max_concurrent_streams = 4
 
         s.acknowledge()
         assert s[SettingsFrame.HEADER_TABLE_SIZE] == 0
         assert s[SettingsFrame.ENABLE_PUSH] == 1
         assert s[SettingsFrame.INITIAL_WINDOW_SIZE] == 2
-        assert s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] == 3
+        assert s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] == 16385
         assert s[SettingsFrame.MAX_CONCURRENT_STREAMS] == 4
+
+    @given(integers())
+    def test_cannot_set_invalid_values_for_enable_push(self, val):
+        """
+        SETTINGS_ENABLE_PUSH only allows two values: 0, 1.
+        """
+        assume(val not in (0, 1))
+        s = h2.settings.Settings()
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            s.enable_push = val
+
+        s.acknowledge()
+        assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+        assert s.enable_push == 1
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            s[SettingsFrame.ENABLE_PUSH] = val
+
+        s.acknowledge()
+        assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+        assert s[SettingsFrame.ENABLE_PUSH] == 1
+
+    @given(integers())
+    def test_cannot_set_invalid_vals_for_initial_window_size(self, val):
+        """
+        SETTINGS_INITIAL_WINDOW_SIZE only allows values between 0 and 2**32 - 1
+        inclusive.
+        """
+        s = h2.settings.Settings()
+
+        if 0 <= val <= 2**31 - 1:
+            s.initial_window_size = val
+            s.acknowledge()
+            assert s.initial_window_size == val
+        else:
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s.initial_window_size = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.FLOW_CONTROL_ERROR
+            assert s.initial_window_size == 65535
+
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s[SettingsFrame.INITIAL_WINDOW_SIZE] = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.FLOW_CONTROL_ERROR
+            assert s[SettingsFrame.INITIAL_WINDOW_SIZE] == 65535
+
+    @given(integers())
+    def test_cannot_set_invalid_values_for_max_frame_size(self, val):
+        """
+        SETTINGS_MAX_FRAME_SIZE only allows values between 2**14 and 2**24 - 1.
+        """
+        s = h2.settings.Settings()
+
+        if 2**14 <= val <= 2**24 - 1:
+            s.max_frame_size = val
+            s.acknowledge()
+            assert s.max_frame_size == val
+        else:
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s.max_frame_size = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert s.max_frame_size == 16384
+
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert s[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] == 16384
