@@ -85,15 +85,21 @@ class TestStreamStateMachine(object):
         except h2.exceptions.StreamClosedError:
             # This can only happen for streams that started in the closed
             # state OR where the input was RECV_DATA and the state was not
-            # OPEN or HALF_CLOSED_LOCAL.
-            if input_ != h2.stream.StreamInputs.RECV_DATA:
+            # OPEN or HALF_CLOSED_LOCAL OR where the state was
+            # HALF_CLOSED_REMOTE and a frame was received.
+            if state == h2.stream.StreamState.CLOSED:
                 assert s.state == h2.stream.StreamState.CLOSED
-                assert state == h2.stream.StreamState.CLOSED
-            else:
+            elif input_ == h2.stream.StreamInputs.RECV_DATA:
                 assert s.state == h2.stream.StreamState.CLOSED
                 assert state not in (
                     h2.stream.StreamState.OPEN,
                     h2.stream.StreamState.HALF_CLOSED_LOCAL,
+                )
+            elif state == h2.stream.StreamState.HALF_CLOSED_REMOTE:
+                assert input_ in (
+                    h2.stream.StreamInputs.RECV_HEADERS,
+                    h2.stream.StreamInputs.RECV_PUSH_PROMISE,
+                    h2.stream.StreamInputs.RECV_DATA,
                 )
         else:
             assert s.state in h2.stream.StreamState
