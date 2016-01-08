@@ -86,6 +86,9 @@ Protocol Errors
 .. autoclass:: h2.exceptions.StreamIDTooLowError
    :members:
 
+.. autoclass:: h2.exceptions.InvalidSettingsValueError
+   :members:
+
 
 HTTP/2 Error Codes
 ------------------
