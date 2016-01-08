@@ -993,7 +993,7 @@ class TestBasicServer(object):
             c.receive_data(data_frame.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR
+            last_stream_id=1, error_code=h2.errors.FRAME_SIZE_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 

@@ -711,7 +711,7 @@ class H2Connection(object):
         """
         try:
             if frame.body_len > self.max_inbound_frame_size:
-                raise ProtocolError(
+                raise FrameTooLargeError(
                     "Received overlong frame: length %d, max %d" %
                     (frame.body_len, self.max_inbound_frame_size)
                 )
