@@ -11,6 +11,9 @@ import collections
 
 from hyperframe.frame import SettingsFrame
 
+from h2.errors import PROTOCOL_ERROR, FLOW_CONTROL_ERROR
+from h2.exceptions import InvalidSettingsValueError
+
 
 #: A value structure for storing changed settings.
 ChangedSetting = collections.namedtuple(
@@ -30,10 +33,12 @@ class Settings(collections.MutableMapping):
     different values.
 
     This object encapsulates this mess. It provides a dict-like interface to
-    settings, which return the *current* values pf the settings in question.
+    settings, which return the *current* values of the settings in question.
     Additionally, it keeps track of the stack of proposed values: each time an
     acknowledgement is sent/received, it updates the current values with the
-    stack of proposed values.
+    stack of proposed values. On top of all that, it validates the values to
+    make sure they're allowed, and raises :class:`InvalidSettingsValueError
+    <h2.exceptions.InvalidSettingsValueError>` if they are not.
 
     Finally, this object understands what the default values of the HTTP/2
     settings are, and sets those defaults appropriately.
@@ -141,6 +146,13 @@ class Settings(collections.MutableMapping):
         return val
 
     def __setitem__(self, key, value):
+        invalid = _validate_setting(key, value)
+        if invalid:
+            raise InvalidSettingsValueError(
+                "Setting %d has invalid value %d" % (key, value),
+                error_code=invalid
+            )
+
         try:
             items = self._settings[key]
         except KeyError:
@@ -157,3 +169,21 @@ class Settings(collections.MutableMapping):
 
     def __len__(self):
         return len(self._settings)
+
+
+def _validate_setting(setting, value):
+    """
+    Confirms that a specific setting has a well-formed value. If the setting is
+    invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
+    """
+    if setting == SettingsFrame.ENABLE_PUSH:
+        if value not in (0, 1):
+            return PROTOCOL_ERROR
+    elif setting == SettingsFrame.INITIAL_WINDOW_SIZE:
+        if not 0 <= value <= 2147483647 or value < 0:  # 2^31 - 1
+            return FLOW_CONTROL_ERROR
+    elif setting == SettingsFrame.SETTINGS_MAX_FRAME_SIZE:
+        if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
+            return PROTOCOL_ERROR
+
+    return 0

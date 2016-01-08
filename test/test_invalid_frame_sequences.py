@@ -9,6 +9,7 @@ they fail appropriately.
 import pytest
 
 import h2.connection
+import h2.errors
 import h2.exceptions
 
 
@@ -132,3 +133,32 @@ class TestInvalidFrameSequences(object):
             error_code=0x5,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    # These settings are a bit annoyingly anonymous, but trust me, they're bad.
+    @pytest.mark.parametrize(
+        "settings",
+        [
+            {0x2: 5},
+            {0x4: 2**31},
+            {0x5: 5},
+            {0x5: 2**24},
+        ]
+    )
+    def test_reject_invalid_settings_values(self, frame_factory, settings):
+        """
+        When a SETTINGS frame is received with invalid settings values it
+        causes connection teardown with the appropriate error code.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_settings_frame(settings=settings)
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            c.receive_data(f.serialize())
+
+        assert e.value.error_code == (
+            h2.errors.FLOW_CONTROL_ERROR if 0x4 in settings else
+            h2.errors.PROTOCOL_ERROR
+        )

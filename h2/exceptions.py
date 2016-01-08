@@ -91,3 +91,12 @@ class StreamClosedError(NoSuchStreamError):
 
         #: The relevant HTTP/2 error code.
         self.error_code = h2.errors.STREAM_CLOSED
+
+
+class InvalidSettingsValueError(ProtocolError, ValueError):
+    """
+    An attempt was made to set an invalid Settings value.
+    """
+    def __init__(self, msg, error_code):
+        super(InvalidSettingsValueError, self).__init__(msg)
+        self.error_code = error_code
