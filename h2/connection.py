@@ -336,9 +336,7 @@ class H2Connection(object):
         )
 
         if stream_id <= highest_stream_id:
-            raise StreamIDTooLowError(
-                "Stream ID must be larger than %s", highest_stream_id
-            )
+            raise StreamIDTooLowError(stream_id, highest_stream_id)
 
         if allowed_ids != AllowedStreamIDs.ANY:
             if (stream_id % 2) != int(allowed_ids):
