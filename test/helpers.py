@@ -7,7 +7,8 @@ This module contains helpers for the h2 tests.
 """
 from hyperframe.frame import (
     HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
-    GoAwayFrame, RstStreamFrame, PushPromiseFrame, PriorityFrame
+    GoAwayFrame, RstStreamFrame, PushPromiseFrame, PriorityFrame,
+    ContinuationFrame
 )
 from hpack.hpack import Encoder
 
@@ -50,6 +51,16 @@ class FrameFactory(object):
 
         for k, v in priority_kwargs.items():
             setattr(f, k, v)
+
+        return f
+
+    def build_continuation_frame(self, header_block, flags=[], stream_id=1):
+        """
+        Builds a single continuation frame out of the binary header block.
+        """
+        f = ContinuationFrame(stream_id)
+        f.data = header_block
+        f.flags = set(flags)
 
         return f
 
