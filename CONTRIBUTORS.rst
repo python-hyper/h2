@@ -14,6 +14,14 @@ In chronological order:
 
   - Added asyncio example.
 
+- Alex Chan (@alexwlchan)
+
+  - Fixed docstring, added URLs to README.
+
+- Glyph Lefkowitz (@glyph)
+
+  - Improved example Twisted server.
+
 - Thomas Kriechbaumer (@Kriechi)
 
   - Fixed incorrect arguments being passed to ``StreamIDTooLowError``.
