@@ -21,7 +21,8 @@ from .events import (
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
-    TooManyStreamsError, StreamClosedError, StreamIDTooLowError
+    TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
+    NoAvailableStreamIDError
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
@@ -231,6 +232,9 @@ class H2Connection(object):
     # chosen.
     DEFAULT_MAX_INBOUND_FRAME_SIZE = 2**24
 
+    # The highest acceptable stream ID.
+    HIGHEST_ALLOWED_STREAM_ID = 2**31 - 1
+
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
@@ -411,6 +415,37 @@ class H2Connection(object):
                 raise NoSuchStreamError(stream_id)
             else:
                 raise StreamClosedError(stream_id)
+
+    def get_next_available_stream_id(self):
+        """
+        Returns an integer suitable for use as the stream ID for the next
+        stream created by this endpoint. For server endpoints, this stream ID
+        will be even. For client endpoints, this stream ID will be odd. If no
+        stream IDs are available, raises :class:`NoAvailableStreamIDError
+        <h2.exceptions.NoAvailableStreamIDError>`.
+
+        .. warning: The return value from this function does not change until
+                    the stream ID has actually been used by sending or pushing
+                    headers on that stream. For that reason, it should be
+                    called as close as possible to the actual use of the stream
+                    ID.
+
+        :raises: :class:`NoAvailableStreamIDError
+            <h2.exceptions.NoAvailableStreamIDError>`
+        :returns: The next free stream ID this peer can use to initiate a
+            stream.
+        :rtype: ``int``
+        """
+        # No streams have been opened yet, so return the lowest allowed stream
+        # ID.
+        if not self.highest_outbound_stream_id:
+            return 1 if self.client_side else 2
+
+        next_stream_id = self.highest_outbound_stream_id + 2
+        if next_stream_id > self.HIGHEST_ALLOWED_STREAM_ID:
+            raise NoAvailableStreamIDError("Exhausted allowed stream IDs")
+
+        return next_stream_id
 
     def send_headers(self, stream_id, headers, end_stream=False):
         """
