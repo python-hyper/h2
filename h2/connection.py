@@ -326,9 +326,12 @@ class H2Connection(object):
         inbound_numbers = int(not self.client_side)
         return self._open_streams(inbound_numbers)
 
-    def begin_new_stream(self, stream_id, allowed_ids):
+    def _begin_new_stream(self, stream_id, allowed_ids):
         """
         Initiate a new stream.
+
+        .. versionchanged:: 2.0.0
+           Removed this function from the public API.
 
         :param stream_id: The ID of the stream to open.
         :param allowed_ids: What kind of stream ID is allowed.
@@ -395,7 +398,7 @@ class H2Connection(object):
         try:
             return self.streams[stream_id]
         except KeyError:
-            return self.begin_new_stream(stream_id, allowed_ids)
+            return self._begin_new_stream(stream_id, allowed_ids)
 
     def _get_stream_by_id(self, stream_id):
         """
@@ -541,7 +544,7 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self._get_stream_by_id(stream_id)
 
-        new_stream = self.begin_new_stream(
+        new_stream = self._begin_new_stream(
             promised_stream_id, AllowedStreamIDs.EVEN
         )
         self.streams[promised_stream_id] = new_stream
@@ -859,7 +862,7 @@ class H2Connection(object):
             pushed_headers,
         )
 
-        new_stream = self.begin_new_stream(
+        new_stream = self._begin_new_stream(
             frame.promised_stream_id, AllowedStreamIDs.EVEN
         )
         self.streams[frame.promised_stream_id] = new_stream
