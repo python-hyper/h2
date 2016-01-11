@@ -273,14 +273,22 @@ class TestBasicClient(object):
         c.send_headers(1, test_headers, end_stream=True)
 
         # Use the frame buffer here, because we don't care about decoding
-        # the headers.
+        # the headers. Don't send all the data in because that will force the
+        # frame buffer to stop caching the CONTINUATION frames, so instead
+        # send all but one byte.
         buffer = h2.frame_buffer.FrameBuffer(server=True)
-        buffer.add_data(c.data_to_send())
-        frames = list(buffer)
+        buffer.max_frame_size = 65535
+        data = c.data_to_send()
+        buffer.add_data(data[:-1])
 
-        # Remove a settings frame.
-        frames.pop(0)
-        assert len(frames) > 1
+        # Drain the buffer, confirming that it only provides a single frame
+        # (the settings frame)
+        assert len(list(buffer)) == 1
+
+        # Get the cached frames.
+        frames = buffer._headers_buffer
+
+        # Split the frames up.
         headers_frame = frames[0]
         continuation_frames = frames[1:]
 
@@ -290,13 +298,15 @@ class TestBasicClient(object):
                 lambda f: isinstance(f, hyperframe.frame.ContinuationFrame),
                 continuation_frames)
         )
-
-        assert frames[0].flags == set(['END_STREAM'])
-        assert frames[-1].flags == set(['END_HEADERS'])
-
         assert all(
             map(lambda f: len(f.data) <= c.max_outbound_frame_size, frames)
         )
+
+        assert frames[0].flags == set(['END_STREAM'])
+
+        buffer.add_data(data[-1:])
+        headers = list(buffer)[0]
+        assert isinstance(headers, hyperframe.frame.HeadersFrame)
 
     def test_handle_stream_reset(self, frame_factory):
         """
