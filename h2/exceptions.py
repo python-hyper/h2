@@ -47,7 +47,7 @@ class FlowControlError(ProtocolError):
     error_code = h2.errors.FLOW_CONTROL_ERROR
 
 
-class StreamIDTooLowError(ProtocolError, ValueError):
+class StreamIDTooLowError(ProtocolError):
     """
     An attempt was made to open a stream that had an ID that is lower than the
     highest ID we have seen on this connection.
@@ -69,7 +69,7 @@ class StreamIDTooLowError(ProtocolError, ValueError):
         )
 
 
-class NoAvailableStreamIDError(ProtocolError, ValueError):
+class NoAvailableStreamIDError(ProtocolError):
     """
     There are no available stream IDs left to the connection. All stream IDs
     have been exhausted.

@@ -100,8 +100,11 @@ class TestClosedStreams(object):
             stream_id=1,
         )
 
-        with pytest.raises(h2.exceptions.ProtocolError):
+        with pytest.raises(h2.exceptions.StreamIDTooLowError) as e:
             c.receive_data(f.serialize())
+
+        assert e.value.stream_id == 1
+        assert e.value.max_stream_id == 3
 
         f = frame_factory.build_goaway_frame(
             last_stream_id=3,
