@@ -73,6 +73,8 @@ class NoAvailableStreamIDError(ProtocolError):
     """
     There are no available stream IDs left to the connection. All stream IDs
     have been exhausted.
+
+    .. versionadded:: 2.0.0
     """
     pass
 
@@ -104,6 +106,8 @@ class StreamClosedError(NoSuchStreamError):
 class InvalidSettingsValueError(ProtocolError, ValueError):
     """
     An attempt was made to set an invalid Settings value.
+
+    .. versionadded:: 2.0.0
     """
     def __init__(self, msg, error_code):
         super(InvalidSettingsValueError, self).__init__(msg)

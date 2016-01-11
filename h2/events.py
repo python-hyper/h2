@@ -201,7 +201,7 @@ class PriorityUpdate(object):
 
     This event is purely advisory, and does not need to be acted on.
 
-    .. versionadded:: 1.2.0
+    .. versionadded:: 2.0.0
     """
     def __init__(self):
         #: The ID of the stream whose priority information is being updated.
