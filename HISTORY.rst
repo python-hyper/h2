@@ -14,6 +14,14 @@ API Changes (Breaking)
 - Settings values set by both the user and the remote peer are now validated
   when they're set. If they're invalid, a new ``InvalidSettingsValueError`` is
   raised and, if set by the remote peer, a connection error is signaled.
+- Removed a number of methods on the ``H2Connection`` object from the public,
+  semantically versioned API, by renaming them to have leading underscores.
+  Specifically, removed:
+
+    - ``get_stream_by_id``
+    - ``get_or_create_stream``
+    - ``begin_new_stream``
+    - ``receive_frame``
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

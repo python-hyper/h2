@@ -137,7 +137,7 @@ class TestFlowControl(object):
         """
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
-        c.get_stream_by_id(1).outbound_flow_control_window = 5
+        c._get_stream_by_id(1).outbound_flow_control_window = 5
 
         with pytest.raises(h2.exceptions.FlowControlError):
             c.send_data(1, b'some data')
