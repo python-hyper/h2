@@ -89,6 +89,9 @@ Protocol Errors
 .. autoclass:: h2.exceptions.InvalidSettingsValueError
    :members:
 
+.. autoclass:: h2.exceptions.NoAvailableStreamIDError
+   :members:
+
 
 HTTP/2 Error Codes
 ------------------
