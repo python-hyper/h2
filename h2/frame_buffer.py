@@ -7,7 +7,7 @@ A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
 from hyperframe.exceptions import UnknownFrameError
-from hyperframe.frame import Frame
+from hyperframe.frame import Frame, HeadersFrame, ContinuationFrame
 
 from .exceptions import ProtocolError, FrameTooLargeError
 
@@ -22,6 +22,7 @@ class FrameBuffer(object):
         self.max_frame_size = 0
         self._preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' if server else b''
         self._preamble_len = len(self._preamble)
+        self._headers_buffer = []
 
     def add_data(self, data):
         """
@@ -57,6 +58,8 @@ class FrameBuffer(object):
         return self
 
     def next(self):  # Python 2
+        # TODO: This method is a *monster*, and desperately needs refactoring
+        # to be cleaner.
         if len(self.data) < 9:
             raise StopIteration()
 
@@ -85,10 +88,44 @@ class FrameBuffer(object):
 
         self.data = self.data[9+length:]
 
-        # If we got a frame we didn't understand, rather than return None it'd
-        # be better if we just tried to get the next frame in the sequence
-        # instead. Recurse back into ourselves to do that.
-        # This is safe because the amount of work we have to do here is
+        # Check if we're in the middle of a headers block. If we are, this
+        # frame *must* be a CONTINUATION frame with the same stream ID as the
+        # leading HEADERS frame. Anything else is a ProtocolError. If the frame
+        # *is* valid, append it to the header buffer.
+        if self._headers_buffer:
+            stream_id = self._headers_buffer[0].stream_id
+            valid_frame = (
+                f is not None and
+                isinstance(f, ContinuationFrame) and
+                f.stream_id == stream_id
+            )
+            if not valid_frame:
+                raise ProtocolError("Invalid frame during header block.")
+
+            # Append the frame to the buffer.
+            self._headers_buffer.append(f)
+
+            # If this is the end of the header block, then we want to build a
+            # mutant HEADERS frame that's massive. Use the original one we got,
+            # then set END_HEADERS and set its data appopriately. If it's not
+            # the end of the block, lose the current frame: we can't yield it.
+            if 'END_HEADERS' in f.flags:
+                f = self._headers_buffer[0]
+                f.flags.add('END_HEADERS')
+                f.data = b''.join(x.data for x in self._headers_buffer)
+                self._headers_buffer = None
+            else:
+                f = None
+        elif isinstance(f, HeadersFrame) and 'END_HEADERS' not in f.flags:
+            # This is the start of a headers block! Save the frame off and then
+            # act like we didn't receive one.
+            self._headers_buffer.append(f)
+            f = None
+
+        # If we got a frame we didn't understand or shouldn't yield, rather
+        # than return None it'd be better if we just tried to get the next
+        # frame in the sequence instead. Recurse back into ourselves to do
+        # that. This is safe because the amount of work we have to do here is
         # strictly bounded by the length of the buffer.
         return f if f is not None else self.next()
 
