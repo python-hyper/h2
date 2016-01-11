@@ -58,6 +58,9 @@ class FrameBuffer(object):
             # recurse into ourselves.
             length = e.length
             f = None
+        except ValueError as e:
+            # The frame header is invalid. This is a ProtocolError
+            raise ProtocolError("Invalid frame header received: %s" % str(e))
 
         if len(self.data) < length + 9:
             raise StopIteration()
