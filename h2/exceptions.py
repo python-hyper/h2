@@ -69,6 +69,14 @@ class StreamIDTooLowError(ProtocolError, ValueError):
         )
 
 
+class NoAvailableStreamIDError(ProtocolError, ValueError):
+    """
+    There are no available stream IDs left to the connection. All stream IDs
+    have been exhausted.
+    """
+    pass
+
+
 class NoSuchStreamError(H2Error):
     """
     A stream-specific action referenced a stream that does not exist.

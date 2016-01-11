@@ -59,12 +59,15 @@ Exceptions
 ----------
 
 .. autoclass:: h2.exceptions.H2Error
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.NoSuchStreamError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.StreamClosedError
+   :show-inheritance:
    :members:
 
 
@@ -72,21 +75,31 @@ Protocol Errors
 ~~~~~~~~~~~~~~~
 
 .. autoclass:: h2.exceptions.ProtocolError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.FrameTooLargeError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.TooManyStreamsError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.FlowControlError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.StreamIDTooLowError
+   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.InvalidSettingsValueError
+   :show-inheritance:
+   :members:
+
+.. autoclass:: h2.exceptions.NoAvailableStreamIDError
+   :show-inheritance:
    :members:
 
 
