@@ -878,6 +878,7 @@ class H2Connection(object):
         """
         events = []
         self.incoming_buffer.add_data(data)
+        self.incoming_buffer.max_frame_size = self.max_inbound_frame_size
 
         try:
             for frame in self.incoming_buffer:
@@ -903,12 +904,6 @@ class H2Connection(object):
            Removed from the public API.
         """
         try:
-            if frame.body_len > self.max_inbound_frame_size:
-                raise FrameTooLargeError(
-                    "Received overlong frame: length %d, max %d" %
-                    (frame.body_len, self.max_inbound_frame_size)
-                )
-
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
         except StreamClosedError as e:

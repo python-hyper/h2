@@ -9,7 +9,7 @@ frames.
 from hyperframe.exceptions import UnknownFrameError
 from hyperframe.frame import Frame
 
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, FrameTooLargeError
 
 
 class FrameBuffer(object):
@@ -19,6 +19,7 @@ class FrameBuffer(object):
     """
     def __init__(self, server=False):
         self.data = b''
+        self.max_frame_size = 0
         self._preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' if server else b''
         self._preamble_len = len(self._preamble)
 
@@ -40,6 +41,16 @@ class FrameBuffer(object):
             self._preamble = self._preamble[of_which_preamble:]
 
         self.data += data
+
+    def _validate_frame_length(self, length):
+        """
+        Confirm that the frame is an appropriate length.
+        """
+        if length > self.max_frame_size:
+            raise FrameTooLargeError(
+                "Received overlong frame: length %d, max %d" %
+                (length, self.max_frame_size)
+            )
 
     # The methods below support the iterator protocol.
     def __iter__(self):
@@ -64,6 +75,8 @@ class FrameBuffer(object):
 
         if len(self.data) < length + 9:
             raise StopIteration()
+
+        self._validate_frame_length(length)
 
         # Don't try to parse the body if we didn't get a frame we know about:
         # there's nothing we can do with it anyway.
