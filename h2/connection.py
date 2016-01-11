@@ -257,8 +257,12 @@ class H2Connection(object):
             self.local_settings.initial_window_size
         )
 
-        # Maximum frame sizes in each direction.
+        #: The maximum size of a frame that can be emitted by this peer, in
+        #: bytes.
         self.max_outbound_frame_size = self.remote_settings.max_frame_size
+
+        #: The maximum size of a frame that can be received by this peer, in
+        #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
 
         # Buffer for incoming data.
@@ -459,6 +463,33 @@ class H2Connection(object):
     def send_headers(self, stream_id, headers, end_stream=False):
         """
         Send headers on a given stream.
+
+        This function can be used to send request or response headers: the kind
+        that are sent depends on whether this connection has been opened as a
+        client or server connection, and whether the stream was opened by the
+        remote peer or not.
+
+        If this is a client connection, calling ``send_headers`` will send the
+        headers as a request. It will also implicitly open the stream being
+        used. If this is a client connection and ``send_headers`` has *already*
+        been called, this will send trailers instead.
+
+        If this is a server connection, calling ``send_headers`` will send the
+        headers as a response. It is a protocol error for a server to open a
+        stream by sending headers. If this is a server connection and
+        ``send_headers`` has *already* been called, this will send trailers
+        instead.
+
+        In all situations it is a protocol error to call ``send_headers`` more
+        than twice.
+
+        :param stream_id: The stream ID to send the headers on. If this stream
+            does not currently exist, it will be created.
+        :type stream_id: ``int``
+        :param headers: The request/response headers to send.
+        :type headers: An iterable of two tuples of bytestrings.
+        :returns: An iterable of events that fired in response to sending the
+            headers. Always empty.
         """
         # Check we can open the stream.
         if stream_id not in self.streams:
@@ -482,6 +513,29 @@ class H2Connection(object):
     def send_data(self, stream_id, data, end_stream=False):
         """
         Send data on a given stream.
+
+        This method does no breaking up of data: if the data is larger than the
+        value returned by :meth:`local_flow_control_window
+        <h2.connection.H2Connection.local_flow_control_window>` for this stream
+        then a :class:`FlowControlError <h2.exceptions.FlowControlError>` will
+        be raised. If the data is larger than :data:`max_outbound_frame_size
+        <h2.connection.H2Connection.max_outbound_frame_size>` then a
+        :class:`FrameTooLargeError <h2.exceptions.FrameTooLargeError>` will be
+        raised.
+
+        Hyper-h2 does this to avoid buffering the data internally. If the user
+        has more data to send than hyper-h2 will allow, consider breaking it up
+        and buffering it externally.
+
+        :param stream_id: The ID of the stream on which to send the data.
+        :type stream_id: ``int``
+        :param data: The data to send on the stream.
+        :type data: ``bytes``
+        :param end_stream: (optional) Whether this is the last data to be sent
+            on the stream. Defaults to ``False``.
+        :type end_stream: ``bool``
+        :returns: A list of events encountered while sending the data. Always
+            empty.
         """
         if len(data) > self.local_flow_control_window(stream_id):
             raise FlowControlError(
@@ -505,7 +559,14 @@ class H2Connection(object):
 
     def end_stream(self, stream_id):
         """
-        End a given stream.
+        Cleanly end a given stream.
+
+        This method ends a stream by sending an empty DATA frame on that stream
+        with the ``END_STREAM`` flag set.
+
+        :param stream_id: The ID of the stream to end.
+        :type stream_id: ``int``
+        :returns: An list of events fired in this process. Always empty.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
         frames, events = self.streams[stream_id].end_stream()
@@ -514,7 +575,16 @@ class H2Connection(object):
 
     def increment_flow_control_window(self, increment, stream_id=None):
         """
-        Increment a flow control window, optionally for a single stream.
+        Increment a flow control window, optionally for a single stream. Allows
+        the remote peer to send more data.
+
+        :param increment: The amount ot increment the flow control window by.
+        :type increment: ``int``
+        :param stream_id: (optional) The ID of the stream that should have its
+            flow control window opened. If not present or ``None``, the
+            connection flow control window will be opened instead.
+        :type stream_id: ``int`` or ``None``
+        :returns: A list of events fired in this process. Always empty.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
@@ -536,7 +606,17 @@ class H2Connection(object):
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
         """
-        Send a push promise.
+        Push a response to the client by sending a PUSH_PROMISE frame.
+
+        :param stream_id: The ID of the stream that this push is a response to.
+        :type stream_id: ``int``
+        :param promised_stream_id: The ID of the stream that the pushed
+            response will be sent on.
+        :type promised_stream_id: ``int``
+        :param request_headers: The headers of the request that the pushed
+            response will be responding to.
+        :type request_headers: An iterable of two tuples of bytestrings.
+        :returns: A list of the events fired in this process. Always empty.
         """
         if not self.remote_settings.enable_push:
             raise ProtocolError("Remote peer has disabled stream push")
@@ -576,7 +656,19 @@ class H2Connection(object):
 
     def reset_stream(self, stream_id, error_code=0):
         """
-        Reset a stream frame.
+        Reset a stream.
+
+        This method forcibly closes a stream by sending a RST_STREAM frame for
+        a given stream. This is not a graceful closure. To gracefully end a
+        stream, try the :meth:`end_stream
+        <h2.connection.H2Connection.end_stream>` method.
+
+        :param stream_id: The ID of the stream to reset.
+        :type stream_id: ``int``
+        :param error_code: (optional) The error code to use to reset the
+            stream. Defaults to :data:`NO_ERROR <h2.errors.NO_ERROR>`.
+        :type error_code: ``int``
+        :returns: A list of events fired during the reset. Always empty.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
         stream = self._get_stream_by_id(stream_id)
@@ -588,6 +680,10 @@ class H2Connection(object):
     def close_connection(self, error_code=0):
         """
         Close a connection, emitting a GOAWAY frame.
+
+        :param error_code: (optional) The error code to send in the GOAWAY
+            frame.
+        :returns: A list of events. Always empty.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
 
@@ -662,6 +758,13 @@ class H2Connection(object):
         The maximum data that can be sent in a single data frame on a stream
         is either this value, or the maximum frame size, whichever is
         *smaller*.
+
+        :param stream_id: The ID of the stream whose flow control window is
+            being queried.
+        :type stream_id: ``int``
+        :returns: The amount of data in bytes that can be sent on the stream
+            before the flow control window is exhausted.
+        :rtype: ``int``
         """
         stream = self._get_stream_by_id(stream_id)
         return min(
@@ -682,6 +785,13 @@ class H2Connection(object):
         The maximum data that can be sent in a single data frame on a stream
         is either this value, or the maximum frame size, whichever is
         *smaller*.
+
+        :param stream_id: The ID of the stream whose flow control window is
+            being queried.
+        :type stream_id: ``int``
+        :returns: The amount of data in bytes that can be received on the
+            stream before the flow control window is exhausted.
+        :rtype: ``int``
         """
         stream = self._get_stream_by_id(stream_id)
         return min(
@@ -693,10 +803,16 @@ class H2Connection(object):
         """
         Returns some data for sending out of the internal data buffer.
 
-        This method is analagous to 'read' on a file-like object, but it
+        This method is analagous to ``read`` on a file-like object, but it
         doesn't block. Instead, it returns as much data as the user asks for,
         or less if that much data is not available. It does not perform any
         I/O, and so uses a different name.
+
+        :param amt: (optional) The maximum amount of data to return. If not
+            set, or set to ``None``, will return as much data as possible.
+        :type amt: ``int``
+        :returns: A bytestring containing the data to send on the wire.
+        :rtype: ``bytes``
         """
         if amt is None:
             data = self._data_to_send
@@ -754,6 +870,11 @@ class H2Connection(object):
     def receive_data(self, data):
         """
         Pass some received HTTP/2 data to the connection for handling.
+
+        :param data: The data received from the remote peer on the network.
+        :type data: ``bytes``
+        :returns: A list of events that the remote peer triggered by sending
+            this data.
         """
         events = []
         self.incoming_buffer.add_data(data)
