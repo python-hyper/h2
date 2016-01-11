@@ -422,11 +422,13 @@ class H2Connection(object):
         stream IDs are available, raises :class:`NoAvailableStreamIDError
         <h2.exceptions.NoAvailableStreamIDError>`.
 
-        .. warning: The return value from this function does not change until
-                    the stream ID has actually been used by sending or pushing
-                    headers on that stream. For that reason, it should be
-                    called as close as possible to the actual use of the stream
-                    ID.
+        .. warning:: The return value from this function does not change until
+                     the stream ID has actually been used by sending or pushing
+                     headers on that stream. For that reason, it should be
+                     called as close as possible to the actual use of the
+                     stream ID.
+
+        .. versionadded:: 2.0.0
 
         :raises: :class:`NoAvailableStreamIDError
             <h2.exceptions.NoAvailableStreamIDError>`
