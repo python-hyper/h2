@@ -151,8 +151,11 @@ class TestBasicClient(object):
         c.initiate_connection()
         c.send_headers(3, self.example_request_headers, end_stream=False)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(h2.exceptions.StreamIDTooLowError) as e:
             c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        assert e.value.stream_id == 1
+        assert e.value.max_stream_id == 3
 
     def test_receiving_pushed_stream(self, frame_factory):
         """
