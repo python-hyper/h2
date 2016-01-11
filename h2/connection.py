@@ -383,11 +383,14 @@ class H2Connection(object):
         self._data_to_send += preamble + f.serialize()
         return []
 
-    def get_or_create_stream(self, stream_id, allowed_ids):
+    def _get_or_create_stream(self, stream_id, allowed_ids):
         """
         Gets a stream by its stream ID. Will create one if one does not already
         exist. Use allowed_ids to circumvent the usual stream ID rules for
         clients and servers.
+
+        .. versionchanged:: 2.0.0
+           Removed this function from the public API.
         """
         try:
             return self.streams[stream_id]
@@ -464,7 +467,7 @@ class H2Connection(object):
                 )
 
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
-        stream = self.get_or_create_stream(
+        stream = self._get_or_create_stream(
             stream_id, AllowedStreamIDs(self.client_side)
         )
         frames, events = stream.send_headers(
@@ -825,7 +828,7 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
         )
-        stream = self.get_or_create_stream(
+        stream = self._get_or_create_stream(
             frame.stream_id, AllowedStreamIDs(not self.client_side)
         )
         frames, stream_events = stream.receive_headers(
@@ -985,7 +988,7 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PRIORITY
         )
-        stream = self.get_or_create_stream(
+        stream = self._get_or_create_stream(
             frame.stream_id, AllowedStreamIDs.ANY
         )
         stream_events = stream.priority_changed_remote(frame)
