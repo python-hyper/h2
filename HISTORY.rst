@@ -23,6 +23,9 @@ API Changes (Breaking)
     - ``begin_new_stream``
     - ``receive_frame``
 
+- Added full support for receiving CONTINUATION frames, including policing
+  logic about when and how they are received.
+
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
