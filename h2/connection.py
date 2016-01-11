@@ -881,16 +881,19 @@ class H2Connection(object):
 
         try:
             for frame in self.incoming_buffer:
-                events.extend(self.receive_frame(frame))
+                events.extend(self._receive_frame(frame))
         except InvalidPaddingError:
             self._terminate_connection(PROTOCOL_ERROR)
             raise ProtocolError("Received frame with invalid padding.")
 
         return events
 
-    def receive_frame(self, frame):
+    def _receive_frame(self, frame):
         """
         Handle a frame received on the connection.
+
+        .. versionchanged:: 2.0.0
+           Removed from the public API.
         """
         try:
             if frame.body_len > self.max_inbound_frame_size:
