@@ -234,7 +234,8 @@ class H2Connection(object):
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
-        self.highest_stream_id = 0
+        self.highest_inbound_stream_id = 0
+        self.highest_outbound_stream_id = 0
         self.encoder = Encoder()
         self.decoder = Decoder()
         self.client_side = client_side
@@ -328,9 +329,15 @@ class H2Connection(object):
         :param stream_id: The ID of the stream to open.
         :param allowed_ids: What kind of stream ID is allowed.
         """
-        if stream_id <= self.highest_stream_id:
+        outbound = self._stream_id_is_outbound(stream_id)
+        highest_stream_id = (
+            self.highest_outbound_stream_id if outbound else
+            self.highest_inbound_stream_id
+        )
+
+        if stream_id <= highest_stream_id:
             raise StreamIDTooLowError(
-                "Stream ID must be larger than %s", self.highest_stream_id
+                "Stream ID must be larger than %s", highest_stream_id
             )
 
         if allowed_ids != AllowedStreamIDs.ANY:
@@ -348,7 +355,12 @@ class H2Connection(object):
         s.inbound_flow_control_window = self.local_settings.initial_window_size
 
         self.streams[stream_id] = s
-        self.highest_stream_id = stream_id
+
+        if outbound:
+            self.highest_outbound_stream_id = stream_id
+        else:
+            self.highest_inbound_stream_id = stream_id
+
         return s
 
     def initiate_connection(self):
@@ -389,7 +401,13 @@ class H2Connection(object):
         try:
             return self.streams[stream_id]
         except KeyError:
-            if stream_id > self.highest_stream_id:
+            outbound = self._stream_id_is_outbound(stream_id)
+            highest_stream_id = (
+                self.highest_outbound_stream_id if outbound else
+                self.highest_inbound_stream_id
+            )
+
+            if stream_id > highest_stream_id:
                 raise NoSuchStreamError(stream_id)
             else:
                 raise StreamClosedError(stream_id)
@@ -531,7 +549,7 @@ class H2Connection(object):
 
         f = GoAwayFrame(0)
         f.error_code = error_code
-        f.last_stream_id = self.highest_stream_id
+        f.last_stream_id = self.highest_inbound_stream_id
         self._prepare_for_sending([f])
 
         return []
@@ -975,3 +993,10 @@ class H2Connection(object):
             )
 
         return changes
+
+    def _stream_id_is_outbound(self, stream_id):
+        """
+        Returns ``True`` if the stream ID corresponds to an outbound stream
+        (one initiated by this peer), returns ``False`` otherwise.
+        """
+        return (stream_id % 2 == int(self.client_side))
