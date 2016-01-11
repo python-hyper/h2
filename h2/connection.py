@@ -394,11 +394,14 @@ class H2Connection(object):
         except KeyError:
             return self.begin_new_stream(stream_id, allowed_ids)
 
-    def get_stream_by_id(self, stream_id):
+    def _get_stream_by_id(self, stream_id):
         """
         Gets a stream by its stream ID. Raises NoSuchStreamError if the stream
         ID does not correspond to a known stream and is higher than the current
         maximum: raises if it is lower than the current maximum.
+
+        .. versionchanged:: 2.0.0
+           Removed this function from the public API.
         """
         try:
             return self.streams[stream_id]
@@ -533,7 +536,7 @@ class H2Connection(object):
             raise ProtocolError("Remote peer has disabled stream push")
 
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
-        stream = self.get_stream_by_id(stream_id)
+        stream = self._get_stream_by_id(stream_id)
 
         new_stream = self.begin_new_stream(
             promised_stream_id, AllowedStreamIDs.EVEN
@@ -570,7 +573,7 @@ class H2Connection(object):
         Reset a stream frame.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
-        stream = self.get_stream_by_id(stream_id)
+        stream = self._get_stream_by_id(stream_id)
         frames, events = stream.reset_stream(error_code)
 
         self._prepare_for_sending(frames)
@@ -654,7 +657,7 @@ class H2Connection(object):
         is either this value, or the maximum frame size, whichever is
         *smaller*.
         """
-        stream = self.get_stream_by_id(stream_id)
+        stream = self._get_stream_by_id(stream_id)
         return min(
             self.outbound_flow_control_window,
             stream.outbound_flow_control_window
@@ -674,7 +677,7 @@ class H2Connection(object):
         is either this value, or the maximum frame size, whichever is
         *smaller*.
         """
-        stream = self.get_stream_by_id(stream_id)
+        stream = self._get_stream_by_id(stream_id)
         return min(
             self.inbound_flow_control_window,
             stream.inbound_flow_control_window
@@ -847,7 +850,7 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
         )
-        stream = self.get_stream_by_id(frame.stream_id)
+        stream = self._get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_push_promise_in_band(
             frame.promised_stream_id,
             pushed_headers,
@@ -878,7 +881,7 @@ class H2Connection(object):
             ConnectionInputs.RECV_DATA
         )
         self.inbound_flow_control_window -= frame.body_len
-        stream = self.get_stream_by_id(frame.stream_id)
+        stream = self._get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_data(
             frame.data,
             'END_STREAM' in frame.flags,
@@ -919,7 +922,7 @@ class H2Connection(object):
         )
 
         if frame.stream_id:
-            stream = self.get_stream_by_id(frame.stream_id)
+            stream = self._get_stream_by_id(frame.stream_id)
             frames, stream_events = stream.receive_window_update(
                 frame.window_increment
             )
@@ -965,7 +968,7 @@ class H2Connection(object):
             ConnectionInputs.RECV_RST_STREAM
         )
         try:
-            stream = self.get_stream_by_id(frame.stream_id)
+            stream = self._get_stream_by_id(frame.stream_id)
         except NoSuchStreamError:
             # The stream is missing. That's ok, we just do nothing here.
             stream_frames = []
