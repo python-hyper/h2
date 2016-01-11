@@ -885,6 +885,13 @@ class H2Connection(object):
         except InvalidPaddingError:
             self._terminate_connection(PROTOCOL_ERROR)
             raise ProtocolError("Received frame with invalid padding.")
+        except ProtocolError as e:
+            # For whatever reason, receiving the frame caused a protocol error.
+            # We should prepare to emit a GoAway frame before throwing the
+            # exception up further. No need for an event: the exception will
+            # do fine.
+            self._terminate_connection(e.error_code)
+            raise
 
         return events
 
@@ -904,13 +911,6 @@ class H2Connection(object):
 
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
-        except ProtocolError as e:
-            # For whatever reason, receiving the frame caused a protocol error.
-            # We should prepare to emit a GoAway frame before throwing the
-            # exception up further. No need for an event: the exception will
-            # do fine.
-            self._terminate_connection(e.error_code)
-            raise
         except StreamClosedError as e:
             # We need to send a RST_STREAM frame on behalf of the stream.
             # The frame the stream wants to emit is already present in the

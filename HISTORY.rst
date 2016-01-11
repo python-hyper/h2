@@ -46,6 +46,7 @@ Bugfixes
 - Hyper-h2 now does a better job of reporting the last stream ID it has
   partially handled when terminating connections.
 - Fixed an error in the arguments of ``StreamIDTooLowError``.
+- Prevent ``ValueError``s leaking from Hyperframe.
 
 1.1.1 (2015-11-17)
 ------------------

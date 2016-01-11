@@ -162,3 +162,28 @@ class TestInvalidFrameSequences(object):
             h2.errors.FLOW_CONTROL_ERROR if 0x4 in settings else
             h2.errors.PROTOCOL_ERROR
         )
+
+    def test_invalid_frame_headers_are_protocol_errors(self, frame_factory):
+        """
+        When invalid frame headers are received they cause ProtocolErrors to be
+        raised.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+
+        # Do some annoying bit twiddling here: the stream ID is currently set
+        # to '1', change it to '0'. Grab the first 9 bytes (the frame header),
+        # replace any instances of the byte '\x01', and then graft it onto the
+        # remaining bytes.
+        frame_data = f.serialize()
+        frame_data = frame_data[:9].replace(b'\x01', b'\x00') + frame_data[9:]
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(frame_data)
+
+        assert "Stream ID must be non-zero" in str(e.value)
