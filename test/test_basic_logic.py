@@ -223,7 +223,7 @@ class TestBasicClient(object):
             c.receive_data(f3.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            1, h2.errors.PROTOCOL_ERROR
+            0, h2.errors.PROTOCOL_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -439,7 +439,7 @@ class TestBasicClient(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=0, error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 

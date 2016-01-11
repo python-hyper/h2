@@ -798,13 +798,7 @@ class H2Connection(object):
         GOAWAY frames.
         """
         f = GoAwayFrame(0)
-
-        # TODO: Fix this to properly record the last stream ID we've seen.
-        if self.streams:
-            f.last_stream_id = sorted(self.streams.keys())[-1]
-        else:
-            f.last_stream_id = 0
-
+        f.last_stream_id = self.highest_inbound_stream_id
         f.error_code = error_code
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
         self._prepare_for_sending([f])
