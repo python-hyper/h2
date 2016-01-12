@@ -17,7 +17,7 @@ likely requires fairly substantial understanding of the scheduler being used.
 However, for servers that *do* want to follow the priority recommendations
 given by clients, the Hyper project provides `an implementation`_ of the
 `RFC 7540`_ priority tree that will be useful to plug into a server. That,
-combined with the :class:`PriorityUpdate <h2.events.PriorityUpdate>` event from
+combined with the :class:`PriorityUpdated <h2.events.PriorityUpdated>` event from
 this library, can be used to build a server that conforms to RFC 7540's
 recommendations for priority handling.
 

@@ -57,7 +57,7 @@ Events
 .. autoclass:: h2.events.SettingsAcknowledged
    :members:
 
-.. autoclass:: h2.events.PriorityUpdate
+.. autoclass:: h2.events.PriorityUpdated
    :members:
 
 .. autoclass:: h2.events.ConnectionTerminated

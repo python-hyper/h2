@@ -23,7 +23,7 @@ class TestPriority(object):
 
     def test_receiving_priority_emits_priority_update(self, frame_factory):
         """
-        Receiving a priority frame emits a PriorityUpdate event.
+        Receiving a priority frame emits a PriorityUpdated event.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.initiate_connection()
@@ -40,7 +40,7 @@ class TestPriority(object):
         assert not c.data_to_send()
 
         event = events[0]
-        assert isinstance(event, h2.events.PriorityUpdate)
+        assert isinstance(event, h2.events.PriorityUpdated)
         assert event.stream_id == 1
         assert event.depends_on == 0
         assert event.weight == 256
@@ -49,7 +49,7 @@ class TestPriority(object):
     def test_headers_with_priority_info(self, frame_factory):
         """
         Receiving a HEADERS frame with priority information on it emits a
-        PriorityUpdate event.
+        PriorityUpdated event.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.initiate_connection()
@@ -70,7 +70,7 @@ class TestPriority(object):
         assert not c.data_to_send()
 
         event = events[1]
-        assert isinstance(event, h2.events.PriorityUpdate)
+        assert isinstance(event, h2.events.PriorityUpdated)
         assert event.stream_id == 3
         assert event.depends_on == 1
         assert event.weight == 16

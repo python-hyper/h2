@@ -14,7 +14,7 @@ from hyperframe.frame import (
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    PriorityUpdate,
+    PriorityUpdated,
 )
 from .exceptions import ProtocolError, StreamClosedError
 
@@ -700,7 +700,7 @@ class H2Stream(object):
         """
         The remote side of the stream sent priority information.
         """
-        event = PriorityUpdate()
+        event = PriorityUpdated()
         event.stream_id = frame.stream_id
         event.depends_on = frame.depends_on
         event.exclusive = frame.exclusive
