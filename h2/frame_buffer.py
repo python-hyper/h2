@@ -123,8 +123,8 @@ class FrameBuffer(object):
         # First, check that we have enough data to successfully parse the
         # next frame header. If not, bail. Otherwise, parse it.
         if len(self.data) < 9:
-
             raise StopIteration()
+
         f, length = self._parse_frame_header(self.data)
 
         # Next, check that we have enough length to parse the frame body. If
