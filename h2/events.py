@@ -193,9 +193,9 @@ class SettingsAcknowledged(object):
         self.changed_settings = {}
 
 
-class PriorityUpdate(object):
+class PriorityUpdated(object):
     """
-    The PriorityUpdate event is fired whenever a stream sends updated priority
+    The PriorityUpdated event is fired whenever a stream sends updated priority
     information. This can occur when the stream is opened, or at any time
     during the stream lifetime.
 
