@@ -11,6 +11,7 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
+    ContinuationFrame
 )
 from hpack.hpack import Encoder, Decoder
 
@@ -286,6 +287,7 @@ class H2Connection(object):
             RstStreamFrame: self._receive_rst_stream_frame,
             PriorityFrame: self._receive_priority_frame,
             GoAwayFrame: self._receive_goaway_frame,
+            ContinuationFrame: self._receive_naked_continuation,
         }
 
     def _prepare_for_sending(self, frames):
@@ -1135,6 +1137,17 @@ class H2Connection(object):
         events.append(new_event)
 
         return [], events
+
+    def _receive_naked_continuation(self, frame):
+        """
+        A naked CONTINUATION frame has been received. This is always an error,
+        but the type of error it is depends on the state of the stream and must
+        transition the state of the stream, so we need to pass it to the
+        appropriate stream.
+        """
+        stream = self._get_stream_by_id(frame.stream_id)
+        stream.receive_continuation()
+        assert False, "Should not be reachable"
 
     def _local_settings_acked(self):
         """

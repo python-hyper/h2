@@ -44,6 +44,7 @@ class StreamInputs(Enum):
     RECV_WINDOW_UPDATE = 11
     RECV_END_STREAM = 12
     RECV_PRIORITY = 13
+    RECV_CONTINUATION = 14  # Added in 2.0.0
 
 
 # This array is initialized once, and is indexed by the stream states above.
@@ -301,7 +302,10 @@ class H2StreamStateMachine(object):
 # For the purposes of this state machine we treat HEADERS and their
 # associated CONTINUATION frames as a single jumbo frame. The protocol
 # allows/requires this by preventing other frames from being interleved in
-# between HEADERS/CONTINUATION frames.
+# between HEADERS/CONTINUATION frames. However, if a CONTINUATION frame is
+# received without a prior HEADERS frame, it *will* be passed to this state
+# machine. The state machine should always reject that frame, either as an
+# invalid transition or because the stream is closed.
 #
 # There is a confusing relationship around PUSH_PROMISE frames. The state
 # machine above considers them to be frames belonging to the new stream,
@@ -431,6 +435,8 @@ _transitions = {
         (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
         (None, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
 
     # State: half-closed local
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -477,6 +483,8 @@ _transitions = {
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
         (None, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
 }
 
 
@@ -673,6 +681,17 @@ class H2Stream(object):
         events[0].delta = increment
         self.outbound_flow_control_window += increment
         return [], events
+
+    def receive_continuation(self):
+        """
+        A naked CONTINUATION frame has been received. This is always an error,
+        but the type of error it is depends on the state of the stream and must
+        transition the state of the stream, so we need to handle it.
+        """
+        self.state_machine.process_input(
+            StreamInputs.RECV_CONTINUATION
+        )
+        assert False, "Should not be reachable"
 
     def reset_stream(self, error_code=0):
         """
