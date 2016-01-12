@@ -134,6 +134,33 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    def test_unexpected_continuation_on_closed_stream(self, frame_factory):
+        """
+        CONTINUATION frames received on closed streams cause stream errors of
+        type STREAM_CLOSED.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            flags=['END_STREAM']
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        bad_frame = frame_factory.build_continuation_frame(
+            header_block=b'hello'
+        )
+        c.receive_data(bad_frame.serialize())
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=0x5,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     # These settings are a bit annoyingly anonymous, but trust me, they're bad.
     @pytest.mark.parametrize(
         "settings",

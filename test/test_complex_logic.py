@@ -9,7 +9,10 @@ Certain tests don't really eliminate incorrect behaviour unless they do quite
 a bit. These tests should live here, to keep the pain in once place rather than
 hide it in the other parts of the test suite.
 """
+import pytest
+
 import h2
+import h2.connection
 
 
 class TestComplexClient(object):
@@ -182,3 +185,147 @@ class TestComplexServer(object):
 
         assert c.open_inbound_streams == 0
         assert c.open_outbound_streams == 0
+
+
+class TestContinuationFrames(object):
+    """
+    Tests for the relatively complex CONTINUATION frame logic.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+
+    def _build_continuation_sequence(self, headers, block_size, frame_factory):
+        f = frame_factory.build_headers_frame(headers)
+        header_data = f.data
+        chunks = [
+            header_data[x:x+block_size]
+            for x in range(0, len(header_data), block_size)
+        ]
+        f.data = chunks.pop(0)
+        frames = [
+            frame_factory.build_continuation_frame(c) for c in chunks
+        ]
+        f.flags = set(['END_STREAM'])
+        frames[-1].flags.add('END_HEADERS')
+        frames.insert(0, f)
+        return frames
+
+    def test_continuation_frame_basic(self, frame_factory):
+        """
+        Test that we correctly decode a header block split across continuation
+        frames.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        data = b''.join(f.serialize() for f in frames)
+        events = c.receive_data(data)
+
+        assert len(events) == 2
+        first_event, second_event = events
+
+        assert isinstance(first_event, h2.events.RequestReceived)
+        assert first_event.headers == self.example_request_headers
+        assert first_event.stream_id == 1
+
+        assert isinstance(second_event, h2.events.StreamEnded)
+        assert second_event.stream_id == 1
+
+    @pytest.mark.parametrize('stream_id', [3, 1])
+    def test_continuation_cannot_interleave_headers(self,
+                                                    frame_factory,
+                                                    stream_id):
+        """
+        We cannot interleave a new headers block with a CONTINUATION sequence.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_headers_frame(
+            headers=self.example_request_headers,
+            stream_id=stream_id,
+            flags=['END_STREAM'],
+        )
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()
+
+    def test_continuation_cannot_interleave_data(self, frame_factory):
+        """
+        We cannot interleave a data frame with a CONTINUATION sequence.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_data_frame(
+            data=b'hello',
+            stream_id=1,
+        )
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()
+
+    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory):
+        """
+        We cannot interleave an unknown frame with a CONTINUATION sequence.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_data_frame(
+            data=b'hello',
+            stream_id=1,
+        )
+        bogus_frame.type = 88
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()

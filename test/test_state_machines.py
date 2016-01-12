@@ -100,6 +100,7 @@ class TestStreamStateMachine(object):
                     h2.stream.StreamInputs.RECV_HEADERS,
                     h2.stream.StreamInputs.RECV_PUSH_PROMISE,
                     h2.stream.StreamInputs.RECV_DATA,
+                    h2.stream.StreamInputs.RECV_CONTINUATION,
                 )
         else:
             assert s.state in h2.stream.StreamState

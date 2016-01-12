@@ -23,6 +23,9 @@ API Changes (Breaking)
     - ``begin_new_stream``
     - ``receive_frame``
 
+- Added full support for receiving CONTINUATION frames, including policing
+  logic about when and how they are received.
+
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -37,6 +40,7 @@ API Changes (Backward-Compatible)
   with error code FRAME_SIZE_ERROR, not a generic PROTOCOL_ERROR. This
   condition now also raises a ``FrameTooLargeError``, a new subclass of
   ``ProtocolError``.
+- Made ``NoSuchStreamError`` a subclass of ``ProtocolError``.
 
 Bugfixes
 ~~~~~~~~
