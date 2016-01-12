@@ -534,7 +534,13 @@ class H2Stream(object):
         """
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
-        events = self.state_machine.process_input(StreamInputs.SEND_HEADERS)
+
+        # This does not trigger any events.
+        events = self.state_machine.process_input(
+            StreamInputs.SEND_HEADERS
+        )
+        assert not events
+
         hf = HeadersFrame(self.stream_id)
         frames = self._build_headers_frames(headers, encoder, hf)
 
@@ -547,7 +553,7 @@ class H2Stream(object):
         if self.state_machine.trailers_sent and not end_stream:
             raise ProtocolError("Trailers must have END_STREAM set.")
 
-        return frames, events
+        return frames
 
     def push_stream_in_band(self, related_stream_id, headers, encoder):
         """
@@ -557,14 +563,18 @@ class H2Stream(object):
         """
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
+
+        # This does not trigger any events.
         events = self.state_machine.process_input(
             StreamInputs.SEND_PUSH_PROMISE
         )
+        assert not events
+
         ppf = PushPromiseFrame(self.stream_id)
         ppf.promised_stream_id = related_stream_id
         frames = self._build_headers_frames(headers, encoder, ppf)
 
-        return frames, events
+        return frames
 
     def locally_pushed(self):
         """
@@ -572,10 +582,12 @@ class H2Stream(object):
         immediately after initialization. Sends no frames, simply updates the
         state machine.
         """
+        # This does not trigger any events.
         events = self.state_machine.process_input(
             StreamInputs.SEND_PUSH_PROMISE
         )
-        return [], events
+        assert not events
+        return []
 
     def send_data(self, data, end_stream=False):
         """
@@ -594,7 +606,7 @@ class H2Stream(object):
         self.outbound_flow_control_window -= len(data)
         assert self.outbound_flow_control_window >= 0
 
-        return [df], []
+        return [df]
 
     def end_stream(self):
         """
@@ -603,7 +615,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
         df = DataFrame(self.stream_id)
         df.flags.add('END_STREAM')
-        return [df], []
+        return [df]
 
     def increase_flow_control_window(self, increment):
         """
@@ -612,7 +624,7 @@ class H2Stream(object):
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
-        return [wuf], []
+        return [wuf]
 
     def receive_push_promise_in_band(self, promised_stream_id, headers):
         """
@@ -701,7 +713,7 @@ class H2Stream(object):
 
         rsf = RstStreamFrame(self.stream_id)
         rsf.error_code = error_code
-        return [rsf], []
+        return [rsf]
 
     def stream_reset(self, frame):
         """

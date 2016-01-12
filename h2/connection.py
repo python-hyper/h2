@@ -390,7 +390,6 @@ class H2Connection(object):
             f.settings[setting] = value
 
         self._data_to_send += preamble + f.serialize()
-        return []
 
     def _get_or_create_stream(self, stream_id, allowed_ids):
         """
@@ -490,8 +489,7 @@ class H2Connection(object):
         :type stream_id: ``int``
         :param headers: The request/response headers to send.
         :type headers: An iterable of two tuples of bytestrings.
-        :returns: An iterable of events that fired in response to sending the
-            headers. Always empty.
+        :returns: Nothing
         """
         # Check we can open the stream.
         if stream_id not in self.streams:
@@ -506,11 +504,10 @@ class H2Connection(object):
         stream = self._get_or_create_stream(
             stream_id, AllowedStreamIDs(self.client_side)
         )
-        frames, events = stream.send_headers(
+        frames = stream.send_headers(
             headers, self.encoder, end_stream
         )
         self._prepare_for_sending(frames)
-        return events
 
     def send_data(self, stream_id, data, end_stream=False):
         """
@@ -536,8 +533,7 @@ class H2Connection(object):
         :param end_stream: (optional) Whether this is the last data to be sent
             on the stream. Defaults to ``False``.
         :type end_stream: ``bool``
-        :returns: A list of events encountered while sending the data. Always
-            empty.
+        :returns: Nothing
         """
         if len(data) > self.local_flow_control_window(stream_id):
             raise FlowControlError(
@@ -551,13 +547,11 @@ class H2Connection(object):
             )
 
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames, events = self.streams[stream_id].send_data(data, end_stream)
+        frames = self.streams[stream_id].send_data(data, end_stream)
         self._prepare_for_sending(frames)
 
         self.outbound_flow_control_window -= len(data)
         assert self.outbound_flow_control_window >= 0
-
-        return events
 
     def end_stream(self, stream_id):
         """
@@ -568,12 +562,11 @@ class H2Connection(object):
 
         :param stream_id: The ID of the stream to end.
         :type stream_id: ``int``
-        :returns: An list of events fired in this process. Always empty.
+        :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames, events = self.streams[stream_id].end_stream()
+        frames = self.streams[stream_id].end_stream()
         self._prepare_for_sending(frames)
-        return events
 
     def increment_flow_control_window(self, increment, stream_id=None):
         """
@@ -586,13 +579,13 @@ class H2Connection(object):
             flow control window opened. If not present or ``None``, the
             connection flow control window will be opened instead.
         :type stream_id: ``int`` or ``None``
-        :returns: A list of events fired in this process. Always empty.
+        :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
         if stream_id is not None:
             stream = self.streams[stream_id]
-            frames, events = stream.increase_flow_control_window(
+            frames = stream.increase_flow_control_window(
                 increment
             )
             stream.inbound_flow_control_window += increment
@@ -601,10 +594,8 @@ class H2Connection(object):
             f.window_increment = increment
             self.inbound_flow_control_window += increment
             frames = [f]
-            events = []
 
         self._prepare_for_sending(frames)
-        return events
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
         """
@@ -618,7 +609,7 @@ class H2Connection(object):
         :param request_headers: The headers of the request that the pushed
             response will be responding to.
         :type request_headers: An iterable of two tuples of bytestrings.
-        :returns: A list of the events fired in this process. Always empty.
+        :returns: Nothing
         """
         if not self.remote_settings.enable_push:
             raise ProtocolError("Remote peer has disabled stream push")
@@ -631,12 +622,11 @@ class H2Connection(object):
         )
         self.streams[promised_stream_id] = new_stream
 
-        frames, events = stream.push_stream_in_band(
+        frames = stream.push_stream_in_band(
             promised_stream_id, request_headers, self.encoder
         )
-        new_frames, new_events = new_stream.locally_pushed()
+        new_frames = new_stream.locally_pushed()
         self._prepare_for_sending(frames + new_frames)
-        return events + new_events
 
     def ping(self, opaque_data):
         """
@@ -644,7 +634,7 @@ class H2Connection(object):
 
         :param opaque_data: A bytestring of length 8 that will be sent in the
                             PING frame.
-        :returns: A list of events.
+        :returns: Nothing
         """
         if not isinstance(opaque_data, bytes) or len(opaque_data) != 8:
             raise ValueError("Invalid value for ping data: %r" % opaque_data)
@@ -653,8 +643,6 @@ class H2Connection(object):
         f = PingFrame(0)
         f.opaque_data = opaque_data
         self._prepare_for_sending([f])
-
-        return []
 
     def reset_stream(self, stream_id, error_code=0):
         """
@@ -670,14 +658,12 @@ class H2Connection(object):
         :param error_code: (optional) The error code to use to reset the
             stream. Defaults to :data:`NO_ERROR <h2.errors.NO_ERROR>`.
         :type error_code: ``int``
-        :returns: A list of events fired during the reset. Always empty.
+        :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
         stream = self._get_stream_by_id(stream_id)
-        frames, events = stream.reset_stream(error_code)
-
+        frames = stream.reset_stream(error_code)
         self._prepare_for_sending(frames)
-        return events
 
     def close_connection(self, error_code=0):
         """
@@ -685,7 +671,7 @@ class H2Connection(object):
 
         :param error_code: (optional) The error code to send in the GOAWAY
             frame.
-        :returns: A list of events. Always empty.
+        :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
 
@@ -694,15 +680,13 @@ class H2Connection(object):
         f.last_stream_id = self.highest_inbound_stream_id
         self._prepare_for_sending([f])
 
-        return []
-
     def acknowledge_settings(self, event):
         """
         Acknowledge settings that have been received.
 
         :param event: The RemoteSettingsChanged event that is being
                       acknowledged.
-        :returns: A list of events.
+        :returns: Nothing
         """
         assert isinstance(event, RemoteSettingsChanged)
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
@@ -731,7 +715,6 @@ class H2Connection(object):
         f = SettingsFrame(0)
         f.flags.add('ACK')
         self._prepare_for_sending([f])
-        return []
 
     def update_settings(self, new_settings):
         """
@@ -745,7 +728,6 @@ class H2Connection(object):
         s = SettingsFrame(0)
         s.settings = new_settings
         self._prepare_for_sending([s])
-        return []
 
     def local_flow_control_window(self, stream_id):
         """
@@ -851,8 +833,6 @@ class H2Connection(object):
         for stream in self.streams.values():
             stream.outbound_flow_control_window += delta
 
-        return
-
     def _inbound_flow_control_change_from_settings(self, old_value, new_value):
         """
         Update remote flow control windows in response to a change in the value
@@ -866,8 +846,6 @@ class H2Connection(object):
 
         for stream in self.streams.values():
             stream.inbound_flow_control_window += delta
-
-        return
 
     def receive_data(self, data):
         """
