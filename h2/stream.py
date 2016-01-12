@@ -407,7 +407,7 @@ _transitions = {
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_HEADERS):
-        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
         (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_DATA):
@@ -426,7 +426,7 @@ _transitions = {
         (H2StreamStateMachine.send_push_promise,
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PUSH_PROMISE):
-        (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PRIORITY):
         (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
