@@ -40,6 +40,7 @@ API Changes (Backward-Compatible)
   with error code FRAME_SIZE_ERROR, not a generic PROTOCOL_ERROR. This
   condition now also raises a ``FrameTooLargeError``, a new subclass of
   ``ProtocolError``.
+- Made ``NoSuchStreamError`` a subclass of ``ProtocolError``.
 
 Bugfixes
 ~~~~~~~~
