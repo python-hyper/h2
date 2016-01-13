@@ -576,6 +576,10 @@ class H2Connection(object):
         Increment a flow control window, optionally for a single stream. Allows
         the remote peer to send more data.
 
+        .. versionchanged:: 2.0.0
+           Rejects attempts to increment the flow control window by out of
+           range values with a ``ValueError``.
+
         :param increment: The amount ot increment the flow control window by.
         :type increment: ``int``
         :param stream_id: (optional) The ID of the stream that should have its
@@ -583,6 +587,7 @@ class H2Connection(object):
             connection flow control window will be opened instead.
         :type stream_id: ``int`` or ``None``
         :returns: Nothing
+        :raises: ``ValueError``
         """
         if not (1 <= increment <= self.MAX_WINDOW_INCREMENT):
             raise ValueError(
