@@ -25,10 +25,14 @@ API Changes (Breaking)
 
 - Added full support for receiving CONTINUATION frames, including policing
   logic about when and how they are received.
+- All public API functions on ``H2Connection`` except for ``receive_data`` no
+  longer return lists of events, because these lists were always empty. Events
+  are now only raised by ``receive_data``.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- Added ``PriorityUpdated`` event for signaling priority changes.
 - Added ``get_next_available_stream_id`` function.
 - Receiving DATA frames on streams not in the OPEN or HALF_CLOSED_LOCAL states
   now causes a stream reset, rather than a connection reset. The error is now

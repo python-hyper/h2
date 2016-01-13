@@ -4,7 +4,7 @@ Advanced Usage
 Priority
 --------
 
-.. versionadded:: 1.2.0
+.. versionadded:: 2.0.0
 
 `RFC 7540`_ has a fairly substantial and complex section describing how to
 build a HTTP/2 priority tree, and the effect that should have on sending data
