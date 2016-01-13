@@ -106,6 +106,10 @@ class StreamClosedError(NoSuchStreamError):
         #: The relevant HTTP/2 error code.
         self.error_code = h2.errors.STREAM_CLOSED
 
+        # Any events that internal code may need to fire. Not relevant to
+        # external users that may receive a StreamClosedError.
+        self._events = []
+
 
 class InvalidSettingsValueError(ProtocolError, ValueError):
     """
