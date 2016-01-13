@@ -1031,6 +1031,13 @@ class H2Connection(object):
         """
         Receive a WINDOW_UPDATE frame on the connection.
         """
+        # Validate the frame.
+        if not (1 <= frame.window_increment <= self.MAX_WINDOW_INCREMENT):
+            raise ProtocolError(
+                "Flow control increment must be between 1 and %d, received %d"
+                % (self.MAX_WINDOW_INCREMENT, frame.window_increment)
+            )
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_WINDOW_UPDATE
         )
