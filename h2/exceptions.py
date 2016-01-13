@@ -30,6 +30,16 @@ class FrameTooLargeError(ProtocolError):
     error_code = h2.errors.FRAME_SIZE_ERROR
 
 
+class FrameDataMissingError(ProtocolError):
+    """
+    The frame that we received is missing some data.
+
+    .. versionadded:: 2.0.0
+    """
+    #: The error code that corresponds to this kind of Protocol Error
+    error_code = h2.errors.FRAME_SIZE_ERROR
+
+
 class TooManyStreamsError(ProtocolError):
     """
     An attempt was made to open a stream that would lead to too many concurrent
