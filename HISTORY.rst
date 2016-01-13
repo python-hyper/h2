@@ -28,6 +28,8 @@ API Changes (Breaking)
 - All public API functions on ``H2Connection`` except for ``receive_data`` no
   longer return lists of events, because these lists were always empty. Events
   are now only raised by ``receive_data``.
+- Calls to ``increment_flow_control_window`` with out of range values now raise
+  ``ValueError`` exceptions.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -51,6 +53,8 @@ API Changes (Backward-Compatible)
   to ``True`` in all cases where ``StreamReset`` would previously have fired
   (e.g. when the remote peer sent a RST_STREAM), and is set to ``False`` when
   it fires because the remote peer made a protocol error.
+- Hyper-h2 now rejects attempts by peers to increment a flow control window by
+  zero bytes.
 
 Bugfixes
 ~~~~~~~~

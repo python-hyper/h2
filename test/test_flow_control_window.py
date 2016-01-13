@@ -365,3 +365,49 @@ class TestFlowControl(object):
 
         c.send_headers(1, self.example_request_headers)
         assert c.remote_flow_control_window(1) == 128000
+
+    @pytest.mark.parametrize(
+        'increment', [0, -15, 2**31]
+    )
+    def test_reject_bad_attempts_to_increment_flow_control(self, increment):
+        """
+        Attempting to increment a flow control increment outside the valid
+        range causes a ValueError to be raised.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        # Fails both on and off streams.
+        with pytest.raises(ValueError):
+            c.increment_flow_control_window(increment=increment, stream_id=1)
+
+        with pytest.raises(ValueError):
+            c.increment_flow_control_window(increment=increment)
+
+    @pytest.mark.parametrize('stream_id', [0, 1])
+    def test_reject_bad_remote_increments(self, frame_factory, stream_id):
+        """
+        Remote peers attempting to increment flow control outside the valid
+        range cause connection errors of type PROTOCOL_ERROR.
+        """
+        # The only number that can be encoded in a WINDOW_UPDATE frame but
+        # isn't valid is 0.
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=stream_id, increment=0
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()

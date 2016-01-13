@@ -236,6 +236,9 @@ class H2Connection(object):
     # The highest acceptable stream ID.
     HIGHEST_ALLOWED_STREAM_ID = 2**31 - 1
 
+    # The largest acceptable window increment.
+    MAX_WINDOW_INCREMENT = 2**31 - 1
+
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
@@ -573,6 +576,10 @@ class H2Connection(object):
         Increment a flow control window, optionally for a single stream. Allows
         the remote peer to send more data.
 
+        .. versionchanged:: 2.0.0
+           Rejects attempts to increment the flow control window by out of
+           range values with a ``ValueError``.
+
         :param increment: The amount ot increment the flow control window by.
         :type increment: ``int``
         :param stream_id: (optional) The ID of the stream that should have its
@@ -580,7 +587,14 @@ class H2Connection(object):
             connection flow control window will be opened instead.
         :type stream_id: ``int`` or ``None``
         :returns: Nothing
+        :raises: ``ValueError``
         """
+        if not (1 <= increment <= self.MAX_WINDOW_INCREMENT):
+            raise ValueError(
+                "Flow control increment must be between 1 and %d" %
+                self.MAX_WINDOW_INCREMENT
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
         if stream_id is not None:
@@ -1022,6 +1036,13 @@ class H2Connection(object):
         """
         Receive a WINDOW_UPDATE frame on the connection.
         """
+        # Validate the frame.
+        if not (1 <= frame.window_increment <= self.MAX_WINDOW_INCREMENT):
+            raise ProtocolError(
+                "Flow control increment must be between 1 and %d, received %d"
+                % (self.MAX_WINDOW_INCREMENT, frame.window_increment)
+            )
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_WINDOW_UPDATE
         )
