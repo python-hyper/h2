@@ -372,7 +372,7 @@ class TestFlowControl(object):
     def test_reject_bad_attempts_to_increment_flow_control(self, increment):
         """
         Attempting to increment a flow control increment outside the valid
-        range causes a ProtocolError to be raised.
+        range causes a ValueError to be raised.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
@@ -380,10 +380,10 @@ class TestFlowControl(object):
         c.clear_outbound_data_buffer()
 
         # Fails both on and off streams.
-        with pytest.raises(h2.exceptions.ProtocolError):
+        with pytest.raises(ValueError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
 
-        with pytest.raises(h2.exceptions.ProtocolError):
+        with pytest.raises(ValueError):
             c.increment_flow_control_window(increment=increment)
 
     @pytest.mark.parametrize('stream_id', [0, 1])

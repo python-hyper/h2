@@ -585,7 +585,7 @@ class H2Connection(object):
         :returns: Nothing
         """
         if not (1 <= increment <= self.MAX_WINDOW_INCREMENT):
-            raise ProtocolError(
+            raise ValueError(
                 "Flow control increment must be between 1 and %d" %
                 self.MAX_WINDOW_INCREMENT
             )
