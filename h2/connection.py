@@ -916,7 +916,7 @@ class H2Connection(object):
             f = RstStreamFrame(e.stream_id)
             f.error_code = e.error_code
             self._prepare_for_sending([f])
-            events = []
+            events = e._events
         else:
             self._prepare_for_sending(frames)
 

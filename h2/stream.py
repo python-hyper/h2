@@ -11,6 +11,7 @@ from hyperframe.frame import (
     RstStreamFrame, PushPromiseFrame,
 )
 
+from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
@@ -249,8 +250,24 @@ class H2StreamStateMachine(object):
         """
         Called when we need to forcefully emit another RST_STREAM frame on
         behalf of the state machine.
+
+        If this is the first time we've done this, we should also hang an event
+        off the StreamClosedError so that the user can be informed. We know
+        it's the first time we've done this if the stream is currently in a
+        state other than CLOSED.
         """
-        raise StreamClosedError(self.stream_id)
+        events = []
+
+        if previous_state != StreamState.CLOSED:
+            event = StreamReset()
+            event.stream_id = self.stream_id
+            event.error_code = STREAM_CLOSED
+            event.remote_reset = False
+            events.append(event)
+
+        error = StreamClosedError(self.stream_id)
+        error._events = events
+        raise error
 
 
 # STATE MACHINE
