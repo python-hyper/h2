@@ -41,6 +41,12 @@ API Changes (Backward-Compatible)
   condition now also raises a ``FrameTooLargeError``, a new subclass of
   ``ProtocolError``.
 - Made ``NoSuchStreamError`` a subclass of ``ProtocolError``.
+- The ``StreamReset`` event is now also fired whenever a protocol error from
+  the remote peer forces a stream to close early. This is only fired once.
+- The ``StreamReset`` event now carries a flag, ``remote_reset``, that is set
+  to ``True`` in all cases where ``StreamReset`` would previously have fired
+  (e.g. when the remote peer sent a RST_STREAM), and is set to ``False`` when
+  it fires because the remote peer made a protocol error.
 
 Bugfixes
 ~~~~~~~~
