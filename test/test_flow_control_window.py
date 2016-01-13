@@ -365,3 +365,23 @@ class TestFlowControl(object):
 
         c.send_headers(1, self.example_request_headers)
         assert c.remote_flow_control_window(1) == 128000
+
+    @pytest.mark.parametrize(
+        'increment', [0, -15, 2**31]
+    )
+    def test_reject_bad_attempts_to_increment_flow_control(self, increment):
+        """
+        Attempting to increment a flow control increment outside the valid
+        range causes a ProtocolError to be raised.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        # Fails both on and off streams.
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.increment_flow_control_window(increment=increment, stream_id=1)
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.increment_flow_control_window(increment=increment)

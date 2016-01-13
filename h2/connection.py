@@ -236,6 +236,9 @@ class H2Connection(object):
     # The highest acceptable stream ID.
     HIGHEST_ALLOWED_STREAM_ID = 2**31 - 1
 
+    # The largest acceptable window increment.
+    MAX_WINDOW_INCREMENT = 2**31 - 1
+
     def __init__(self, client_side=True):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
@@ -581,6 +584,12 @@ class H2Connection(object):
         :type stream_id: ``int`` or ``None``
         :returns: Nothing
         """
+        if not (1 <= increment <= self.MAX_WINDOW_INCREMENT):
+            raise ProtocolError(
+                "Flow control increment must be between 1 and %d" %
+                self.MAX_WINDOW_INCREMENT
+            )
+
         self.state_machine.process_input(ConnectionInputs.SEND_WINDOW_UPDATE)
 
         if stream_id is not None:
