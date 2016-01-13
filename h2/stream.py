@@ -11,6 +11,7 @@ from hyperframe.frame import (
     RstStreamFrame, PushPromiseFrame,
 )
 
+from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
@@ -97,10 +98,11 @@ class H2StreamStateMachine(object):
                 "Invalid input %s in state %s" % (input_, old_state)
             )
         else:
+            previous_state = self.state
             self.state = target_state
             if func is not None:
                 try:
-                    return func(self)
+                    return func(self, previous_state)
                 except ProtocolError:
                     self.state = StreamState.CLOSED
                     raise
@@ -110,7 +112,7 @@ class H2StreamStateMachine(object):
 
             return []
 
-    def request_sent(self):
+    def request_sent(self, previous_state):
         """
         Fires when a request is sent.
         """
@@ -118,7 +120,7 @@ class H2StreamStateMachine(object):
         self.headers_sent = True
         return []
 
-    def response_sent(self):
+    def response_sent(self, previous_state):
         """
         Fires when something that should be a response is sent. This 'response'
         may actually be trailers.
@@ -133,7 +135,7 @@ class H2StreamStateMachine(object):
 
         return []
 
-    def request_received(self):
+    def request_received(self, previous_state):
         """
         Fires when a request is received.
         """
@@ -147,7 +149,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def response_received(self):
+    def response_received(self, previous_state):
         """
         Fires when a response is received. Also disambiguates between responses
         and trailers.
@@ -164,7 +166,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def data_received(self):
+    def data_received(self, previous_state):
         """
         Fires when data is received.
         """
@@ -172,7 +174,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def window_updated(self):
+    def window_updated(self, previous_state):
         """
         Fires when a window update frame is received.
         """
@@ -180,7 +182,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def stream_ended(self):
+    def stream_ended(self, previous_state):
         """
         Fires when a stream is cleanly ended.
         """
@@ -188,7 +190,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def stream_reset(self):
+    def stream_reset(self, previous_state):
         """
         Fired when a stream is forcefully reset.
         """
@@ -196,7 +198,7 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
-    def send_new_pushed_stream(self):
+    def send_new_pushed_stream(self, previous_state):
         """
         Fires on the newly pushed stream, when pushed by the local peer.
 
@@ -206,7 +208,7 @@ class H2StreamStateMachine(object):
         self.client = False
         return []
 
-    def recv_new_pushed_stream(self):
+    def recv_new_pushed_stream(self, previous_state):
         """
         Fires on the newly pushed stream, when pushed by the remote peer.
 
@@ -216,7 +218,7 @@ class H2StreamStateMachine(object):
         self.client = True
         return []
 
-    def send_push_promise(self):
+    def send_push_promise(self, previous_state):
         """
         Fires on the already-existing stream when a PUSH_PROMISE frame is sent.
         We may only send PUSH_PROMISE frames if we're a server.
@@ -226,7 +228,7 @@ class H2StreamStateMachine(object):
 
         return []
 
-    def recv_push_promise(self):
+    def recv_push_promise(self, previous_state):
         """
         Fires on the already-existing stream when a PUSH_PROMISE frame is
         received. We may only receive PUSH_PROMISE frames if we're a client.
@@ -244,12 +246,28 @@ class H2StreamStateMachine(object):
         event.parent_stream_id = self.stream_id
         return [event]
 
-    def send_reset(self):
+    def send_reset(self, previous_state):
         """
         Called when we need to forcefully emit another RST_STREAM frame on
         behalf of the state machine.
+
+        If this is the first time we've done this, we should also hang an event
+        off the StreamClosedError so that the user can be informed. We know
+        it's the first time we've done this if the stream is currently in a
+        state other than CLOSED.
         """
-        raise StreamClosedError(self.stream_id)
+        events = []
+
+        if previous_state != StreamState.CLOSED:
+            event = StreamReset()
+            event.stream_id = self.stream_id
+            event.error_code = STREAM_CLOSED
+            event.remote_reset = False
+            events.append(event)
+
+        error = StreamClosedError(self.stream_id)
+        error._events = events
+        raise error
 
 
 # STATE MACHINE

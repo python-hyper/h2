@@ -150,9 +150,13 @@ class StreamEnded(object):
 
 class StreamReset(object):
     """
-    The StreamReset event is fired whenever a stream is forcefully reset by the
-    remote party. When this event is received, no further data can be sent on
-    the stream.
+    The StreamReset event is fired in two situations. The first is when the
+    remote party forcefully resets the stream. The second is when the remote
+    party has made a protocol error which only affects a single stream. In this
+    case, Hyper-h2 will terminate the stream early and return this event.
+
+    .. versionchanged:: 2.0.0
+       This event is now fired when Hyper-h2 automatically resets a stream.
     """
     def __init__(self):
         #: The Stream ID of the stream that was reset.
@@ -160,6 +164,9 @@ class StreamReset(object):
 
         #: The error code given.
         self.error_code = None
+
+        #: Whether the remote peer sent a RST_STREAM or we did.
+        self.remote_reset = True
 
 
 class PushedStreamReceived(object):
