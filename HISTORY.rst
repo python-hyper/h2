@@ -65,6 +65,7 @@ Bugfixes
   partially handled when terminating connections.
 - Fixed an error in the arguments of ``StreamIDTooLowError``.
 - Prevent ``ValueError``s leaking from Hyperframe.
+- Prevent ``struct.error`` and ``InvalidFrameError`` leaking from Hyperframe.
 
 1.1.1 (2015-11-17)
 ------------------

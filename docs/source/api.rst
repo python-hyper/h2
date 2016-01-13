@@ -91,6 +91,10 @@ Protocol Errors
    :show-inheritance:
    :members:
 
+.. autoclass:: h2.exceptions.FrameDataMissingError
+   :show-inheritance:
+   :members:
+
 .. autoclass:: h2.exceptions.TooManyStreamsError
    :show-inheritance:
    :members:

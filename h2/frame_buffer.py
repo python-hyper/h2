@@ -6,10 +6,12 @@ h2/frame_buffer
 A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
-from hyperframe.exceptions import UnknownFrameError
+from hyperframe.exceptions import UnknownFrameError, InvalidFrameError
 from hyperframe.frame import Frame, HeadersFrame, ContinuationFrame
 
-from .exceptions import ProtocolError, FrameTooLargeError
+from .exceptions import (
+    ProtocolError, FrameTooLargeError, FrameDataMissingError
+)
 
 
 class FrameBuffer(object):
@@ -125,7 +127,10 @@ class FrameBuffer(object):
         if len(self.data) < 9:
             raise StopIteration()
 
-        f, length = self._parse_frame_header(self.data)
+        try:
+            f, length = self._parse_frame_header(self.data)
+        except InvalidFrameError:  # pragma: no cover
+            raise ProtocolError("Received frame with invalid frame header.")
 
         # Next, check that we have enough length to parse the frame body. If
         # not, bail, leaving the frame header data in the buffer for next time.
@@ -138,7 +143,10 @@ class FrameBuffer(object):
         # Don't try to parse the body if we didn't get a frame we know about:
         # there's nothing we can do with it anyway.
         if f is not None:
-            f.parse_body(memoryview(self.data[9:9+length]))
+            try:
+                f.parse_body(memoryview(self.data[9:9+length]))
+            except InvalidFrameError:
+                raise FrameDataMissingError("Frame data missing or invalid")
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.
