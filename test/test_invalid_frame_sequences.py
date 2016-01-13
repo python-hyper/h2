@@ -10,6 +10,7 @@ import pytest
 
 import h2.connection
 import h2.errors
+import h2.events
 import h2.exceptions
 
 
@@ -214,3 +215,71 @@ class TestInvalidFrameSequences(object):
             c.receive_data(frame_data)
 
         assert "Stream ID must be non-zero" in str(e.value)
+
+    def test_get_stream_reset_event_on_auto_reset(self, frame_factory):
+        """
+        When hyper-h2 resets a stream automatically, a StreamReset event fires.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            flags=['END_STREAM']
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        bad_frame = frame_factory.build_data_frame(
+            data=b'hello'
+        )
+        events = c.receive_data(bad_frame.serialize())
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=0x5,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+        assert len(events) == 1
+        event = events[0]
+        assert isinstance(event, h2.events.StreamReset)
+        assert event.stream_id == 1
+        assert event.error_code == h2.errors.STREAM_CLOSED
+        assert not event.remote_reset
+
+    def test_one_one_stream_reset(self, frame_factory):
+        """
+        When hyper-h2 resets a stream automatically, a StreamReset event fires,
+        but only for the first reset: the others are silent.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+            flags=['END_STREAM']
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        bad_frame = frame_factory.build_data_frame(
+            data=b'hello'
+        )
+        # Receive 5 frames.
+        events = c.receive_data(bad_frame.serialize() * 5)
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=0x5,
+        )
+        assert c.data_to_send() == expected_frame.serialize() * 5
+
+        assert len(events) == 1
+        event = events[0]
+        assert isinstance(event, h2.events.StreamReset)
+        assert event.stream_id == 1
+        assert event.error_code == h2.errors.STREAM_CLOSED
+        assert not event.remote_reset

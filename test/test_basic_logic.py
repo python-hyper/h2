@@ -329,6 +329,7 @@ class TestBasicClient(object):
         assert isinstance(event, h2.events.StreamReset)
         assert event.stream_id == 1
         assert event.error_code == 5
+        assert event.remote_reset
 
     def test_can_consume_partial_data_from_connection(self):
         """
