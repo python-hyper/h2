@@ -110,6 +110,27 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    def test_receiving_frames_with_insufficent_size(self, frame_factory):
+        """
+        Frames with not enough data cause connection teardown.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        invalid_window_update_frame = (
+            b'\x00\x00\x03\x08\x00\x00\x00\x00\x00\x00\x00\x02'
+        )
+
+        with pytest.raises(h2.exceptions.FrameDataMissingError):
+            c.receive_data(invalid_window_update_frame)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0, error_code=h2.errors.FRAME_SIZE_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     def test_reject_data_on_closed_streams(self, frame_factory):
         """
         When a stream is not open to the remote peer, we reject receiving data
