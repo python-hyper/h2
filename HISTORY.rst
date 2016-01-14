@@ -55,6 +55,8 @@ API Changes (Backward-Compatible)
   it fires because the remote peer made a protocol error.
 - Hyper-h2 now rejects attempts by peers to increment a flow control window by
   zero bytes.
+- Hyper-h2 now rejects peers sending header blocks that are ill-formed for a
+  number of reasons as set out in RFC 7540 Section 8.1.2.
 
 Bugfixes
 ~~~~~~~~

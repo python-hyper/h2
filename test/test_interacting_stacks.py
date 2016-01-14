@@ -32,18 +32,18 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
         """
         A request issued by hyper-h2 can be responded to by hyper-h2.
         """
-        request_headers = {
-            ':method': 'GET',
-            ':path': '/',
-            ':authority': 'example.com',
-            ':scheme': 'https',
-            'user-agent': 'test-client/0.1.0',
-        }
-        response_headers = {
-            ':status': '204',
-            'server': 'test-server/0.1.0',
-            'content-length': '0',
-        }
+        request_headers = [
+            (':method', 'GET'),
+            (':path', '/'),
+            (':authority', 'example.com'),
+            (':scheme', 'https'),
+            ('user-agent', 'test-client/0.1.0'),
+        ]
+        response_headers = [
+            (':status', '204'),
+            ('server', 'test-server/0.1.0'),
+            ('content-length', '0'),
+        ]
 
         def client():
             c = h2.connection.H2Connection()
@@ -67,7 +67,7 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert len(events) == 2
             assert isinstance(events[0], h2.events.ResponseReceived)
             assert events[0].stream_id == 1
-            assert dict(events[0].headers) == response_headers
+            assert events[0].headers == response_headers
             assert isinstance(events[1], h2.events.StreamEnded)
             assert events[1].stream_id == 1
 
@@ -90,7 +90,7 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert len(events) == 2
             assert isinstance(events[0], h2.events.RequestReceived)
             assert events[0].stream_id == 1
-            assert dict(events[0].headers) == request_headers
+            assert events[0].headers == request_headers
             assert isinstance(events[1], h2.events.StreamEnded)
             assert events[1].stream_id == 1
 

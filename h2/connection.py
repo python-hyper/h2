@@ -28,6 +28,7 @@ from .exceptions import (
 from .frame_buffer import FrameBuffer
 from .settings import Settings
 from .stream import H2Stream
+from .utilities import validate_headers
 
 
 class ConnectionState(Enum):
@@ -941,6 +942,7 @@ class H2Connection(object):
 
         # Let's decode the headers.
         headers = self.decoder.decode(frame.data)
+        headers = validate_headers(headers)
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
         )
