@@ -206,7 +206,7 @@ class H2ConnectionStateMachine(object):
             old_state = self.state
             self.state = ConnectionState.CLOSED
             raise ProtocolError(
-                "Invalid input %s in state %s", input_, old_state
+                "Invalid input %s in state %s" % (input_, old_state)
             )
         else:
             self.state = target_state
