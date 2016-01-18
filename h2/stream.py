@@ -269,6 +269,19 @@ class H2StreamStateMachine(object):
         error._events = events
         raise error
 
+    def send_on_closed_stream(self, previous_state):
+        """
+        Called when an attempt is made to send data on an already-closed
+        stream.
+
+        This essentially overrides the standard logic by throwing a
+        more-specific error: StreamClosedError. This is a ProtocolError, so it
+        matches the standard API of the state machine, but provides more detail
+        to the user.
+        """
+        assert previous_state == StreamState.CLOSED
+        raise StreamClosedError(self.stream_id)
+
 
 # STATE MACHINE
 #
@@ -503,6 +516,20 @@ _transitions = {
         (None, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+
+    # Also, users should be forbidden from sending on closed streams.
+    (StreamState.CLOSED, StreamInputs.SEND_HEADERS):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_PUSH_PROMISE):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_RST_STREAM):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_DATA):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_WINDOW_UPDATE):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.SEND_END_STREAM):
+        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
 }
 
 
