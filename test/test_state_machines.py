@@ -80,8 +80,6 @@ class TestStreamStateMachine(object):
 
         try:
             s.process_input(input_)
-        except h2.exceptions.ProtocolError:
-            assert s.state == h2.stream.StreamState.CLOSED
         except h2.exceptions.StreamClosedError:
             # This can only happen for streams that started in the closed
             # state OR where the input was RECV_DATA and the state was not
@@ -102,6 +100,8 @@ class TestStreamStateMachine(object):
                     h2.stream.StreamInputs.RECV_DATA,
                     h2.stream.StreamInputs.RECV_CONTINUATION,
                 )
+        except h2.exceptions.ProtocolError:
+            assert s.state == h2.stream.StreamState.CLOSED
         else:
             assert s.state in h2.stream.StreamState
 
@@ -151,3 +151,24 @@ class TestStreamStateMachine(object):
         c.state = state
 
         c.process_input(input_)
+
+    @pytest.mark.parametrize(
+        "input_",
+        [
+            h2.stream.StreamInputs.SEND_HEADERS,
+            h2.stream.StreamInputs.SEND_PUSH_PROMISE,
+            h2.stream.StreamInputs.SEND_RST_STREAM,
+            h2.stream.StreamInputs.SEND_DATA,
+            h2.stream.StreamInputs.SEND_WINDOW_UPDATE,
+            h2.stream.StreamInputs.SEND_END_STREAM,
+        ]
+    )
+    def test_cannot_send_on_closed_streams(self, input_):
+        """
+        Sending anything but a PRIORITY frame is forbidden on closed streams.
+        """
+        c = h2.stream.H2StreamStateMachine(stream_id=1)
+        c.state = h2.stream.StreamState.CLOSED
+
+        with pytest.raises(h2.exceptions.StreamClosedError):
+            c.process_input(input_)
