@@ -57,6 +57,8 @@ API Changes (Backward-Compatible)
   zero bytes.
 - Hyper-h2 now rejects peers sending header blocks that are ill-formed for a
   number of reasons as set out in RFC 7540 Section 8.1.2.
+- Attempting to send non-PRIORITY frames on closed streams now raises
+  ``StreamClosedError``.
 
 Bugfixes
 ~~~~~~~~
