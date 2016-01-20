@@ -94,12 +94,19 @@ class RemoteSettingsChanged(object):
     its settings. It contains a complete inventory of changed settings,
     including their previous values.
 
-    In HTTP/2, settings changes need to be acknowledged. hyper-h2 does not
-    automatically acknowledge them, because it is possible that the caller may
-    not be happy with the changed setting (or would like to know about it).
+    In HTTP/2, settings changes need to be acknowledged. hyper-h2 automatically
+    acknowledges settings changes for efficiency. However, it is possible that
+    the caller may not be happy with the changed setting.
+
     When this event is received, the caller should confirm that the new
-    settings are acceptable, and then acknowledge them. If they are not
-    acceptable, the user should close the connection.
+    settings are acceptable. If they are not acceptable, the user should close
+    the connection with the error code :data:`PROTOCOL_ERROR
+    <h2.errors.PROTOCOL_ERROR>`.
+
+    .. versionchanged:: 2.0.0
+       Prior to this version the user needed to acknowledge settings changes.
+       This is no longer the case: hyper-h2 now automatically acknowledges
+       them.
     """
     def __init__(self):
         #: A dictionary of setting byte to
