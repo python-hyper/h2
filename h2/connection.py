@@ -695,42 +695,6 @@ class H2Connection(object):
         f.last_stream_id = self.highest_inbound_stream_id
         self._prepare_for_sending([f])
 
-    def acknowledge_settings(self, event):
-        """
-        Acknowledge settings that have been received.
-
-        :param event: The RemoteSettingsChanged event that is being
-                      acknowledged.
-        :returns: Nothing
-        """
-        assert isinstance(event, RemoteSettingsChanged)
-        self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
-
-        changes = self.remote_settings.acknowledge()
-
-        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
-            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
-            self._flow_control_change_from_settings(
-                setting.original_value,
-                setting.new_value,
-            )
-
-        # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
-        # RFC 7540 Section 6.5.2.
-        if SettingsFrame.HEADER_TABLE_SIZE in changes:
-            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
-            self.encoder.header_table_size = setting.new_value
-
-        if SettingsFrame.SETTINGS_MAX_FRAME_SIZE in changes:
-            setting = changes[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
-            self.max_outbound_frame_size = setting.new_value
-            for stream in self.streams.values():
-                stream.max_outbound_frame_size = setting.new_value
-
-        f = SettingsFrame(0)
-        f.flags.add('ACK')
-        self._prepare_for_sending([f])
-
     def update_settings(self, new_settings):
         """
         Update the local settings. This will prepare and emit the appropriate
@@ -833,6 +797,43 @@ class H2Connection(object):
         exposing implementation details.
         """
         self._data_to_send = b''
+
+    def _acknowledge_settings(self):
+        """
+        Acknowledge settings that have been received.
+
+        .. versionchanged:: 2.0.0
+           Removed from public API, removed useless ``event`` parameter, made
+           automatic.
+
+        :returns: Nothing
+        """
+        self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
+
+        changes = self.remote_settings.acknowledge()
+
+        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
+            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
+            self._flow_control_change_from_settings(
+                setting.original_value,
+                setting.new_value,
+            )
+
+        # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
+        # RFC 7540 Section 6.5.2.
+        if SettingsFrame.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+            self.encoder.header_table_size = setting.new_value
+
+        if SettingsFrame.SETTINGS_MAX_FRAME_SIZE in changes:
+            setting = changes[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+            self.max_outbound_frame_size = setting.new_value
+            for stream in self.streams.values():
+                stream.max_outbound_frame_size = setting.new_value
+
+        f = SettingsFrame(0)
+        f.flags.add('ACK')
+        return [f]
 
     def _flow_control_change_from_settings(self, old_value, new_value):
         """
@@ -1028,11 +1029,14 @@ class H2Connection(object):
 
         # Add the new settings.
         self.remote_settings.update(frame.settings)
+        events.append(
+            RemoteSettingsChanged.from_settings(
+                self.remote_settings, frame.settings
+            )
+        )
+        frames = self._acknowledge_settings()
 
-        events.append(RemoteSettingsChanged.from_settings(
-            self.remote_settings, frame.settings
-        ))
-        return [], events
+        return frames, events
 
     def _receive_window_update_frame(self, frame):
         """

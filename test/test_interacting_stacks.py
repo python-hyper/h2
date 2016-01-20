@@ -54,8 +54,9 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
 
             # Next, handle the remote preamble.
             events = c.receive_data(data)
-            assert len(events) == 1
-            assert isinstance(events[0], h2.events.RemoteSettingsChanged)
+            assert len(events) == 2
+            assert isinstance(events[0], h2.events.SettingsAcknowledged)
+            assert isinstance(events[1], h2.events.RemoteSettingsChanged)
 
             # Send a request.
             events = c.send_headers(1, request_headers, end_stream=True)
@@ -87,12 +88,13 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
 
             # Listen for the request.
             events = c.receive_data(data)
-            assert len(events) == 2
-            assert isinstance(events[0], h2.events.RequestReceived)
-            assert events[0].stream_id == 1
-            assert events[0].headers == request_headers
-            assert isinstance(events[1], h2.events.StreamEnded)
+            assert len(events) == 3
+            assert isinstance(events[0], h2.events.SettingsAcknowledged)
+            assert isinstance(events[1], h2.events.RequestReceived)
             assert events[1].stream_id == 1
+            assert events[1].headers == request_headers
+            assert isinstance(events[2], h2.events.StreamEnded)
+            assert events[2].stream_id == 1
 
             # Send our response.
             events = c.send_headers(1, response_headers, end_stream=True)

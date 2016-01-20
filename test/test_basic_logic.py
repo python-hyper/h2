@@ -397,8 +397,7 @@ class TestBasicClient(object):
         f = frame_factory.build_settings_frame(
             {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
         )
-        event = c.receive_data(f.serialize())[0]
-        c.acknowledge_settings(event)
+        c.receive_data(f.serialize())[0]
 
         c.send_headers(1, self.example_request_headers)
 
@@ -674,11 +673,10 @@ class TestBasicServer(object):
         )
         expected_data = expected_frame.serialize()
 
-        event = c.receive_data(received_frame.serialize())[0]
         c.clear_outbound_data_buffer()
-        events = c.acknowledge_settings(event)
+        events = c.receive_data(received_frame.serialize())
 
-        assert not events
+        assert len(events) == 1
         assert c.data_to_send() == expected_data
 
     def test_close_connection(self, frame_factory):
@@ -906,8 +904,7 @@ class TestBasicServer(object):
         f = frame_factory.build_settings_frame(
             {hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0}
         )
-        events = c.receive_data(f.serialize())
-        c.acknowledge_settings(events[0])
+        c.receive_data(f.serialize())
 
         f = frame_factory.build_headers_frame(
             self.example_request_headers
@@ -934,12 +931,7 @@ class TestBasicServer(object):
         received_frame = frame_factory.build_settings_frame(
             {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
         )
-        event = c.receive_data(received_frame.serialize())[0]
-        c.clear_outbound_data_buffer()
-
-        assert c.encoder.header_table_size == 4096
-
-        c.acknowledge_settings(event)
+        c.receive_data(received_frame.serialize())[0]
 
         assert c.encoder.header_table_size == 80
 
@@ -983,9 +975,7 @@ class TestBasicServer(object):
         received_frame = frame_factory.build_settings_frame(
             {hyperframe.frame.SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 17001}
         )
-        event = c.receive_data(received_frame.serialize())[0]
-        c.acknowledge_settings(event)
-        c.clear_outbound_data_buffer()
+        c.receive_data(received_frame.serialize())
 
         c.send_data(1, b'\x01' * 17000)
         assert c.data_to_send()

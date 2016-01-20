@@ -12,7 +12,7 @@ import eventlet
 
 from eventlet.green.OpenSSL import SSL, crypto
 from h2.connection import H2Connection
-from h2.events import RequestReceived, DataReceived, RemoteSettingsChanged
+from h2.events import RequestReceived, DataReceived
 
 
 class ConnectionManager(object):
@@ -39,8 +39,6 @@ class ConnectionManager(object):
                     self.request_received(event.headers, event.stream_id)
                 elif isinstance(event, DataReceived):
                     self.conn.reset_stream(event.stream_id)
-                elif isinstance(event, RemoteSettingsChanged):
-                    self.conn.acknowledge_settings(event)
 
             self.sock.sendall(self.conn.data_to_send())
 

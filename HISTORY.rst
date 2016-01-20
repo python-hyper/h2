@@ -14,6 +14,10 @@ API Changes (Breaking)
 - Settings values set by both the user and the remote peer are now validated
   when they're set. If they're invalid, a new ``InvalidSettingsValueError`` is
   raised and, if set by the remote peer, a connection error is signaled.
+- Settings changes no longer require user action to be acknowledged: hyper-h2
+  acknowledges them automatically. This moves the location where some
+  exceptions may be thrown, and also causes the ``acknowledge_settings`` method
+  to be removed from the public API.
 - Removed a number of methods on the ``H2Connection`` object from the public,
   semantically versioned API, by renaming them to have leading underscores.
   Specifically, removed:
@@ -22,6 +26,7 @@ API Changes (Breaking)
     - ``get_or_create_stream``
     - ``begin_new_stream``
     - ``receive_frame``
+    - ``acknowledge_settings``
 
 - Added full support for receiving CONTINUATION frames, including policing
   logic about when and how they are received.
