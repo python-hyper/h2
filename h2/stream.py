@@ -17,7 +17,11 @@ from .events import (
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     PriorityUpdated,
 )
-from .exceptions import ProtocolError, StreamClosedError
+from .exceptions import ProtocolError, StreamClosedError, FlowControlError
+
+
+# The largest value the flow control window may take.
+LARGEST_FLOW_CONTROL_WINDOW = 2**31 - 1
 
 
 class StreamState(IntEnum):
@@ -737,6 +741,13 @@ class H2Stream(object):
         )
         events[0].delta = increment
         self.outbound_flow_control_window += increment
+
+        # Restrict the maximum value of the flow control window.
+        if self.outbound_flow_control_window > LARGEST_FLOW_CONTROL_WINDOW:
+            raise FlowControlError(
+                "Flow control window on stream %d too large" % self.stream_id
+            )
+
         return [], events
 
     def receive_continuation(self):

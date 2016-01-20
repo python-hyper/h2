@@ -27,7 +27,7 @@ from .exceptions import (
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings
-from .stream import H2Stream
+from .stream import H2Stream, LARGEST_FLOW_CONTROL_WINDOW
 from .utilities import validate_headers
 
 
@@ -1061,6 +1061,8 @@ class H2Connection(object):
         else:
             # Increment our local flow control window.
             self.outbound_flow_control_window += frame.window_increment
+            if self.outbound_flow_control_window > LARGEST_FLOW_CONTROL_WINDOW:
+                raise FlowControlError("Connection window too large.")
 
             # FIXME: Should we split this into one event per active stream?
             window_updated_event = WindowUpdated()
