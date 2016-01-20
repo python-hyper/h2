@@ -165,8 +165,7 @@ class TestFlowControl(object):
         f = frame_factory.build_settings_frame(
             settings={SettingsFrame.INITIAL_WINDOW_SIZE: 1280}
         )
-        events = c.receive_data(f.serialize())
-        c.acknowledge_settings(events[0])
+        c.receive_data(f.serialize())
 
         assert c.local_flow_control_window(1) == 1280
 
@@ -183,8 +182,7 @@ class TestFlowControl(object):
         f = frame_factory.build_settings_frame(
             settings={SettingsFrame.INITIAL_WINDOW_SIZE: 128000}
         )
-        events = c.receive_data(f.serialize())
-        c.acknowledge_settings(events[0])
+        c.receive_data(f.serialize())
 
         assert c.local_flow_control_window(1) == 128000
 
@@ -198,8 +196,7 @@ class TestFlowControl(object):
         f = frame_factory.build_settings_frame(
             settings={SettingsFrame.INITIAL_WINDOW_SIZE: 128000}
         )
-        events = c.receive_data(f.serialize())
-        c.acknowledge_settings(events[0])
+        c.receive_data(f.serialize())
 
         c.send_headers(1, self.example_request_headers)
         assert c.local_flow_control_window(1) == 128000
