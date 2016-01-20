@@ -457,3 +457,28 @@ class TestFlowControl(object):
             error_code=h2.errors.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_local_overlarge_increase_connection_window(self):
+        """
+        Local attempts to increase the connection window too far are rejected.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        increment = 2**31 - c.inbound_flow_control_window
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.increment_flow_control_window(increment=increment)
+
+    def test_reject_local_overlarge_increase_stream_window(self):
+        """
+        Local attempts to increase the connection window too far are rejected.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+
+        increment = 2**31 - c.inbound_flow_control_window
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.increment_flow_control_window(increment=increment, stream_id=1)
