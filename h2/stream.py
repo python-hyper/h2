@@ -18,10 +18,7 @@ from .events import (
     PriorityUpdated,
 )
 from .exceptions import ProtocolError, StreamClosedError, FlowControlError
-
-
-# The largest value the flow control window may take.
-LARGEST_FLOW_CONTROL_WINDOW = 2**31 - 1
+from .utilities import guard_increment_window
 
 
 class StreamState(IntEnum):
@@ -740,13 +737,10 @@ class H2Stream(object):
             StreamInputs.RECV_WINDOW_UPDATE
         )
         events[0].delta = increment
-        self.outbound_flow_control_window += increment
-
-        # Restrict the maximum value of the flow control window.
-        if self.outbound_flow_control_window > LARGEST_FLOW_CONTROL_WINDOW:
-            raise FlowControlError(
-                "Flow control window on stream %d too large" % self.stream_id
-            )
+        self.outbound_flow_control_window = guard_increment_window(
+            self.outbound_flow_control_window,
+            increment
+        )
 
         return [], events
 
