@@ -850,10 +850,16 @@ class H2Connection(object):
         windows by the delta in the settings values.
         """
         delta = new_value - old_value
-        self.outbound_flow_control_window += delta
+        self.outbound_flow_control_window = guard_increment_window(
+            self.outbound_flow_control_window,
+            delta
+        )
 
         for stream in self.streams.values():
-            stream.outbound_flow_control_window += delta
+            stream.outbound_flow_control_window = guard_increment_window(
+                stream.outbound_flow_control_window,
+                delta
+            )
 
     def _inbound_flow_control_change_from_settings(self, old_value, new_value):
         """
