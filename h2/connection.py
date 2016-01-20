@@ -798,18 +798,16 @@ class H2Connection(object):
         """
         self._data_to_send = b''
 
-    def _acknowledge_settings(self, event):
+    def _acknowledge_settings(self):
         """
         Acknowledge settings that have been received.
 
         .. versionchanged:: 2.0.0
-           Removed from public API, made automatic.
+           Removed from public API, removed useless ``event`` parameter, made
+           automatic.
 
-        :param event: The RemoteSettingsChanged event that is being
-                      acknowledged.
         :returns: Nothing
         """
-        assert isinstance(event, RemoteSettingsChanged)
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
 
         changes = self.remote_settings.acknowledge()
@@ -1031,11 +1029,12 @@ class H2Connection(object):
 
         # Add the new settings.
         self.remote_settings.update(frame.settings)
-        event = RemoteSettingsChanged.from_settings(
-            self.remote_settings, frame.settings
+        events.append(
+            RemoteSettingsChanged.from_settings(
+                self.remote_settings, frame.settings
+            )
         )
-        frames = self._acknowledge_settings(event)
-        events.append(event)
+        frames = self._acknowledge_settings()
 
         return frames, events
 
