@@ -12,7 +12,7 @@ import collections
 from typing import List, Tuple
 
 from h2.connection import H2Connection
-from h2.events import DataReceived, RequestReceived, RemoteSettingsChanged
+from h2.events import DataReceived, RequestReceived
 
 
 class H2Protocol(asyncio.Protocol):
@@ -34,8 +34,6 @@ class H2Protocol(asyncio.Protocol):
                 self.request_received(event.headers, event.stream_id)
             elif isinstance(event, DataReceived):
                 self.conn.reset_stream(event.stream_id)
-            elif isinstance(event, RemoteSettingsChanged):
-                self.conn.acknowledge_settings(event)
 
             self.transport.write(self.conn.data_to_send())
 

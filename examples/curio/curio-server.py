@@ -88,8 +88,6 @@ class H2Server:
                     )
                 elif isinstance(event, h2.events.DataReceived):
                     self.conn.reset_stream(event.stream_id)
-                elif isinstance(event, h2.events.RemoteSettingsChanged):
-                    self.conn.acknowledge_settings(event)
                 elif isinstance(event, h2.events.WindowUpdated):
                     await self.window_updated(event)
 

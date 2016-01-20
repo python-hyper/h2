@@ -18,7 +18,7 @@ from twisted.internet import endpoints
 from twisted.internet import reactor, ssl
 from h2.connection import H2Connection
 from h2.events import (
-    RequestReceived, DataReceived, RemoteSettingsChanged, WindowUpdated
+    RequestReceived, DataReceived, WindowUpdated
 )
 
 
@@ -54,8 +54,6 @@ class H2Protocol(Protocol):
                 self.requestReceived(event.headers, event.stream_id)
             elif isinstance(event, DataReceived):
                 self.dataFrameReceived(event.stream_id)
-            elif isinstance(event, RemoteSettingsChanged):
-                self.settingsChanged(event)
             elif isinstance(event, WindowUpdated):
                 self.windowUpdated(event)
 
@@ -83,10 +81,6 @@ class H2Protocol(Protocol):
 
     def dataFrameReceived(self, stream_id):
         self.conn.reset_stream(stream_id)
-        self.transport.write(self.conn.data_to_send())
-
-    def settingsChanged(self, event):
-        self.conn.acknowledge_settings(event)
         self.transport.write(self.conn.data_to_send())
 
     def sendFile(self, file_path, stream_id):
