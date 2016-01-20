@@ -408,3 +408,52 @@ class TestFlowControl(object):
             error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_increasing_connection_window_too_far(self, frame_factory):
+        """
+        Attempts by the remote peer to increase the connection flow control
+        window beyond 2**31 - 1 are rejected.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        increment = 2**31 - c.outbound_flow_control_window
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=0, increment=increment
+        )
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.FLOW_CONTROL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_increasing_stream_window_too_far(self, frame_factory):
+        """
+        Attempts by the remote peer to increase the stream flow control window
+        beyond 2**31 - 1 are rejected.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        increment = 2**31 - c.outbound_flow_control_window
+
+        f = frame_factory.build_window_update_frame(
+            stream_id=1, increment=increment
+        )
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.FLOW_CONTROL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
