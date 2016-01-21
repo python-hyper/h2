@@ -8,12 +8,16 @@ API Changes (Breaking)
 ~~~~~~~~~~~~~~~~~~~~~~
 
 - Attempts to open streams with invalid stream IDs, either by the remote peer
-  or by the user, are now rejected as a ``ProtocolError``.
+  or by the user, are now rejected as a ``ProtocolError``. Previously these
+  were allowed, and would cause remote peers to error.
 - Receiving frames that have invalid padding now causes the connection to be
-  terminated with a ``ProtocolError`` being raised.
+  terminated with a ``ProtocolError`` being raised. Previously these passed
+  undetected.
 - Settings values set by both the user and the remote peer are now validated
   when they're set. If they're invalid, a new ``InvalidSettingsValueError`` is
   raised and, if set by the remote peer, a connection error is signaled.
+  Previously, it was possible to set invalid values. These would either be
+  caught when building frames, or would be allowed to stand.
 - Settings changes no longer require user action to be acknowledged: hyper-h2
   acknowledges them automatically. This moves the location where some
   exceptions may be thrown, and also causes the ``acknowledge_settings`` method
@@ -29,12 +33,14 @@ API Changes (Breaking)
     - ``acknowledge_settings``
 
 - Added full support for receiving CONTINUATION frames, including policing
-  logic about when and how they are received.
+  logic about when and how they are received. Previously, receiving
+  CONTINUATION frames was not supported and would throw exceptions.
 - All public API functions on ``H2Connection`` except for ``receive_data`` no
   longer return lists of events, because these lists were always empty. Events
   are now only raised by ``receive_data``.
 - Calls to ``increment_flow_control_window`` with out of range values now raise
-  ``ValueError`` exceptions.
+  ``ValueError`` exceptions. Previously they would be allowed, or would cause
+  errors when serializing frames.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
