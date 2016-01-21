@@ -18,6 +18,7 @@ from .events import (
     PriorityUpdated,
 )
 from .exceptions import ProtocolError, StreamClosedError
+from .utilities import guard_increment_window
 
 
 class StreamState(IntEnum):
@@ -736,7 +737,11 @@ class H2Stream(object):
             StreamInputs.RECV_WINDOW_UPDATE
         )
         events[0].delta = increment
-        self.outbound_flow_control_window += increment
+        self.outbound_flow_control_window = guard_increment_window(
+            self.outbound_flow_control_window,
+            increment
+        )
+
         return [], events
 
     def receive_continuation(self):

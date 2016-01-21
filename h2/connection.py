@@ -28,7 +28,7 @@ from .exceptions import (
 from .frame_buffer import FrameBuffer
 from .settings import Settings
 from .stream import H2Stream
-from .utilities import validate_headers
+from .utilities import validate_headers, guard_increment_window
 
 
 class ConnectionState(Enum):
@@ -603,11 +603,17 @@ class H2Connection(object):
             frames = stream.increase_flow_control_window(
                 increment
             )
-            stream.inbound_flow_control_window += increment
+            stream.inbound_flow_control_window = guard_increment_window(
+                stream.inbound_flow_control_window,
+                increment
+            )
         else:
             f = WindowUpdateFrame(0)
             f.window_increment = increment
-            self.inbound_flow_control_window += increment
+            self.inbound_flow_control_window = guard_increment_window(
+                self.inbound_flow_control_window,
+                increment
+            )
             frames = [f]
 
         self._prepare_for_sending(frames)
@@ -844,10 +850,16 @@ class H2Connection(object):
         windows by the delta in the settings values.
         """
         delta = new_value - old_value
-        self.outbound_flow_control_window += delta
+        self.outbound_flow_control_window = guard_increment_window(
+            self.outbound_flow_control_window,
+            delta
+        )
 
         for stream in self.streams.values():
-            stream.outbound_flow_control_window += delta
+            stream.outbound_flow_control_window = guard_increment_window(
+                stream.outbound_flow_control_window,
+                delta
+            )
 
     def _inbound_flow_control_change_from_settings(self, old_value, new_value):
         """
@@ -1060,7 +1072,10 @@ class H2Connection(object):
             )
         else:
             # Increment our local flow control window.
-            self.outbound_flow_control_window += frame.window_increment
+            self.outbound_flow_control_window = guard_increment_window(
+                self.outbound_flow_control_window,
+                frame.window_increment
+            )
 
             # FIXME: Should we split this into one event per active stream?
             window_updated_event = WindowUpdated()
