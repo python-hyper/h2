@@ -789,6 +789,13 @@ class H2Stream(object):
         # Weight is an integer between 1 and 256, but the byte only allows
         # 0 to 255: add one.
         event.weight = frame.stream_weight + 1
+
+        # A stream may not depend on itself.
+        if event.depends_on == self.stream_id:
+            raise ProtocolError(
+                "Stream %d may not depend on itself" % self.stream_id
+            )
+
         return [event]
 
     def _build_headers_frames(self,

@@ -5,8 +5,12 @@ test_priority
 
 Test the priority logic of Hyper-h2.
 """
+import pytest
+
 import h2.connection
+import h2.errors
 import h2.events
+import h2.exceptions
 import h2.stream
 
 
@@ -75,3 +79,37 @@ class TestPriority(object):
         assert event.depends_on == 1
         assert event.weight == 16
         assert event.exclusive is True
+
+    def test_streams_may_not_depend_on_themselves(self, frame_factory):
+        """
+        A stream adjusted to depend on itself causes a Protocol Error.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers,
+            stream_id=3,
+            flags=['PRIORITY'],
+            stream_weight=15,
+            depends_on=1,
+            exclusive=True,
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_priority_frame(
+            stream_id=3,
+            depends_on=3,
+            weight=15
+        )
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=3,
+            error_code=h2.errors.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
