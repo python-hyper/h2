@@ -17,7 +17,7 @@ from .events import (
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     PriorityUpdated,
 )
-from .exceptions import ProtocolError, StreamClosedError, FlowControlError
+from .exceptions import ProtocolError, StreamClosedError
 from .utilities import guard_increment_window
 
 
