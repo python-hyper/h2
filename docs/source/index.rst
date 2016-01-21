@@ -30,6 +30,7 @@ Contents
 
    installation
    basic-usage
+   examples
    advanced-usage
    api
    testimonials

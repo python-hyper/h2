@@ -600,7 +600,14 @@ function to take those headers and encode them as a JSON object. Let's do that:
         )
 
 This is a really simple change, but it's all we need to do: a few extra headers
-and the JSON dump, but that's it. Let's throw that into our ``h2server.py``
+and the JSON dump, but that's it.
+
+Section 6: Bringing It All Together
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This should be all we need!
+
+Let's take all the work we just did and throw that into our ``h2server.py``
 file, which should now look like this:
 
 .. code-block:: python
@@ -688,6 +695,7 @@ it, there are a few directions you could investigate:
   deliberately not thread-safe. As a possible design pattern, consider creating
   threads and passing the sockets returned by ``accept`` to those threads, and
   then letting those threads create their own ``H2Connection`` objects.
+- Take a look at some of our long-form code examples in :doc:`examples`.
 - Alternatively, try playing around with our examples in our repository's
   `examples directory`_. These examples are a bit more fully-featured, and can
   be reached from your web browser. Try adjusting what they do, or adding new
