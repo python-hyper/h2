@@ -695,6 +695,7 @@ it, there are a few directions you could investigate:
   deliberately not thread-safe. As a possible design pattern, consider creating
   threads and passing the sockets returned by ``accept`` to those threads, and
   then letting those threads create their own ``H2Connection`` objects.
+- Take a look at some of our long-form code examples in :doc:`examples`.
 - Alternatively, try playing around with our examples in our repository's
   `examples directory`_. These examples are a bit more fully-featured, and can
   be reached from your web browser. Try adjusting what they do, or adding new
