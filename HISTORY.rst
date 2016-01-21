@@ -64,6 +64,13 @@ API Changes (Backward-Compatible)
   number of reasons as set out in RFC 7540 Section 8.1.2.
 - Attempting to send non-PRIORITY frames on closed streams now raises
   ``StreamClosedError``.
+- Remote peers attempting to increase the flow control window beyond
+  ``2**31 - 1``, either by window increment or by settings frame, are now
+  rejected as ``ProtocolError``s.
+- Local attempts to increase the flow control window beyond ``2**31 - 1`` by
+  window increment are now rejected as ``ProtocolError``s.
+- The bytes that represent individual settings are now available in
+  ``h2.settings``, instead of needing users to import them from hyperframe.
 
 Bugfixes
 ~~~~~~~~
