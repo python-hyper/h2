@@ -115,6 +115,10 @@ Protocol Errors
    :show-inheritance:
    :members:
 
+.. autoclass:: h2.exceptions.InvalidBodyLengthError
+   :show-inheritance:
+   :members:
+
 
 HTTP/2 Error Codes
 ------------------
