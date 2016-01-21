@@ -26,7 +26,9 @@ from .exceptions import (
     NoAvailableStreamIDError
 )
 from .frame_buffer import FrameBuffer
-from .settings import Settings
+from .settings import (
+    Settings, HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_FRAME_SIZE
+)
 from .stream import H2Stream
 from .utilities import validate_headers, guard_increment_window
 
@@ -818,8 +820,8 @@ class H2Connection(object):
 
         changes = self.remote_settings.acknowledge()
 
-        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
-            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
+        if INITIAL_WINDOW_SIZE in changes:
+            setting = changes[INITIAL_WINDOW_SIZE]
             self._flow_control_change_from_settings(
                 setting.original_value,
                 setting.new_value,
@@ -827,12 +829,12 @@ class H2Connection(object):
 
         # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
         # RFC 7540 Section 6.5.2.
-        if SettingsFrame.HEADER_TABLE_SIZE in changes:
-            setting = changes[SettingsFrame.HEADER_TABLE_SIZE]
+        if HEADER_TABLE_SIZE in changes:
+            setting = changes[HEADER_TABLE_SIZE]
             self.encoder.header_table_size = setting.new_value
 
-        if SettingsFrame.SETTINGS_MAX_FRAME_SIZE in changes:
-            setting = changes[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+        if MAX_FRAME_SIZE in changes:
+            setting = changes[MAX_FRAME_SIZE]
             self.max_outbound_frame_size = setting.new_value
             for stream in self.streams.values():
                 stream.max_outbound_frame_size = setting.new_value
@@ -1175,8 +1177,8 @@ class H2Connection(object):
         """
         changes = self.local_settings.acknowledge()
 
-        if SettingsFrame.INITIAL_WINDOW_SIZE in changes:
-            setting = changes[SettingsFrame.INITIAL_WINDOW_SIZE]
+        if INITIAL_WINDOW_SIZE in changes:
+            setting = changes[INITIAL_WINDOW_SIZE]
             self._inbound_flow_control_change_from_settings(
                 setting.original_value,
                 setting.new_value,
