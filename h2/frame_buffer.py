@@ -13,6 +13,16 @@ from .exceptions import (
     ProtocolError, FrameTooLargeError, FrameDataMissingError
 )
 
+# To avoid a DOS attack based on sending loads of continuation frames, we limit
+# the maximum number we're perpared to receive. In this case, we'll set the
+# limit to 64, which means the largest encoded header block we can receive by
+# default is 262144 bytes long, and the largest possible *at all* is 1073741760
+# bytes long.
+#
+# This value seems reasonable for now, but in future we may want to evaluate
+# making it configurable.
+CONTINUATION_BACKLOG = 64
+
 
 class FrameBuffer(object):
     """
@@ -97,6 +107,8 @@ class FrameBuffer(object):
 
             # Append the frame to the buffer.
             self._headers_buffer.append(f)
+            if len(self._headers_buffer) > CONTINUATION_BACKLOG:
+                raise ProtocolError("Too many continuation frames received.")
 
             # If this is the end of the header block, then we want to build a
             # mutant HEADERS frame that's massive. Use the original one we got,

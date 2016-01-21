@@ -183,6 +183,42 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    def test_prevent_continuation_dos(self, frame_factory):
+        """
+        Receiving too many CONTINUATION frames in one block causes a protocol
+        error.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers,
+        )
+        f.flags = set(['END_STREAM'])
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        # Send 63 additional frames.
+        for _ in range(0, 63):
+            extra_frame = frame_factory.build_continuation_frame(
+                header_block=b'hello'
+            )
+            c.receive_data(extra_frame.serialize())
+
+        # The final continuation frame should cause a protocol error.
+        extra_frame = frame_factory.build_continuation_frame(
+            header_block=b'hello'
+        )
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(extra_frame.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=0x1,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     # These settings are a bit annoyingly anonymous, but trust me, they're bad.
     @pytest.mark.parametrize(
         "settings",
