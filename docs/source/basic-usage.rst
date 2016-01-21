@@ -600,7 +600,14 @@ function to take those headers and encode them as a JSON object. Let's do that:
         )
 
 This is a really simple change, but it's all we need to do: a few extra headers
-and the JSON dump, but that's it. Let's throw that into our ``h2server.py``
+and the JSON dump, but that's it.
+
+Section 6: Bringing It All Together
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This should be all we need!
+
+Let's take all the work we just did and throw that into our ``h2server.py``
 file, which should now look like this:
 
 .. code-block:: python
