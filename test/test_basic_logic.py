@@ -16,6 +16,7 @@ import h2.errors
 import h2.events
 import h2.exceptions
 import h2.frame_buffer
+import h2.settings
 
 import helpers
 
@@ -353,8 +354,8 @@ class TestBasicClient(object):
         c.clear_outbound_data_buffer()
 
         new_settings = {
-            hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 52,
-            hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0,
+            h2.settings.HEADER_TABLE_SIZE: 52,
+            h2.settings.ENABLE_PUSH: 0,
         }
         events = c.update_settings(new_settings)
         assert not events
@@ -370,8 +371,8 @@ class TestBasicClient(object):
         c.initiate_connection()
 
         new_settings = {
-            hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 52,
-            hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0,
+            h2.settings.HEADER_TABLE_SIZE: 52,
+            h2.settings.ENABLE_PUSH: 0,
         }
         c.update_settings(new_settings)
 
@@ -395,7 +396,7 @@ class TestBasicClient(object):
         c.initiate_connection()
 
         f = frame_factory.build_settings_frame(
-            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+            {h2.settings.MAX_CONCURRENT_STREAMS: 1}
         )
         c.receive_data(f.serialize())[0]
 
@@ -902,7 +903,7 @@ class TestBasicServer(object):
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_settings_frame(
-            {hyperframe.frame.SettingsFrame.ENABLE_PUSH: 0}
+            {h2.settings.ENABLE_PUSH: 0}
         )
         c.receive_data(f.serialize())
 
@@ -929,7 +930,7 @@ class TestBasicServer(object):
         assert c.encoder.header_table_size == 4096
 
         received_frame = frame_factory.build_settings_frame(
-            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+            {h2.settings.HEADER_TABLE_SIZE: 80}
         )
         c.receive_data(received_frame.serialize())[0]
 
@@ -949,7 +950,7 @@ class TestBasicServer(object):
 
         expected_frame = frame_factory.build_settings_frame({}, ack=True)
         c.update_settings(
-            {hyperframe.frame.SettingsFrame.HEADER_TABLE_SIZE: 80}
+            {h2.settings.HEADER_TABLE_SIZE: 80}
         )
         c.receive_data(expected_frame.serialize())
         c.clear_outbound_data_buffer()
@@ -973,7 +974,7 @@ class TestBasicServer(object):
             c.send_data(1, b'\x01' * 17000)
 
         received_frame = frame_factory.build_settings_frame(
-            {hyperframe.frame.SettingsFrame.SETTINGS_MAX_FRAME_SIZE: 17001}
+            {h2.settings.MAX_FRAME_SIZE: 17001}
         )
         c.receive_data(received_frame.serialize())
 
@@ -1009,7 +1010,7 @@ class TestBasicServer(object):
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
         c.update_settings(
-            {hyperframe.frame.SettingsFrame.MAX_CONCURRENT_STREAMS: 1}
+            {h2.settings.MAX_CONCURRENT_STREAMS: 1}
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
