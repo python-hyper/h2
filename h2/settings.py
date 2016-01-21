@@ -15,6 +15,29 @@ from h2.errors import PROTOCOL_ERROR, FLOW_CONTROL_ERROR
 from h2.exceptions import InvalidSettingsValueError
 
 
+# Aliases for all the settings values.
+
+#: Allows the sender to inform the remote endpoint of the maximum size of the
+#: header compression table used to decode header blocks, in octets.
+HEADER_TABLE_SIZE = SettingsFrame.HEADER_TABLE_SIZE
+
+#: This setting can be used to disable server push. To disable server push on
+#: a client, set this to 0.
+ENABLE_PUSH = SettingsFrame.ENABLE_PUSH
+
+#: Indicates the maximum number of concurrent streams that the sender will
+#: allow.
+MAX_CONCURRENT_STREAMS = SettingsFrame.MAX_CONCURRENT_STREAMS
+
+#: Indicates the sender's initial window size (in octets) for stream-level flow
+#: control.
+INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
+
+#: Indicates the size of the largest frame payload that the sender is willing
+#: to receive, in octets.
+MAX_FRAME_SIZE = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
+
+
 #: A value structure for storing changed settings.
 ChangedSetting = collections.namedtuple(
     'ChangedSetting', ['setting', 'original_value', 'new_value']
@@ -51,10 +74,10 @@ class Settings(collections.MutableMapping):
         #
         # This contains the default values for HTTP/2.
         self._settings = {
-            SettingsFrame.HEADER_TABLE_SIZE: collections.deque([4096]),
-            SettingsFrame.ENABLE_PUSH: collections.deque([int(client)]),
-            SettingsFrame.INITIAL_WINDOW_SIZE: collections.deque([65535]),
-            SettingsFrame.SETTINGS_MAX_FRAME_SIZE: collections.deque([16384]),
+            HEADER_TABLE_SIZE: collections.deque([4096]),
+            ENABLE_PUSH: collections.deque([int(client)]),
+            INITIAL_WINDOW_SIZE: collections.deque([65535]),
+            MAX_FRAME_SIZE: collections.deque([16384]),
         }
 
     def acknowledge(self):
@@ -82,57 +105,62 @@ class Settings(collections.MutableMapping):
     @property
     def header_table_size(self):
         """
-        The current value of the SETTINGS_HEADER_TABLE_SIZE setting.
+        The current value of the :data:`HEADER_TABLE_SIZE
+        <h2.settings.HEADER_TABLE_SIZE>` setting.
         """
-        return self[SettingsFrame.HEADER_TABLE_SIZE]
+        return self[HEADER_TABLE_SIZE]
 
     @header_table_size.setter
     def header_table_size(self, value):
-        self[SettingsFrame.HEADER_TABLE_SIZE] = value
+        self[HEADER_TABLE_SIZE] = value
 
     @property
     def enable_push(self):
         """
-        The current value of the SETTINGS_ENABLE_PUSH setting.
+        The current value of the :data:`ENABLE_PUSH <h2.settings.ENABLE_PUSH>`
+        setting.
         """
-        return self[SettingsFrame.ENABLE_PUSH]
+        return self[ENABLE_PUSH]
 
     @enable_push.setter
     def enable_push(self, value):
-        self[SettingsFrame.ENABLE_PUSH] = value
+        self[ENABLE_PUSH] = value
 
     @property
     def initial_window_size(self):
         """
-        The current value of the SETTINGS_INITIAL_WINDOW_SIZE setting.
+        The current value of the :data:`INITIAL_WINDOW_SIZE
+        <h2.settings.INITIAL_WINDOW_SIZE>` setting.
         """
-        return self[SettingsFrame.INITIAL_WINDOW_SIZE]
+        return self[INITIAL_WINDOW_SIZE]
 
     @initial_window_size.setter
     def initial_window_size(self, value):
-        self[SettingsFrame.INITIAL_WINDOW_SIZE] = value
+        self[INITIAL_WINDOW_SIZE] = value
 
     @property
     def max_frame_size(self):
         """
-        The current value of the SETTINGS_MAX_FRAME_SIZE setting.
+        The current value of the :data:`MAX_FRAME_SIZE
+        <h2.settings.MAX_FRAME_SIZE>` setting.
         """
-        return self[SettingsFrame.SETTINGS_MAX_FRAME_SIZE]
+        return self[MAX_FRAME_SIZE]
 
     @max_frame_size.setter
     def max_frame_size(self, value):
-        self[SettingsFrame.SETTINGS_MAX_FRAME_SIZE] = value
+        self[MAX_FRAME_SIZE] = value
 
     @property
     def max_concurrent_streams(self):
         """
-        The current value of the SETTINGS_MAX_CONCURRENT_STREAMS setting.
+        The current value of the :data:`MAX_CONCURRENT_STREAMS
+        <h2.settings.MAX_CONCURRENT_STREAMS>` setting.
         """
-        return self.get(SettingsFrame.MAX_CONCURRENT_STREAMS, 2**32+1)
+        return self.get(MAX_CONCURRENT_STREAMS, 2**32+1)
 
     @max_concurrent_streams.setter
     def max_concurrent_streams(self, value):
-        self[SettingsFrame.MAX_CONCURRENT_STREAMS] = value
+        self[MAX_CONCURRENT_STREAMS] = value
 
     # Implement the MutableMapping API.
     def __getitem__(self, key):
@@ -176,13 +204,13 @@ def _validate_setting(setting, value):
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
     """
-    if setting == SettingsFrame.ENABLE_PUSH:
+    if setting == ENABLE_PUSH:
         if value not in (0, 1):
             return PROTOCOL_ERROR
-    elif setting == SettingsFrame.INITIAL_WINDOW_SIZE:
+    elif setting == INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647 or value < 0:  # 2^31 - 1
             return FLOW_CONTROL_ERROR
-    elif setting == SettingsFrame.SETTINGS_MAX_FRAME_SIZE:
+    elif setting == MAX_FRAME_SIZE:
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
             return PROTOCOL_ERROR
 
