@@ -17,7 +17,9 @@ from .events import (
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     PriorityUpdated,
 )
-from .exceptions import ProtocolError, StreamClosedError
+from .exceptions import (
+    ProtocolError, StreamClosedError, InvalidBodyLengthError
+)
 from .utilities import guard_increment_window
 
 
@@ -553,6 +555,12 @@ class H2Stream(object):
         self.outbound_flow_control_window = 65535
         self.inbound_flow_control_window = 65535
 
+        # The expected content length, if any.
+        self._expected_content_length = None
+
+        # The actual received content length. Always tracked.
+        self._actual_content_length = 0
+
     @property
     def open(self):
         """
@@ -707,6 +715,8 @@ class H2Stream(object):
                 StreamInputs.RECV_END_STREAM
             )
 
+        self._initialize_content_length(headers)
+
         if isinstance(events[0], TrailersReceived):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
@@ -720,6 +730,7 @@ class H2Stream(object):
         """
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
         self.inbound_flow_control_window -= flow_control_len
+        self._track_content_length(len(data), end_stream)
 
         if end_stream:
             events += self.state_machine.process_input(
@@ -828,3 +839,35 @@ class H2Stream(object):
 
         frames[-1].flags.add('END_HEADERS')
         return frames
+
+    def _initialize_content_length(self, headers):
+        """
+        Checks the headers for a content-length header and initializes the
+        _expected_content_length field from it. It's not an error for no
+        Content-Length header to be present.
+        """
+        for n, v in headers:
+            if n == 'content-length':
+                self._expected_content_length = int(v, 10)
+                return
+
+    def _track_content_length(self, length, end_stream):
+        """
+        Update the expected content length in response to data being received.
+        Validates that the appropriate amount of data is sent. Always updates
+        the received data, but only validates the length against the
+        content-length header if one was sent.
+
+        :param length: The length of the body chunk received.
+        :param end_stream: If this is the last body chunk received.
+        """
+        self._actual_content_length += length
+        actual = self._actual_content_length
+        expected = self._expected_content_length
+
+        if expected is not None:
+            if expected < actual:
+                raise InvalidBodyLengthError(expected, actual)
+
+            if end_stream and expected != actual:
+                raise InvalidBodyLengthError(expected, actual)
