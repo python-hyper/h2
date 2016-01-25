@@ -34,3 +34,5 @@ Contents
    advanced-usage
    api
    testimonials
+   release-notes
+   contributors
