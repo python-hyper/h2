@@ -72,9 +72,9 @@ API Changes (Backward-Compatible)
   ``StreamClosedError``.
 - Remote peers attempting to increase the flow control window beyond
   ``2**31 - 1``, either by window increment or by settings frame, are now
-  rejected as ``ProtocolError``s.
+  rejected as ``ProtocolError``.
 - Local attempts to increase the flow control window beyond ``2**31 - 1`` by
-  window increment are now rejected as ``ProtocolError``s.
+  window increment are now rejected as ``ProtocolError``.
 - The bytes that represent individual settings are now available in
   ``h2.settings``, instead of needing users to import them from hyperframe.
 
@@ -86,7 +86,7 @@ Bugfixes
 - Hyper-h2 now does a better job of reporting the last stream ID it has
   partially handled when terminating connections.
 - Fixed an error in the arguments of ``StreamIDTooLowError``.
-- Prevent ``ValueError``s leaking from Hyperframe.
+- Prevent ``ValueError`` leaking from Hyperframe.
 - Prevent ``struct.error`` and ``InvalidFrameError`` leaking from Hyperframe.
 
 1.1.1 (2015-11-17)
