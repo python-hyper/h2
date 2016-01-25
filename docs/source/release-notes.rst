@@ -15,7 +15,7 @@ High Level Notes
 The Hyper-h2 team and the Hyper project are delighted to announce the release
 of Hyper-h2 version 2.0.0! This is an enormous release that contains a gigantic
 collection of new features and fixes, with the goal of making it easier than
-ever to use Hyper-h2 to build a complaint HTTP/2 server or client.
+ever to use Hyper-h2 to build a compliant HTTP/2 server or client.
 
 An enormous chunk of this work has been focused on tighter enforcement of
 restrictions in RFC 7540, ensuring that we correctly police the actions of
