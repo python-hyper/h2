@@ -56,8 +56,6 @@ class H2Protocol(Protocol):
                 self.handleData(event.data, event.stream_id)
             elif isinstance(event, StreamEnded):
                 self.endStream(event.stream_id)
-            elif isinstance(event, RemoteSettingsChanged):
-                self.settingsChanged(event)
             elif isinstance(event, SettingsAcknowledged):
                 self.settingsAcked(event)
             elif isinstance(event, StreamReset):
@@ -69,9 +67,6 @@ class H2Protocol(Protocol):
         data = self.conn.data_to_send()
         if data:
             self.transport.write(data)
-
-    def settingsChanged(self, event):
-        self.conn.acknowledge_settings(event)
 
     def settingsAcked(self, event):
         # Having received the remote settings change, lets send our request.
