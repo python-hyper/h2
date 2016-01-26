@@ -4,6 +4,13 @@ Release History
 dev
 ---
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added new field to ``DataReceived``: ``flow_controlled_length``. This is the
+  length of the frame including padded data, allowing users to correctly track
+  changes to the flow control window.
+
 Bugfixes
 ~~~~~~~~
 

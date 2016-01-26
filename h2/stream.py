@@ -738,6 +738,7 @@ class H2Stream(object):
             )
 
         events[0].data = data
+        events[0].flow_controlled_length = flow_control_len
         return [], events
 
     def receive_window_update(self, increment):
