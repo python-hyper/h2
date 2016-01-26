@@ -64,7 +64,7 @@ class FrameFactory(object):
 
         return f
 
-    def build_data_frame(self, data, flags=None, stream_id=1):
+    def build_data_frame(self, data, flags=None, stream_id=1, padding_len=0):
         """
         Builds a single data frame out of a chunk of data.
         """
@@ -72,6 +72,11 @@ class FrameFactory(object):
         f = DataFrame(stream_id)
         f.data = data
         f.flags = flags
+
+        if padding_len:
+            flags.add('PADDED')
+            f.pad_length = padding_len
+
         return f
 
     def build_settings_frame(self, settings, ack=False):
