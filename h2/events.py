@@ -70,6 +70,12 @@ class DataReceived(object):
         #: The data itself.
         self.data = None
 
+        #: The amount of data received that counts against the flow control
+        #: window. Note that padding counts against the flow control window, so
+        #: when adjusting flow control you should always use this field rather
+        #: than ``len(data)``.
+        self.flow_controlled_length = None
+
 
 class WindowUpdated(object):
     """
