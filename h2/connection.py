@@ -1004,24 +1004,26 @@ class H2Connection(object):
         """
         Receive a data frame on the connection.
         """
-        if frame.body_len > self.remote_flow_control_window(frame.stream_id):
+        flow_controlled_length = frame.flow_controlled_length
+        window_size = self.remote_flow_control_window(frame.stream_id)
+        if flow_controlled_length > window_size:
             raise FlowControlError(
                 "Cannot receive %d bytes, flow control window is %d." %
                 (
-                    frame.body_len,
-                    self.remote_flow_control_window(frame.stream_id)
+                    flow_controlled_length,
+                    window_size
                 )
             )
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
-        self.inbound_flow_control_window -= frame.body_len
+        self.inbound_flow_control_window -= flow_controlled_length
         stream = self._get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_data(
             frame.data,
             'END_STREAM' in frame.flags,
-            frame.body_len
+            flow_controlled_length
         )
         return frames, events + stream_events
 

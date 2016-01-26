@@ -64,6 +64,23 @@ class TestFlowControl(object):
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
         assert (c.remote_flow_control_window(1) == remaining_length)
 
+    def test_flow_control_decreases_with_padded_data(self, frame_factory):
+        """
+        When padded data is received on a stream, the remote flow control
+        window should drop by an amount that includes the padding.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f1 = frame_factory.build_headers_frame(self.example_request_headers)
+        f2 = frame_factory.build_data_frame(b'some data', padding_len=10)
+
+        c.receive_data(f1.serialize() + f2.serialize())
+
+        remaining_length = (
+            self.DEFAULT_FLOW_WINDOW - len(b'some data') - 10 - 1
+        )
+        assert (c.remote_flow_control_window(1) == remaining_length)
+
     def test_flow_control_is_limited_by_connection(self):
         """
         The flow control window is limited by the flow control of the
