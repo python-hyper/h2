@@ -1,6 +1,15 @@
 Release History
 ===============
 
+dev
+---
+
+Bugfixes
+~~~~~~~~
+
+- Hyper-h2 now correctly accounts for padding when maintaining flow control
+  windows.
+
 2.0.0 (2016-01-25)
 ------------------
 
