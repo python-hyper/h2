@@ -25,3 +25,8 @@ In chronological order:
 - Thomas Kriechbaumer (@Kriechi)
 
   - Fixed incorrect arguments being passed to ``StreamIDTooLowError``.
+
+- WeiZheng Xu (@boyxuper)
+
+  - Reported a bug relating to hyper-h2's updating of the connection window in
+    response to SETTINGS_INITIAL_WINDOW_SIZE.

@@ -16,6 +16,9 @@ Bugfixes
 
 - Hyper-h2 now correctly accounts for padding when maintaining flow control
   windows.
+- Resolved a bug where hyper-h2 would mistakenly apply
+  SETTINGS_INITIAL_WINDOW_SIZE to the connection flow control window in
+  addition to the stream-level flow control windows.
 
 2.0.0 (2016-01-25)
 ------------------

@@ -193,6 +193,13 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
+        # Greatly increase the connection flow control window.
+        f = frame_factory.build_window_update_frame(
+            stream_id=0, increment=128000
+        )
+        c.receive_data(f.serialize())
+
+        # The stream flow control window is the bottleneck here.
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
@@ -200,7 +207,25 @@ class TestFlowControl(object):
         )
         c.receive_data(f.serialize())
 
+        # The stream window is still the bottleneck, but larger now.
         assert c.local_flow_control_window(1) == 128000
+
+    def test_flow_control_settings_blocked_by_conn_window(self, frame_factory):
+        """
+        Changing SETTINGS_INITIAL_WINDOW_SIZE does not affect the effective
+        flow control window if the connection window isn't changed.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+
+        assert c.local_flow_control_window(1) == 65535
+
+        f = frame_factory.build_settings_frame(
+            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+        )
+        c.receive_data(f.serialize())
+
+        assert c.local_flow_control_window(1) == 65535
 
     def test_new_streams_have_flow_control_per_settings(self, frame_factory):
         """
@@ -211,6 +236,12 @@ class TestFlowControl(object):
 
         f = frame_factory.build_settings_frame(
             settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+        )
+        c.receive_data(f.serialize())
+
+        # Greatly increase the connection flow control window.
+        f = frame_factory.build_window_update_frame(
+            stream_id=0, increment=128000
         )
         c.receive_data(f.serialize())
 
@@ -357,6 +388,9 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
+        # Increase the connection flow control window greatly.
+        c.increment_flow_control_window(increment=128000)
+
         assert c.remote_flow_control_window(1) == 65535
 
         c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
@@ -375,6 +409,9 @@ class TestFlowControl(object):
         c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
+
+        # Increase the connection flow control window greatly.
+        c.increment_flow_control_window(increment=128000)
 
         c.send_headers(1, self.example_request_headers)
         assert c.remote_flow_control_window(1) == 128000
@@ -476,8 +513,8 @@ class TestFlowControl(object):
 
     def test_reject_overlarge_conn_window_settings(self, frame_factory):
         """
-        Remote attempts to create overlarge connection windows via SETTINGS
-        frames are rejected.
+        SETTINGS frames cannot change the size of the connection flow control
+        window.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
@@ -497,12 +534,15 @@ class TestFlowControl(object):
             }
         )
         c.clear_outbound_data_buffer()
-        with pytest.raises(h2.exceptions.FlowControlError):
-            c.receive_data(f.serialize())
 
-        expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=0,
-            error_code=h2.errors.FLOW_CONTROL_ERROR,
+        # No error is encountered.
+        events = c.receive_data(f.serialize())
+        assert len(events) == 1
+        assert isinstance(events[0], h2.events.RemoteSettingsChanged)
+
+        expected_frame = frame_factory.build_settings_frame(
+            settings={},
+            ack=True
         )
         assert c.data_to_send() == expected_frame.serialize()
 
