@@ -849,13 +849,11 @@ class H2Connection(object):
         SETTINGS_INITIAL_WINDOW_SIZE.
 
         When this setting is changed, it automatically updates all flow control
-        windows by the delta in the settings values.
+        windows by the delta in the settings values. Note that it does not
+        increment the *connection* flow control window, per section 6.9.2 of
+        RFC 7540.
         """
         delta = new_value - old_value
-        self.outbound_flow_control_window = guard_increment_window(
-            self.outbound_flow_control_window,
-            delta
-        )
 
         for stream in self.streams.values():
             stream.outbound_flow_control_window = guard_increment_window(
@@ -872,7 +870,6 @@ class H2Connection(object):
         control windows by the delta in the settings values.
         """
         delta = new_value - old_value
-        self.inbound_flow_control_window += delta
 
         for stream in self.streams.values():
             stream.inbound_flow_control_window += delta
