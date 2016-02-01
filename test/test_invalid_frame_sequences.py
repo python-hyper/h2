@@ -340,3 +340,29 @@ class TestInvalidFrameSequences(object):
         assert event.stream_id == 1
         assert event.error_code == h2.errors.STREAM_CLOSED
         assert not event.remote_reset
+
+    def test_error_on_unexpected_frame(self, frame_factory):
+        """
+        When a frame hyper-h2 doesn't support is received, a ProtocolError is
+        thrown.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        # This is an ALTSVC frame, which is not supported by hyper-h2 at this
+        # time.
+        frame_data = (
+            b'\x00\x00\x2B\x0A\x00\x00\x00\x00\x00'
+            b'\x00\x00\x00\x1D\x00\x50\x00\x02'
+            b'h2\x0Agoogle.comhttps://yahoo.com:8080'
+        )
+        with pytest.raises(h2.exceptions.UnsupportedFrameError):
+            c.receive_data(frame_data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()

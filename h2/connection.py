@@ -23,7 +23,7 @@ from .events import (
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
     TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
-    NoAvailableStreamIDError
+    NoAvailableStreamIDError, UnsupportedFrameError
 )
 from .frame_buffer import FrameBuffer
 from .settings import (
@@ -922,6 +922,10 @@ class H2Connection(object):
             f.error_code = e.error_code
             self._prepare_for_sending([f])
             events = e._events
+        except KeyError as e:
+            # We don't have a function for handling this frame. Let's call this
+            # a PROTOCOL_ERROR and exit.
+            raise UnsupportedFrameError("Unexpected frame: %s" % frame)
         else:
             self._prepare_for_sending(frames)
 
