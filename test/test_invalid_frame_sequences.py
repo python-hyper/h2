@@ -366,3 +366,26 @@ class TestInvalidFrameSequences(object):
             error_code=h2.errors.PROTOCOL_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize('value', ['', 'twelve'])
+    def test_error_on_invalid_content_length(self, frame_factory, value):
+        """
+        When an invalid content-length is received, a ProtocolError is thrown.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_request_headers + [('content-length', value)]
+        )
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1,
+            error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()

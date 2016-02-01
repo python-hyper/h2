@@ -856,7 +856,13 @@ class H2Stream(object):
         """
         for n, v in headers:
             if n == 'content-length':
-                self._expected_content_length = int(v, 10)
+                try:
+                    self._expected_content_length = int(v, 10)
+                except ValueError:
+                    raise ProtocolError(
+                        "Invalid content-length header: %s" % v
+                    )
+
                 return
 
     def _track_content_length(self, length, end_stream):
