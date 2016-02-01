@@ -147,3 +147,13 @@ class InvalidBodyLengthError(ProtocolError):
         return "InvalidBodyLengthError: Expected %d bytes, received %d" % (
             self.expected_length, self.actual_length
         )
+
+
+class UnsupportedFrameError(ProtocolError, KeyError):
+    """
+    The remote peer sent a frame that is unsupported in this context.
+
+    .. versionadded:: 2.1.0
+    """
+    # TODO: Remove the KeyError in 3.0.0
+    pass
