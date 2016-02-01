@@ -26,6 +26,8 @@ Bugfixes
 - Invalid Content-Length headers now throw ``ProtocolError`` exceptions and
   correctly tear the connection down, instead of leaving the connection in an
   indeterminate state.
+- Invalid header blocks now throw ``ProtocolError``, rather than a grab bag of
+  possible other exceptions.
 
 2.0.0 (2016-01-25)
 ------------------

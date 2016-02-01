@@ -14,6 +14,7 @@ from hyperframe.frame import (
     ContinuationFrame
 )
 from hpack.hpack import Encoder, Decoder
+from hpack.exceptions import HPACKError
 
 from .errors import PROTOCOL_ERROR
 from .events import (
@@ -957,7 +958,14 @@ class H2Connection(object):
                 )
 
         # Let's decode the headers.
-        headers = self.decoder.decode(frame.data)
+        try:
+            headers = self.decoder.decode(frame.data)
+        except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
+            # We should only need HPACKError here, but versions of HPACK
+            # older than 2.1.0 throw all three others as well. For maximum
+            # compatibility, catch all of them.
+            raise ProtocolError("Error decoding header block: %s" % e)
+
         headers = validate_headers(headers)
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
