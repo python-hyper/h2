@@ -23,6 +23,9 @@ Bugfixes
 - Resolved a bug where hyper-h2 would mistakenly apply
   SETTINGS_INITIAL_WINDOW_SIZE to the connection flow control window in
   addition to the stream-level flow control windows.
+- Invalid Content-Length headers now throw ``ProtocolError`` exceptions and
+  correctly tear the connection down, instead of leaving the connection in an
+  indeterminate state.
 
 2.0.0 (2016-01-25)
 ------------------
