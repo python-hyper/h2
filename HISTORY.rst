@@ -10,6 +10,10 @@ API Changes (Backward-Compatible)
 - Added new field to ``DataReceived``: ``flow_controlled_length``. This is the
   length of the frame including padded data, allowing users to correctly track
   changes to the flow control window.
+- Defined new ``UnsupportedFrameError``, thrown when frames that are known to
+  hyperframe but not supported by hyper-h2 are received. For
+  backward-compatibility reasons, this is a ``ProtocolError`` *and* a
+  ``KeyError``.
 
 Bugfixes
 ~~~~~~~~
