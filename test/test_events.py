@@ -11,7 +11,9 @@ from hypothesis.strategies import (
     integers, lists, tuples
 )
 
+import h2.errors
 import h2.events
+import h2.settings
 
 
 # We define a fairly complex Hypothesis strategy here. We want to build a list
@@ -86,3 +88,193 @@ class TestRemoteSettingsChanged(object):
             assert e.changed_settings[setting].setting == setting
             assert e.changed_settings[setting].original_value == original_value
             assert e.changed_settings[setting].new_value == new_value
+
+
+class TestEventReprs(object):
+    """
+    Events have useful representations.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'fake-serv/0.1.0')
+    ]
+
+    def test_requestreceived_repr(self):
+        """
+        RequestReceived has a useful debug representation.
+        """
+        e = h2.events.RequestReceived()
+        e.stream_id = 5
+        e.headers = self.example_request_headers
+
+        assert repr(e) == (
+            "<RequestReceived stream_id:5, headers:["
+            "(':authority', 'example.com'), "
+            "(':path', '/'), "
+            "(':scheme', 'https'), "
+            "(':method', 'GET')]>"
+        )
+
+    def test_responsereceived_repr(self):
+        """
+        ResponseReceived has a useful debug representation.
+        """
+        e = h2.events.ResponseReceived()
+        e.stream_id = 500
+        e.headers = self.example_response_headers
+
+        assert repr(e) == (
+            "<ResponseReceived stream_id:500, headers:["
+            "(':status', '200'), "
+            "('server', 'fake-serv/0.1.0')]>"
+        )
+
+    def test_trailersreceived_repr(self):
+        """
+        TrailersReceived has a useful debug representation.
+        """
+        e = h2.events.TrailersReceived()
+        e.stream_id = 62
+        e.headers = self.example_response_headers
+
+        assert repr(e) == (
+            "<TrailersReceived stream_id:62, headers:["
+            "(':status', '200'), "
+            "('server', 'fake-serv/0.1.0')]>"
+        )
+
+    def test_datareceived_repr(self):
+        """
+        DataReceived has a useful debug representation.
+        """
+        e = h2.events.DataReceived()
+        e.stream_id = 888
+        e.data = "abcdefghijklmnopqrstuvwxyz"
+        e.flow_controlled_length = 88
+
+        assert repr(e) == (
+            "<DataReceived stream_id:888, flow_controlled_length:88, "
+            "data:abcdefghijklmnopqrst>"
+        )
+
+    def test_windowupdated_repr(self):
+        """
+        WindowUpdated has a useful debug representation.
+        """
+        e = h2.events.WindowUpdated()
+        e.stream_id = 0
+        e.delta = 2**16
+
+        assert repr(e) == "<WindowUpdated stream_id:0, delta:65536>"
+
+    def test_remotesettingschanged_repr(self):
+        """
+        RemoteSettingsChanged has a useful debug representation.
+        """
+        e = h2.events.RemoteSettingsChanged()
+        e.changed_settings = {
+            h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
+                h2.settings.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+        }
+
+        assert repr(e) == (
+            "<RemoteSettingsChanged changed_settings:{4: ChangedSetting("
+            "setting=4, original_value=65536, new_value=32768)}>"
+        )
+
+    def test_pingacknowledged_repr(self):
+        """
+        PingAcknowledged has a useful debug representation.
+        """
+        e = h2.events.PingAcknowledged()
+        e.ping_data = 'abcdefgh'
+
+        assert repr(e) == "<PingAcknowledged ping_data:abcdefgh>"
+
+    def test_streamended_repr(self):
+        """
+        StreamEnded has a useful debug representation.
+        """
+        e = h2.events.StreamEnded()
+        e.stream_id = 99
+
+        assert repr(e) == "<StreamEnded stream_id:99>"
+
+    def test_streamreset_repr(self):
+        """
+        StreamEnded has a useful debug representation.
+        """
+        e = h2.events.StreamReset()
+        e.stream_id = 919
+        e.error_code = h2.errors.ENHANCE_YOUR_CALM
+        e.remote_reset = False
+
+        assert repr(e) == (
+            "<StreamReset stream_id:919, error_code:11, remote_reset:False>"
+        )
+
+    def test_pushedstreamreceived_repr(self):
+        """
+        PushedStreamReceived has a useful debug representation.
+        """
+        e = h2.events.PushedStreamReceived()
+        e.pushed_stream_id = 50
+        e.parent_stream_id = 11
+        e.headers = self.example_request_headers
+
+        assert repr(e) == (
+            "<PushedStreamReceived pushed_stream_id:50, parent_stream_id:11, "
+            "headers:["
+            "(':authority', 'example.com'), "
+            "(':path', '/'), "
+            "(':scheme', 'https'), "
+            "(':method', 'GET')]>"
+        )
+
+    def test_settingsacknowledged_repr(self):
+        """
+        SettingsAcknowledged has a useful debug representation.
+        """
+        e = h2.events.SettingsAcknowledged()
+        e.changed_settings = {
+            h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
+                h2.settings.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+        }
+
+        assert repr(e) == (
+            "<SettingsAcknowledged changed_settings:{4: ChangedSetting("
+            "setting=4, original_value=65536, new_value=32768)}>"
+        )
+
+    def test_priorityupdated_repr(self):
+        """
+        PriorityUpdated has a useful debug representation.
+        """
+        e = h2.events.PriorityUpdated()
+        e.stream_id = 87
+        e.weight = 32
+        e.depends_on = 8
+        e.exclusive = True
+
+        assert repr(e) == (
+            "<PriorityUpdated stream_id:87, weight:32, depends_on:8, "
+            "exclusive:True>"
+        )
+
+    def test_connectionterminated_repr(self):
+        """
+        ConnectionTerminated has a useful debug representation.
+        """
+        e = h2.events.ConnectionTerminated()
+        e.error_code = h2.errors.INADEQUATE_SECURITY
+        e.last_stream_id = 33
+
+        assert repr(e) == (
+            "<ConnectionTerminated error_code:12, last_stream_id:33>"
+        )
