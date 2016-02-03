@@ -155,12 +155,12 @@ class TestEventReprs(object):
         """
         e = h2.events.DataReceived()
         e.stream_id = 888
-        e.data = "abcdefghijklmnopqrstuvwxyz"
+        e.data = b"abcdefghijklmnopqrstuvwxyz"
         e.flow_controlled_length = 88
 
         assert repr(e) == (
             "<DataReceived stream_id:888, flow_controlled_length:88, "
-            "data:abcdefghijklmnopqrst>"
+            "data:6162636465666768696a6b6c6d6e6f7071727374>"
         )
 
     def test_windowupdated_repr(self):
@@ -193,9 +193,9 @@ class TestEventReprs(object):
         PingAcknowledged has a useful debug representation.
         """
         e = h2.events.PingAcknowledged()
-        e.ping_data = 'abcdefgh'
+        e.ping_data = b'abcdefgh'
 
-        assert repr(e) == "<PingAcknowledged ping_data:abcdefgh>"
+        assert repr(e) == "<PingAcknowledged ping_data:6162636465666768>"
 
     def test_streamended_repr(self):
         """

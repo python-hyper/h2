@@ -9,6 +9,8 @@ Events are returned by the H2 state machine to allow implementations to keep
 track of events triggered by receiving data. Each time data is provided to the
 H2 state machine it processes the data and returns a list of Event objects.
 """
+import binascii
+
 from .settings import ChangedSetting
 
 
@@ -96,7 +98,9 @@ class DataReceived(object):
             "<DataReceived stream_id:%s, "
             "flow_controlled_length:%s, "
             "data:%s>" % (
-                self.stream_id, self.flow_controlled_length, self.data[:20]
+                self.stream_id,
+                self.flow_controlled_length,
+                _bytes_representation(self.data[:20]),
             )
         )
 
@@ -184,7 +188,9 @@ class PingAcknowledged(object):
         self.ping_data = None
 
     def __repr__(self):
-        return "<PingAcknowledged ping_data:%s>" % self.ping_data
+        return "<PingAcknowledged ping_data:%s>" % (
+            _bytes_representation(self.ping_data),
+        )
 
 
 class StreamEnded(object):
@@ -332,3 +338,23 @@ class ConnectionTerminated(object):
         return "<ConnectionTerminated error_code:%s, last_stream_id:%s>" % (
             self.error_code, self.last_stream_id
         )
+
+
+def _bytes_representation(data):
+    """
+    Converts a bytestring into something that is safe to print on all Python
+    platforms.
+
+    This function is relatively expensive, so it should not be called on the
+    mainline of the code. It's safe to use in things like object repr methods
+    though.
+    """
+    hex = binascii.hexlify(data)
+
+    # This is moderately clever: on all Python versions hexlify returns a byte
+    # string. On Python 3 we want an actual string, so we just check whether
+    # that's what we have.
+    if not isinstance(hex, str):  # pragma: no cover
+        hex = hex.decode('ascii')
+
+    return hex
