@@ -25,6 +25,11 @@ class RequestReceived(object):
         #: The request headers.
         self.headers = None
 
+    def __repr__(self):
+        return "<RequestReceived stream_id:%s, headers:%s>" % (
+            self.stream_id, self.headers
+        )
+
 
 class ResponseReceived(object):
     """
@@ -38,6 +43,11 @@ class ResponseReceived(object):
 
         #: The response headers.
         self.headers = None
+
+    def __repr__(self):
+        return "<ResponseReceived stream_id:%s, headers:%s>" % (
+            self.stream_id, self.headers
+        )
 
 
 class TrailersReceived(object):
@@ -55,6 +65,11 @@ class TrailersReceived(object):
 
         #: The trailers themselves.
         self.headers = None
+
+    def __repr__(self):
+        return "<TrailersReceived stream_id:%s, headers:%s>" % (
+            self.stream_id, self.headers
+        )
 
 
 class DataReceived(object):
@@ -76,6 +91,15 @@ class DataReceived(object):
         #: than ``len(data)``.
         self.flow_controlled_length = None
 
+    def __repr__(self):
+        return (
+            "<DataReceived stream_id:%s, "
+            "flow_controlled_length:%s, "
+            "data:%s>" % (
+                self.stream_id, self.flow_controlled_length, self.data[:20]
+            )
+        )
+
 
 class WindowUpdated(object):
     """
@@ -92,6 +116,11 @@ class WindowUpdated(object):
 
         #: The window delta.
         self.delta = None
+
+    def __repr__(self):
+        return "<WindowUpdated stream_id:%s, delta:%s>" % (
+            self.stream_id, self.delta
+        )
 
 
 class RemoteSettingsChanged(object):
@@ -138,6 +167,11 @@ class RemoteSettingsChanged(object):
 
         return e
 
+    def __repr__(self):
+        return "<RemoteSettingsChanged changed_settings:%s>" % (
+            self.changed_settings,
+        )
+
 
 class PingAcknowledged(object):
     """
@@ -149,6 +183,9 @@ class PingAcknowledged(object):
         #: The data included on the ping.
         self.ping_data = None
 
+    def __repr__(self):
+        return "<PingAcknowledged ping_data:%s>" % self.ping_data
+
 
 class StreamEnded(object):
     """
@@ -159,6 +196,9 @@ class StreamEnded(object):
     def __init__(self):
         #: The Stream ID of the stream that was closed.
         self.stream_id = None
+
+    def __repr__(self):
+        return "<StreamEnded stream_id:%s>" % self.stream_id
 
 
 class StreamReset(object):
@@ -181,6 +221,11 @@ class StreamReset(object):
         #: Whether the remote peer sent a RST_STREAM or we did.
         self.remote_reset = True
 
+    def __repr__(self):
+        return "<StreamReset stream_id:%s, error_code:%s, remote_reset:%s>" % (
+            self.stream_id, self.error_code, self.remote_reset
+        )
+
 
 class PushedStreamReceived(object):
     """
@@ -198,6 +243,16 @@ class PushedStreamReceived(object):
         #: The request headers, sent by the remote party in the push.
         self.headers = None
 
+    def __repr__(self):
+        return (
+            "<PushedStreamReceived pushed_stream_id:%s, parent_stream_id:%s, "
+            "headers:%s>" % (
+                self.pushed_stream_id,
+                self.parent_stream_id,
+                self.headers,
+            )
+        )
+
 
 class SettingsAcknowledged(object):
     """
@@ -211,6 +266,11 @@ class SettingsAcknowledged(object):
         #: :class:`ChangedSetting <h2.settings.ChangedSetting>`, representing
         #: the changed settings.
         self.changed_settings = {}
+
+    def __repr__(self):
+        return "<SettingsAcknowledged changed_settings:%s>" % (
+            self.changed_settings,
+        )
 
 
 class PriorityUpdated(object):
@@ -239,6 +299,17 @@ class PriorityUpdated(object):
         #: parent.
         self.exclusive = None
 
+    def __repr__(self):
+        return (
+            "<PriorityUpdated stream_id:%s, weight:%s, depends_on:%s, "
+            "exclusive:%s>" % (
+                self.stream_id,
+                self.weight,
+                self.depends_on,
+                self.exclusive
+            )
+        )
+
 
 class ConnectionTerminated(object):
     """
@@ -256,3 +327,8 @@ class ConnectionTerminated(object):
         #: provide an indication of what data, if any, never reached the remote
         #: peer and so can safely be resent.
         self.last_stream_id = None
+
+    def __repr__(self):
+        return "<ConnectionTerminated error_code:%s, last_stream_id:%s>" % (
+            self.error_code, self.last_stream_id
+        )
