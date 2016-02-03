@@ -1,6 +1,14 @@
 Release History
 ===============
 
+dev
+---
+
+Bugfixes
+~~~~~~~~
+
+- Added debug representations for all events.
+
 2.1.0 (2016-02-02)
 ------------------
 
