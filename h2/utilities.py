@@ -11,6 +11,16 @@ from .exceptions import ProtocolError, FlowControlError
 
 UPPER_RE = re.compile("[A-Z]")
 
+# A set of headers that are hop-by-hop or connection-specific and thus
+# forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
+CONNECTION_HEADERS = set([
+    'connection',
+    'proxy-connection',
+    'keep-alive',
+    'transfer-encoding',
+    'upgrade',
+])
+
 
 def guard_increment_window(current, increment):
     """
@@ -90,8 +100,10 @@ def _reject_connection_header(headers):
     block.
     """
     for header in headers:
-        if header[0] == 'connection':
-            raise ProtocolError("Connection header field present.")
+        if header[0] in CONNECTION_HEADERS:
+            raise ProtocolError(
+                "Connection-specific header field present: %s." % header[0]
+            )
 
         yield header
 
