@@ -36,6 +36,10 @@ class TestInvalidFrameSequences(object):
         base_request_headers + [(':late', 'pseudo-header')],
         [(':path', 'duplicate-pseudo-header')] + base_request_headers,
         base_request_headers + [('connection', 'close')],
+        base_request_headers + [('proxy-connection', 'close')],
+        base_request_headers + [('keep-alive', 'close')],
+        base_request_headers + [('transfer-encoding', 'gzip')],
+        base_request_headers + [('upgrade', 'super-protocol/1.1')],
         base_request_headers + [('te', 'chunked')],
     ]
 

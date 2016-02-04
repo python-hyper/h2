@@ -7,6 +7,8 @@ dev
 Bugfixes
 ~~~~~~~~
 
+- Correctly reject all of the connection-specific headers mentioned in RFC 7540
+  § 8.1.2.2, not just the ``Connection:`` header.
 - Added debug representations for all events.
 
 2.1.0 (2016-02-02)
