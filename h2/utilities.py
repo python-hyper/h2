@@ -51,7 +51,7 @@ def validate_headers(headers):
     # tuples.
     headers = _reject_uppercase_header_fields(headers)
     headers = _reject_te(headers)
-    headers = reject_connection_header(headers)
+    headers = _reject_connection_header(headers)
     headers = _reject_pseudo_header_fields(headers)
     return list(headers)
 
@@ -84,7 +84,7 @@ def _reject_te(headers):
         yield header
 
 
-def reject_connection_header(headers):
+def _reject_connection_header(headers):
     """
     Raises a ProtocolError if the Connection header is present in a header
     block.
