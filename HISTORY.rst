@@ -1,13 +1,15 @@
 Release History
 ===============
 
-dev
----
+2.1.1 (2016-02-05)
+------------------
 
 Bugfixes
 ~~~~~~~~
 
 - Added debug representations for all events.
+- Fixed problems with setup.py that caused trouble on older setuptools/pip
+  installs.
 
 2.1.0 (2016-02-02)
 ------------------
