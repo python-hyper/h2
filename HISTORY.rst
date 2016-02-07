@@ -4,6 +4,13 @@ Release History
 dev
 ---
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added an ``additional_data`` field to the ``ConnectionTerminated`` event that
+  carries any additional data sent on the GOAWAY frame. May be ``None`` if no
+  such data was sent.
+
 Bugfixes
 ~~~~~~~~
 

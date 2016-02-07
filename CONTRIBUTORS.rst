@@ -30,3 +30,7 @@ In chronological order:
 
   - Reported a bug relating to hyper-h2's updating of the connection window in
     response to SETTINGS_INITIAL_WINDOW_SIZE.
+
+- Evgeny Tataurov (@etataurov)
+
+  - Added the ``additional_data`` field to the ``ConnectionTerminated`` event.
