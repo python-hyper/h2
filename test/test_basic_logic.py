@@ -1205,6 +1205,7 @@ class TestBasicServer(object):
         assert isinstance(event, h2.events.ConnectionTerminated)
         assert event.error_code == 4
         assert event.last_stream_id == 5
+        assert event.additional_data is None
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
 
         assert not c.data_to_send()
@@ -1226,3 +1227,23 @@ class TestBasicServer(object):
             isinstance(event, h2.events.ConnectionTerminated)
             for event in events
         )
+
+    def test_receiving_goaway_frame_with_additional_data(self, frame_factory):
+        """
+        GOAWAY frame can contain additional data,
+        it should be available via ConnectionTerminated event.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        additional_data = b'debug data'
+        f = frame_factory.build_goaway_frame(last_stream_id=0,
+                                             additional_data=additional_data)
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ConnectionTerminated)
+        assert event.additional_data == additional_data

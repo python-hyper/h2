@@ -1167,6 +1167,8 @@ class H2Connection(object):
         new_event = ConnectionTerminated()
         new_event.error_code = frame.error_code
         new_event.last_stream_id = frame.last_stream_id
+        new_event.additional_data = (frame.additional_data
+                                     if frame.additional_data else None)
         events.append(new_event)
 
         return [], events

@@ -334,6 +334,9 @@ class ConnectionTerminated(object):
         #: peer and so can safely be resent.
         self.last_stream_id = None
 
+        #: Additional debug data that can be appended to GOAWAY frame.
+        self.additional_data = None
+
     def __repr__(self):
         return "<ConnectionTerminated error_code:%s, last_stream_id:%s>" % (
             self.error_code, self.last_stream_id
