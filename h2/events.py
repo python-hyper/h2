@@ -338,8 +338,15 @@ class ConnectionTerminated(object):
         self.additional_data = None
 
     def __repr__(self):
-        return "<ConnectionTerminated error_code:%s, last_stream_id:%s>" % (
-            self.error_code, self.last_stream_id
+        return (
+            "<ConnectionTerminated error_code:%s, last_stream_id:%s, "
+            "additional_data:%s>" % (
+                self.error_code,
+                self.last_stream_id,
+                _bytes_representation(
+                    self.additional_data[:20]
+                    if self.additional_data else None)
+            )
         )
 
 
@@ -352,6 +359,9 @@ def _bytes_representation(data):
     mainline of the code. It's safe to use in things like object repr methods
     though.
     """
+    if data is None:
+        return None
+
     hex = binascii.hexlify(data)
 
     # This is moderately clever: on all Python versions hexlify returns a byte

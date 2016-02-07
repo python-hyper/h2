@@ -10,6 +10,7 @@ from hypothesis import given
 from hypothesis.strategies import (
     integers, lists, tuples
 )
+import pytest
 
 import h2.errors
 import h2.events
@@ -267,14 +268,20 @@ class TestEventReprs(object):
             "exclusive:True>"
         )
 
-    def test_connectionterminated_repr(self):
+    @pytest.mark.parametrize("additional_data,data_repr", [
+        (None, "None"),
+        (b'some data', "736f6d652064617461")
+    ])
+    def test_connectionterminated_repr(self, additional_data, data_repr):
         """
         ConnectionTerminated has a useful debug representation.
         """
         e = h2.events.ConnectionTerminated()
         e.error_code = h2.errors.INADEQUATE_SECURITY
         e.last_stream_id = 33
+        e.additional_data = additional_data
 
         assert repr(e) == (
-            "<ConnectionTerminated error_code:12, last_stream_id:33>"
+            "<ConnectionTerminated error_code:12, last_stream_id:33, "
+            "additional_data:%s>" % data_repr
         )
