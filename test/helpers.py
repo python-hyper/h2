@@ -109,13 +109,17 @@ class FrameFactory(object):
 
         return f
 
-    def build_goaway_frame(self, last_stream_id, error_code=0):
+    def build_goaway_frame(self,
+                           last_stream_id,
+                           error_code=0,
+                           additional_data=b''):
         """
         Builds a single GOAWAY frame.
         """
         f = GoAwayFrame(0)
         f.error_code = error_code
         f.last_stream_id = last_stream_id
+        f.additional_data = additional_data
         return f
 
     def build_rst_stream_frame(self, stream_id, error_code=0):
