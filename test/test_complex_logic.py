@@ -329,3 +329,152 @@ class TestContinuationFrames(object):
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
+
+
+class TestContinuationFramesPushPromise(object):
+    """
+    Tests for the relatively complex CONTINUATION frame logic working with
+    PUSH_PROMISE frames.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'fake-serv/0.1.0')
+    ]
+
+    def _build_continuation_sequence(self, headers, block_size, frame_factory):
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1, promised_stream_id=2, headers=headers
+        )
+        header_data = f.data
+        chunks = [
+            header_data[x:x+block_size]
+            for x in range(0, len(header_data), block_size)
+        ]
+        f.data = chunks.pop(0)
+        frames = [
+            frame_factory.build_continuation_frame(c) for c in chunks
+        ]
+        f.flags = set(['END_STREAM'])
+        frames[-1].flags.add('END_HEADERS')
+        frames.insert(0, f)
+        return frames
+
+    def test_continuation_frame_basic_push_promise(self, frame_factory):
+        """
+        Test that we correctly decode a header block split across continuation
+        frames when that header block is initiated with a PUSH_PROMISE.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        data = b''.join(f.serialize() for f in frames)
+        events = c.receive_data(data)
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.PushedStreamReceived)
+        assert event.headers == self.example_request_headers
+        assert event.parent_stream_id == 1
+        assert event.pushed_stream_id == 2
+
+    @pytest.mark.parametrize('stream_id', [3, 1, 2])
+    def test_continuation_cannot_interleave_headers_pp(self,
+                                                       frame_factory,
+                                                       stream_id):
+        """
+        We cannot interleave a new headers block with a CONTINUATION sequence
+        when the headers block is based on a PUSH_PROMISE frame.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_headers_frame(
+            headers=self.example_response_headers,
+            stream_id=stream_id,
+            flags=['END_STREAM'],
+        )
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()
+
+    def test_continuation_cannot_interleave_data(self, frame_factory):
+        """
+        We cannot interleave a data frame with a CONTINUATION sequence when
+        that sequence began with a PUSH_PROMISE frame.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_data_frame(
+            data=b'hello',
+            stream_id=1,
+        )
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()
+
+    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory):
+        """
+        We cannot interleave an unknown frame with a CONTINUATION sequence when
+        that sequence began with a PUSH_PROMISE frame.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+
+        frames = self._build_continuation_sequence(
+            headers=self.example_request_headers,
+            block_size=5,
+            frame_factory=frame_factory,
+        )
+        assert len(frames) > 2  # This is mostly defensive.
+
+        bogus_frame = frame_factory.build_data_frame(
+            data=b'hello',
+            stream_id=1,
+        )
+        bogus_frame.type = 88
+        frames.insert(len(frames) - 2, bogus_frame)
+        data = b''.join(f.serialize() for f in frames)
+
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(data)
+
+        assert "invalid frame" in str(e.value).lower()
