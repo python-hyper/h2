@@ -23,7 +23,7 @@ abstract representation of the state of a single HTTP/2 connection, and holds
 all the important protocol state. When using Hyper-h2, this object will be the
 first thing you create and the object that does most of the heavy lifting.
 
-The interface to this object is relatively simple. For sending data, at the
+The interface to this object is relatively simple. For sending data, you
 call the object with methods indicating what actions you want to perform: for
 example, you may want to send headers (you'd use the
 :meth:`send_headers <h2.connection.H2Connection.send_headers>` method), or
