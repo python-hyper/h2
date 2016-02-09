@@ -18,6 +18,8 @@ Bugfixes
   § 8.1.2.2, not just the ``Connection:`` header.
 - Reject attempts to push streams on streams that were themselves pushed:
   streams can only be pushed on streams that were initiated by the client.
+- Correctly allow CONTINUATION frames to extend the header block started by a
+  PUSH_PROMISE frame.
 
 2.1.1 (2016-02-05)
 ------------------
