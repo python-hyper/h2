@@ -235,8 +235,18 @@ Back in our ``h2server.py`` script, we're going to want to start handling data.
 Let's add a function that takes a socket returned from ``accept``, and reads
 data from it. Let's call that function ``handle``. That function should create
 a :class:`H2Connection <h2.connection.H2Connection>` object and then loop on
-the socket, reading data and passing it to the connection. It should look
-something like this:
+the socket, reading data and passing it to the connection.
+
+To read data from a socket we need to call ``recv``. The ``recv`` function
+takes a number as its argument, which is the *maximum* amount of data to be
+returned from a single call (note that ``recv`` will return as soon as any data
+is available, even if that amount is vastly less than the number you passed to
+it). For the purposes of writing this kind of software the specific value is
+not enormously useful, but should not be overly large. For that reason, when
+you're unsure, a number like 4096 or 65535 is a good bet. We'll use 65535 for
+this example.
+
+The function should look something like this:
 
 .. code-block:: python
 
