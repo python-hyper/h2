@@ -221,13 +221,21 @@ class H2ConnectionStateMachine(object):
 
 class H2Connection(object):
     """
-    A low-level HTTP/2 stream object. This handles building and receiving
-    frames and maintains per-stream state.
+    A low-level HTTP/2 connection object. This handles building and receiving
+    frames and maintains both connection and per-stream state for all streams
+    on this connection.
 
-    This wraps a HTTP/2 Stream state machine implementation, ensuring that
-    frames can only be sent/received when the stream is in a valid state.
-    Attempts to create frames that cannot be sent will raise a
-    ``ProtocolError``.
+    This wraps a HTTP/2 Connection state machine implementation, ensuring that
+    frames can only be sent/received when the connection is in a valid state.
+    It also builds stream state machines on demand to ensure that the
+    constraints of those state machines are met as well. Attempts to create
+    frames that cannot be sent will raise a ``ProtocolError``.
+
+    :param client_side: Whether this object is to be used on the client side of
+        a connection, or on the server side. Affects the logic used by the
+        state machine, the default settings values, the allowable stream IDs,
+        and several other properties. Defaults to ``True``.
+    :type client_side: ``bool``
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
