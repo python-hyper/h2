@@ -649,6 +649,14 @@ class H2Connection(object):
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self._get_stream_by_id(stream_id)
 
+        # We need to prevent users pushing streams in response to streams that
+        # they themselves have already pushed: see #163 and RFC 7540 § 6.6. The
+        # easiest way to do that is to assert that the stream_id is not even:
+        # this shortcut works because only servers can push and the state
+        # machine will enforce this.
+        if (stream_id % 2) == 0:
+            raise ProtocolError("Cannot recursively push streams.")
+
         new_stream = self._begin_new_stream(
             promised_stream_id, AllowedStreamIDs.EVEN
         )
@@ -1004,6 +1012,15 @@ class H2Connection(object):
             ConnectionInputs.RECV_PUSH_PROMISE
         )
         stream = self._get_stream_by_id(frame.stream_id)
+
+        # We need to prevent peers pushing streams in response to streams that
+        # they themselves have already pushed: see #163 and RFC 7540 § 6.6. The
+        # easiest way to do that is to assert that the stream_id is not even:
+        # this shortcut works because only servers can push and the state
+        # machine will enforce this.
+        if (frame.stream_id % 2) == 0:
+            raise ProtocolError("Cannot recursively push streams.")
+
         frames, stream_events = stream.receive_push_promise_in_band(
             frame.promised_stream_id,
             pushed_headers,
