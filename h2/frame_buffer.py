@@ -7,7 +7,9 @@ A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
 from hyperframe.exceptions import UnknownFrameError, InvalidFrameError
-from hyperframe.frame import Frame, HeadersFrame, ContinuationFrame
+from hyperframe.frame import (
+    Frame, HeadersFrame, ContinuationFrame, PushPromiseFrame
+)
 
 from .exceptions import (
     ProtocolError, FrameTooLargeError, FrameDataMissingError
@@ -93,8 +95,9 @@ class FrameBuffer(object):
         """
         # Check if we're in the middle of a headers block. If we are, this
         # frame *must* be a CONTINUATION frame with the same stream ID as the
-        # leading HEADERS frame. Anything else is a ProtocolError. If the frame
-        # *is* valid, append it to the header buffer.
+        # leading HEADERS or PUSH_PROMISE frame. Anything else is a
+        # ProtocolError. If the frame *is* valid, append it to the header
+        # buffer.
         if self._headers_buffer:
             stream_id = self._headers_buffer[0].stream_id
             valid_frame = (
@@ -121,7 +124,8 @@ class FrameBuffer(object):
                 self._headers_buffer = None
             else:
                 f = None
-        elif isinstance(f, HeadersFrame) and 'END_HEADERS' not in f.flags:
+        elif (isinstance(f, (HeadersFrame, PushPromiseFrame)) and
+                'END_HEADERS' not in f.flags):
             # This is the start of a headers block! Save the frame off and then
             # act like we didn't receive one.
             self._headers_buffer.append(f)
