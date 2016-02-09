@@ -16,7 +16,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
-from .errors import PROTOCOL_ERROR
+from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated
@@ -1031,7 +1031,25 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
         )
-        stream = self._get_stream_by_id(frame.stream_id)
+
+        try:
+            stream = self._get_stream_by_id(frame.stream_id)
+        except NoSuchStreamError:
+            # We need to check if the parent stream was reset by us. If it was
+            # then we presume that the PUSH_PROMISE was in flight when we reset
+            # the parent stream. Rather than accept the new stream, just reset
+            # it.
+            #
+            # If this was closed naturally, however, we should call this a
+            # PROTOCOL_ERROR: pushing a stream on a naturally closed stream is
+            # a real problem because it creates a brand new stream that the
+            # remote peer now believes exists.
+            if frame.stream_id in self._reset_streams:
+                f = RstStreamFrame(frame.promised_stream_id)
+                f.error_code = REFUSED_STREAM
+                return [f], events
+
+            raise ProtocolError("Attempted to push on closed stream.")
 
         # We need to prevent peers pushing streams in response to streams that
         # they themselves have already pushed: see #163 and RFC 7540 § 6.6. The
