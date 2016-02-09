@@ -20,6 +20,10 @@ class TestClosedStreams(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'fake-serv/0.1.0')
+    ]
 
     def test_can_receive_multiple_rst_stream_frames(self, frame_factory):
         """
@@ -53,9 +57,15 @@ class TestClosedStreams(object):
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
-        f = frame_factory.build_headers_frame(self.example_request_headers)
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers, flags=['END_STREAM']
+        )
         c.receive_data(f.serialize())
-        c.reset_stream(1)
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_response_headers,
+            end_stream=True
+        )
         c.clear_outbound_data_buffer()
 
         data_frame = frame_factory.build_data_frame(b'hi there')
