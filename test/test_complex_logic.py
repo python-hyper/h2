@@ -478,3 +478,47 @@ class TestContinuationFramesPushPromise(object):
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
+
+    @pytest.mark.parametrize('evict', [True, False])
+    def test_stream_remotely_closed_disallows_push_promise(self,
+                                                           evict,
+                                                           frame_factory):
+        """
+        Streams closed normally by the remote peer disallow PUSH_PROMISE
+        frames, and cause a GOAWAY.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_request_headers,
+            end_stream=True
+        )
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_response_headers,
+            flags=['END_STREAM']
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        if evict:
+            # This is annoyingly stateful, but enumerating the list of open
+            # streams will force us to flush state.
+            assert not c.open_outbound_streams
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        f = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == f.serialize()
