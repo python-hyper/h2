@@ -710,6 +710,7 @@ class H2Connection(object):
         frames = stream.reset_stream(error_code)
         self._prepare_for_sending(frames)
         self._reset_streams.add(stream_id)
+        del self.streams[stream_id]
 
     def close_connection(self, error_code=0):
         """
