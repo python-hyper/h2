@@ -1,6 +1,15 @@
 Release History
 ===============
 
+dev
+---
+
+Bugfixes
+~~~~~~~~
+
+- Reject attempts to push streams on streams that were themselves pushed:
+  streams can only be pushed on streams that were initiated by the client.
+
 2.1.1 (2016-02-05)
 ------------------
 
