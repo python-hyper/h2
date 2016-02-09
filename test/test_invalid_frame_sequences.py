@@ -413,3 +413,70 @@ class TestInvalidFrameSequences(object):
             error_code=h2.errors.PROTOCOL_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_receive_push_on_pushed_stream(self, frame_factory):
+        """
+        If a PUSH_PROMISE frame is received with the parent stream ID being a
+        pushed stream, this is rejected with a PROTOCOL_ERROR.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_request_headers,
+            end_stream=True
+        )
+
+        f1 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+        )
+        f2 = frame_factory.build_headers_frame(
+            stream_id=2,
+            headers=self.example_response_headers,
+        )
+        c.receive_data(f1.serialize() + f2.serialize())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=2,
+            promised_stream_id=4,
+            headers=self.example_request_headers,
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=2,
+            error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_cannot_send_push_on_pushed_stream(self, frame_factory):
+        """
+        If a user tries to send a PUSH_PROMISE frame with the parent stream ID
+        being a pushed stream, this is rejected with a PROTOCOL_ERROR.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            stream_id=1, headers=self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=self.example_request_headers
+        )
+        c.send_headers(stream_id=2, headers=self.example_response_headers)
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.push_stream(
+                stream_id=2,
+                promised_stream_id=4,
+                request_headers=self.example_request_headers
+            )
