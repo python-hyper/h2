@@ -285,6 +285,19 @@ class H2StreamStateMachine(object):
         assert previous_state == StreamState.CLOSED
         raise StreamClosedError(self.stream_id)
 
+    def push_on_closed_stream(self, previous_state):
+        """
+        Called when an attempt is made to push on an already-closed stream.
+
+        This essentially overrides the standard logic by providing a more
+        useful error message. It's necessary because simply indicating that the
+        stream is closed is not enough: there is now a new stream that is not
+        allowed to be there. The only recourse is to tear the whole connection
+        down.
+        """
+        assert previous_state == StreamState.CLOSED
+        raise ProtocolError("Attempted to push on closed stream.")
+
 
 # STATE MACHINE
 #
@@ -514,7 +527,7 @@ _transitions = {
     (StreamState.CLOSED, StreamInputs.RECV_DATA):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.push_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
         (None, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
@@ -524,7 +537,7 @@ _transitions = {
     (StreamState.CLOSED, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_PUSH_PROMISE):
-        (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
+        (H2StreamStateMachine.push_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_RST_STREAM):
         (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_DATA):
