@@ -1059,7 +1059,16 @@ class H2Connection(object):
         Receive a data frame on the connection.
         """
         flow_controlled_length = frame.flow_controlled_length
-        window_size = self.remote_flow_control_window(frame.stream_id)
+
+        try:
+            window_size = self.remote_flow_control_window(frame.stream_id)
+        except NoSuchStreamError:
+            # If the stream doesn't exist we still want to adjust the
+            # connection-level flow control window to keep parity with the
+            # remote peer. If it does exist we'll adjust it later.
+            self.inbound_flow_control_window -= flow_controlled_length
+            raise
+
         if flow_controlled_length > window_size:
             raise FlowControlError(
                 "Cannot receive %d bytes, flow control window is %d." %
