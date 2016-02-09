@@ -228,6 +228,12 @@ class H2Connection(object):
     frames can only be sent/received when the stream is in a valid state.
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
+
+    :param client_side: Whether this object is to be used on the client side of
+        a connection, or on the server side. Affects the logic used by the
+        state machine, the default settings values, the allowable stream IDs,
+        and several other properties. Defaults to ``True``.
+    :type client_side: ``bool``
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
