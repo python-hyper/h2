@@ -291,6 +291,11 @@ class H2Connection(object):
         # Data that needs to be sent.
         self._data_to_send = b''
 
+        # Keeps track of streams that have been forcefully reset by this peer.
+        # Used to ensure that we don't blow up in the face of frames that were
+        # in flight when a stream was reset.
+        self._reset_streams = set()
+
         # When in doubt use dict-dispatch.
         self._frame_dispatch_table = {
             HeadersFrame: self._receive_headers_frame,
@@ -704,6 +709,7 @@ class H2Connection(object):
         stream = self._get_stream_by_id(stream_id)
         frames = stream.reset_stream(error_code)
         self._prepare_for_sending(frames)
+        self._reset_streams.add(stream_id)
 
     def close_connection(self, error_code=0):
         """
