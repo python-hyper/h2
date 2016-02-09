@@ -142,6 +142,7 @@ class FrameFactory(object):
         f.promised_stream_id = promised_stream_id
         f.data = self.encoder.encode(headers)
         f.flags = set(flags)
+        f.flags.add('END_HEADERS')
         return f
 
     def build_priority_frame(self,
