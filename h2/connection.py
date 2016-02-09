@@ -941,11 +941,24 @@ class H2Connection(object):
             # We need to send a RST_STREAM frame on behalf of the stream.
             # The frame the stream wants to emit is already present in the
             # exception.
-            # This does not require re-raising: it's an expected behaviour.
-            f = RstStreamFrame(e.stream_id)
-            f.error_code = e.error_code
-            self._prepare_for_sending([f])
-            events = e._events
+            # This does not require re-raising: it's an expected behaviour. The
+            # only time we don't do that is if this is a stream the user
+            # manually reset.
+            if frame.stream_id not in self._reset_streams:
+                f = RstStreamFrame(e.stream_id)
+                f.error_code = e.error_code
+                self._prepare_for_sending([f])
+                events = e._events
+            else:
+                events = []
+        except StreamIDTooLowError as e:
+            # The stream ID seems invalid. This is unlikely, so it's probably
+            # the case that this frame is actually for a stream that we've
+            # already reset and removed the state for. If it is, just swallow
+            # the error. If we didn't do that, re-raise.
+            if frame.stream_id not in self._reset_streams:
+                raise
+            events = []
         except KeyError as e:
             # We don't have a function for handling this frame. Let's call this
             # a PROTOCOL_ERROR and exit.
