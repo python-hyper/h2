@@ -61,6 +61,6 @@ setup(
         'hpack>=2.0, <3',
     ],
     extras_require={
-        ':python_version == "2.7" or python_version == "3.3"': ['enum34>=1.0.4, <1.1'],
+        ':python_version == "2.7" or python_version == "3.3"': ['enum34>=1.0.4, <2'],
     }
 )
