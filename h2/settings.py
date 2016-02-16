@@ -65,6 +65,16 @@ class Settings(collections.MutableMapping):
 
     Finally, this object understands what the default values of the HTTP/2
     settings are, and sets those defaults appropriately.
+
+    .. versionchanged:: 2.2.0
+       Added the ``initial_values`` parameter.
+
+    :param client: (optional) Whether these settings should be defaulted for a
+        client implementation or a server implementation. Defaults to ``True``.
+    :type client: ``bool``
+    :param initial_values: (optional) Any initial values the user would like
+        set, rather than RFC 7540's defaults.
+    :type initial_vales: ``MutableMapping``
     """
     def __init__(self, client=True, initial_values=None):
         # Backing object for the settings. This is a dictionary of

@@ -10,6 +10,7 @@ API Changes (Backward-Compatible)
 - Added an ``additional_data`` field to the ``ConnectionTerminated`` event that
   carries any additional data sent on the GOAWAY frame. May be ``None`` if no
   such data was sent.
+- Added the ``initial_values`` optional argument to the ``Settings`` object.
 
 Bugfixes
 ~~~~~~~~
