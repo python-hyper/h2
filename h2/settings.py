@@ -65,8 +65,18 @@ class Settings(collections.MutableMapping):
 
     Finally, this object understands what the default values of the HTTP/2
     settings are, and sets those defaults appropriately.
+
+    .. versionchanged:: 2.2.0
+       Added the ``initial_values`` parameter.
+
+    :param client: (optional) Whether these settings should be defaulted for a
+        client implementation or a server implementation. Defaults to ``True``.
+    :type client: ``bool``
+    :param initial_values: (optional) Any initial values the user would like
+        set, rather than RFC 7540's defaults.
+    :type initial_vales: ``MutableMapping``
     """
-    def __init__(self, client=True):
+    def __init__(self, client=True, initial_values=None):
         # Backing object for the settings. This is a dictionary of
         # (setting: [list of values]), where the first value in the list is the
         # current value of the setting. Strictly this doesn't use lists but
@@ -79,6 +89,15 @@ class Settings(collections.MutableMapping):
             INITIAL_WINDOW_SIZE: collections.deque([65535]),
             MAX_FRAME_SIZE: collections.deque([16384]),
         }
+        if initial_values is not None:
+            for key, value in initial_values.items():
+                invalid = _validate_setting(key, value)
+                if invalid:
+                    raise InvalidSettingsValueError(
+                        "Setting %d has invalid value %d" % (key, value),
+                        error_code=invalid
+                    )
+                self._settings[key] = collections.deque([value])
 
     def acknowledge(self):
         """

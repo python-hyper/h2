@@ -10,12 +10,16 @@ API Changes (Backward-Compatible)
 - Added an ``additional_data`` field to the ``ConnectionTerminated`` event that
   carries any additional data sent on the GOAWAY frame. May be ``None`` if no
   such data was sent.
+- Added the ``initial_values`` optional argument to the ``Settings`` object.
 
 Bugfixes
 ~~~~~~~~
 
 - Correctly reject all of the connection-specific headers mentioned in RFC 7540
   § 8.1.2.2, not just the ``Connection:`` header.
+- Defaulted the value of ``SETTINGS_MAX_CONCURRENT_STREAMS`` to 100, unless
+  explicitly overridden. This is a safe defensive initial value for this
+  setting.
 - Reject attempts to push streams on streams that were themselves pushed:
   streams can only be pushed on streams that were initiated by the client.
 - Correctly allow CONTINUATION frames to extend the header block started by a

@@ -28,7 +28,8 @@ from .exceptions import (
 )
 from .frame_buffer import FrameBuffer
 from .settings import (
-    Settings, HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_FRAME_SIZE
+    Settings, HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_FRAME_SIZE,
+    MAX_CONCURRENT_STREAMS
 )
 from .stream import H2Stream
 from .utilities import validate_headers, guard_increment_window
@@ -261,7 +262,17 @@ class H2Connection(object):
         self.client_side = client_side
 
         # Objects that store settings, including defaults.
-        self.local_settings = Settings(client=client_side)
+        #
+        # We set the MAX_CONCURRENT_STREAMS value to 100 because its default is
+        # unbounded, and that's a dangerous default because it allows
+        # essentially unbounded resources to be allocated regardless of how
+        # they will be used. 100 should be suitable for the average
+        # application. This default obviously does not apply to the remote
+        # peer's settings: the remote peer controls them!
+        self.local_settings = Settings(
+            client=client_side,
+            initial_values={MAX_CONCURRENT_STREAMS: 100}
+        )
         self.remote_settings = Settings(client=not client_side)
 
         # The curent value of the connection flow control windows on the
