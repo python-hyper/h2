@@ -22,6 +22,7 @@ import coroutine_tests
 
 import h2.connection
 import h2.events
+import h2.settings
 
 
 class TestCommunication(coroutine_tests.CoroutineTestCase):
@@ -57,6 +58,10 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert len(events) == 2
             assert isinstance(events[0], h2.events.SettingsAcknowledged)
             assert isinstance(events[1], h2.events.RemoteSettingsChanged)
+            changed = events[1].changed_settings
+            assert (
+                changed[h2.settings.MAX_CONCURRENT_STREAMS].new_value == 100
+            )
 
             # Send a request.
             events = c.send_headers(1, request_headers, end_stream=True)
@@ -81,6 +86,10 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             events = c.receive_data(data)
             assert len(events) == 1
             assert isinstance(events[0], h2.events.RemoteSettingsChanged)
+            changed = events[0].changed_settings
+            assert (
+                changed[h2.settings.MAX_CONCURRENT_STREAMS].new_value == 100
+            )
 
             # Send our preamble back.
             c.initiate_connection()
