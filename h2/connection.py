@@ -16,7 +16,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
-from .errors import PROTOCOL_ERROR
+from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated
@@ -290,6 +290,11 @@ class H2Connection(object):
 
         # Data that needs to be sent.
         self._data_to_send = b''
+
+        # Keeps track of streams that have been forcefully reset by this peer.
+        # Used to ensure that we don't blow up in the face of frames that were
+        # in flight when a stream was reset.
+        self._reset_streams = set()
 
         # When in doubt use dict-dispatch.
         self._frame_dispatch_table = {
@@ -704,6 +709,8 @@ class H2Connection(object):
         stream = self._get_stream_by_id(stream_id)
         frames = stream.reset_stream(error_code)
         self._prepare_for_sending(frames)
+        self._reset_streams.add(stream_id)
+        del self.streams[stream_id]
 
     def close_connection(self, error_code=0):
         """
@@ -934,11 +941,24 @@ class H2Connection(object):
             # We need to send a RST_STREAM frame on behalf of the stream.
             # The frame the stream wants to emit is already present in the
             # exception.
-            # This does not require re-raising: it's an expected behaviour.
-            f = RstStreamFrame(e.stream_id)
-            f.error_code = e.error_code
-            self._prepare_for_sending([f])
-            events = e._events
+            # This does not require re-raising: it's an expected behaviour. The
+            # only time we don't do that is if this is a stream the user
+            # manually reset.
+            if frame.stream_id not in self._reset_streams:
+                f = RstStreamFrame(e.stream_id)
+                f.error_code = e.error_code
+                self._prepare_for_sending([f])
+                events = e._events
+            else:
+                events = []
+        except StreamIDTooLowError as e:
+            # The stream ID seems invalid. This is unlikely, so it's probably
+            # the case that this frame is actually for a stream that we've
+            # already reset and removed the state for. If it is, just swallow
+            # the error. If we didn't do that, re-raise.
+            if frame.stream_id not in self._reset_streams:
+                raise
+            events = []
         except KeyError as e:
             # We don't have a function for handling this frame. Let's call this
             # a PROTOCOL_ERROR and exit.
@@ -1011,7 +1031,25 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
         )
-        stream = self._get_stream_by_id(frame.stream_id)
+
+        try:
+            stream = self._get_stream_by_id(frame.stream_id)
+        except NoSuchStreamError:
+            # We need to check if the parent stream was reset by us. If it was
+            # then we presume that the PUSH_PROMISE was in flight when we reset
+            # the parent stream. Rather than accept the new stream, just reset
+            # it.
+            #
+            # If this was closed naturally, however, we should call this a
+            # PROTOCOL_ERROR: pushing a stream on a naturally closed stream is
+            # a real problem because it creates a brand new stream that the
+            # remote peer now believes exists.
+            if frame.stream_id in self._reset_streams:
+                f = RstStreamFrame(frame.promised_stream_id)
+                f.error_code = REFUSED_STREAM
+                return [f], events
+
+            raise ProtocolError("Attempted to push on closed stream.")
 
         # We need to prevent peers pushing streams in response to streams that
         # they themselves have already pushed: see #163 and RFC 7540 § 6.6. The
@@ -1039,7 +1077,16 @@ class H2Connection(object):
         Receive a data frame on the connection.
         """
         flow_controlled_length = frame.flow_controlled_length
-        window_size = self.remote_flow_control_window(frame.stream_id)
+
+        try:
+            window_size = self.remote_flow_control_window(frame.stream_id)
+        except NoSuchStreamError:
+            # If the stream doesn't exist we still want to adjust the
+            # connection-level flow control window to keep parity with the
+            # remote peer. If it does exist we'll adjust it later.
+            self.inbound_flow_control_window -= flow_controlled_length
+            raise
+
         if flow_controlled_length > window_size:
             raise FlowControlError(
                 "Cannot receive %d bytes, flow control window is %d." %

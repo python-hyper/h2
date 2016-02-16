@@ -170,5 +170,11 @@ class TestStreamStateMachine(object):
         c = h2.stream.H2StreamStateMachine(stream_id=1)
         c.state = h2.stream.StreamState.CLOSED
 
-        with pytest.raises(h2.exceptions.StreamClosedError):
+        expected_error = (
+            h2.exceptions.ProtocolError
+            if input_ == h2.stream.StreamInputs.SEND_PUSH_PROMISE
+            else h2.exceptions.StreamClosedError
+        )
+
+        with pytest.raises(expected_error):
             c.process_input(input_)
