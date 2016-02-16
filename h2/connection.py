@@ -19,7 +19,7 @@ from hpack.exceptions import HPACKError
 from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
-    SettingsAcknowledged, ConnectionTerminated
+    SettingsAcknowledged, ConnectionTerminated, PriorityUpdated
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
@@ -66,7 +66,6 @@ class ConnectionInputs(Enum):
 class AllowedStreamIDs(IntEnum):
     EVEN = 0
     ODD = 1
-    ANY = 2
 
 
 class H2ConnectionStateMachine(object):
@@ -382,11 +381,10 @@ class H2Connection(object):
         if stream_id <= highest_stream_id:
             raise StreamIDTooLowError(stream_id, highest_stream_id)
 
-        if allowed_ids != AllowedStreamIDs.ANY:
-            if (stream_id % 2) != int(allowed_ids):
-                raise ProtocolError(
-                    "Invalid stream ID for peer."
-                )
+        if (stream_id % 2) != int(allowed_ids):
+            raise ProtocolError(
+                "Invalid stream ID for peer."
+            )
 
         s = H2Stream(stream_id)
         s.max_inbound_frame_size = self.max_inbound_frame_size
@@ -1026,7 +1024,9 @@ class H2Connection(object):
         )
 
         if 'PRIORITY' in frame.flags:
-            stream_events.extend(stream.priority_changed_remote(frame))
+            p_frames, p_events = self._receive_priority_frame(frame)
+            stream_events.extend(p_events)
+            assert not p_frames
 
         return frames, events + stream_events
 
@@ -1228,12 +1228,24 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PRIORITY
         )
-        stream = self._get_or_create_stream(
-            frame.stream_id, AllowedStreamIDs.ANY
-        )
-        stream_events = stream.priority_changed_remote(frame)
 
-        return [], events + stream_events
+        event = PriorityUpdated()
+        event.stream_id = frame.stream_id
+        event.depends_on = frame.depends_on
+        event.exclusive = frame.exclusive
+
+        # Weight is an integer between 1 and 256, but the byte only allows
+        # 0 to 255: add one.
+        event.weight = frame.stream_weight + 1
+
+        # A stream may not depend on itself.
+        if event.depends_on == frame.stream_id:
+            raise ProtocolError(
+                "Stream %d may not depend on itself" % frame.stream_id
+            )
+        events.append(event)
+
+        return [], events
 
     def _receive_goaway_frame(self, frame):
         """
