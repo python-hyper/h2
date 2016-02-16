@@ -41,6 +41,46 @@ class TestSettings(object):
         assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
         assert s[h2.settings.MAX_FRAME_SIZE] == 16384
 
+    @pytest.mark.parametrize('client', [True, False])
+    def test_can_set_initial_values(self, client):
+        """
+        The Settings object can be provided initial values that override the
+        defaults.
+        """
+        overrides = {
+            h2.settings.HEADER_TABLE_SIZE: 8080,
+            h2.settings.MAX_FRAME_SIZE: 16388,
+            h2.settings.MAX_CONCURRENT_STREAMS: 100,
+        }
+        s = h2.settings.Settings(client=client, initial_values=overrides)
+
+        assert s[h2.settings.HEADER_TABLE_SIZE] == 8080
+        assert s[h2.settings.ENABLE_PUSH] == bool(client)
+        assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
+        assert s[h2.settings.MAX_FRAME_SIZE] == 16388
+        assert s[h2.settings.MAX_CONCURRENT_STREAMS] == 100
+
+    @pytest.mark.parametrize(
+        'setting,value',
+        [
+            (h2.settings.ENABLE_PUSH, 2),
+            (h2.settings.ENABLE_PUSH, -1),
+            (h2.settings.INITIAL_WINDOW_SIZE, -1),
+            (h2.settings.INITIAL_WINDOW_SIZE, 2**34),
+            (h2.settings.MAX_FRAME_SIZE, 1),
+            (h2.settings.MAX_FRAME_SIZE, 2**30),
+        ]
+    )
+    def test_cannot_set_invalid_initial_values(self, setting, value):
+        """
+        The Settings object can be provided initial values that override the
+        defaults.
+        """
+        overrides = {setting: value}
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError):
+            h2.settings.Settings(initial_values=overrides)
+
     def test_applying_value_doesnt_take_effect_immediately(self):
         """
         When a value is applied to the settings object, it doesn't immediately
