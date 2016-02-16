@@ -76,6 +76,8 @@ class H2Server:
         await self.sock.sendall(self.conn.data_to_send())
 
         while True:
+            # 65535 is basically arbitrary here: this amounts to "give me
+            # whatever data you have".
             data = await self.sock.recv(65535)
             if not data:
                 break
