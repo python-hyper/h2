@@ -15,7 +15,6 @@ from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    PriorityUpdated,
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
