@@ -11,6 +11,21 @@ Bugfixes
   streams can only be pushed on streams that were initiated by the client.
 - Correctly allow CONTINUATION frames to extend the header block started by a
   PUSH_PROMISE frame.
+- Changed our handling of frames received on streams that were reset by the
+  user.
+
+  Previously these would, at best, cause ProtocolErrors to be raised and the
+  connection to be torn down (rather defeating the point of resetting streams
+  at all) and, at worst, would cause subtle inconsistencies in state between
+  hyper-h2 and the remote peer that could lead to header block decoding errors
+  or flow control blockages.
+
+  Now when the user resets a stream all further frames received on that stream
+  are ignored except where they affect some form of connection-level state,
+  where they have their effect and are then ignored.
+- Fixed a bug whereby receiving a PUSH_PROMISE frame on a stream that was
+  closed would cause a RST_STREAM frame to be emitted on the closed-stream,
+  but not the newly-pushed one. Now this causes a ``ProtocolError``.
 
 2.1.1 (2016-02-05)
 ------------------
