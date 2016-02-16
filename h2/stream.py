@@ -15,7 +15,6 @@ from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    PriorityUpdated,
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -40,15 +39,13 @@ class StreamInputs(Enum):
     SEND_DATA = 3
     SEND_WINDOW_UPDATE = 4
     SEND_END_STREAM = 5
-    SEND_PRIORITY = 6
-    RECV_HEADERS = 7
-    RECV_PUSH_PROMISE = 8
-    RECV_RST_STREAM = 9
-    RECV_DATA = 10
-    RECV_WINDOW_UPDATE = 11
-    RECV_END_STREAM = 12
-    RECV_PRIORITY = 13
-    RECV_CONTINUATION = 14  # Added in 2.0.0
+    RECV_HEADERS = 6
+    RECV_PUSH_PROMISE = 7
+    RECV_RST_STREAM = 8
+    RECV_DATA = 9
+    RECV_WINDOW_UPDATE = 10
+    RECV_END_STREAM = 11
+    RECV_CONTINUATION = 12  # Added in 2.0.0
 
 
 # This array is initialized once, and is indexed by the stream states above.
@@ -382,10 +379,6 @@ _transitions = {
     (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_new_pushed_stream,
             StreamState.RESERVED_REMOTE),
-    (StreamState.IDLE, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.IDLE),
-    (StreamState.IDLE, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.IDLE),
 
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
@@ -400,10 +393,6 @@ _transitions = {
         (None, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
-    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.RESERVED_LOCAL),
-    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.RESERVED_LOCAL),
 
     # State: reserved remote
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
@@ -419,10 +408,6 @@ _transitions = {
         (None, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
-    (StreamState.RESERVED_REMOTE, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.RESERVED_REMOTE),
-    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.RESERVED_REMOTE),
 
     # State: open
     (StreamState.OPEN, StreamInputs.SEND_HEADERS):
@@ -449,10 +434,6 @@ _transitions = {
         (H2StreamStateMachine.send_push_promise, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise, StreamState.OPEN),
-    (StreamState.OPEN, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.OPEN),
-    (StreamState.OPEN, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.OPEN),
 
     # State: half-closed remote
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
@@ -478,10 +459,6 @@ _transitions = {
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
-    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.HALF_CLOSED_REMOTE),
-    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
 
@@ -504,18 +481,10 @@ _transitions = {
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise,
             StreamState.HALF_CLOSED_LOCAL),
-    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.HALF_CLOSED_LOCAL),
-    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.HALF_CLOSED_LOCAL),
 
     # State: closed
     (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.SEND_PRIORITY):
-        (None, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_PRIORITY):
-        (None, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
         (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
 
@@ -801,27 +770,6 @@ class H2Stream(object):
             events[0].error_code = frame.error_code
 
         return [], events
-
-    def priority_changed_remote(self, frame):
-        """
-        The remote side of the stream sent priority information.
-        """
-        event = PriorityUpdated()
-        event.stream_id = frame.stream_id
-        event.depends_on = frame.depends_on
-        event.exclusive = frame.exclusive
-
-        # Weight is an integer between 1 and 256, but the byte only allows
-        # 0 to 255: add one.
-        event.weight = frame.stream_weight + 1
-
-        # A stream may not depend on itself.
-        if event.depends_on == self.stream_id:
-            raise ProtocolError(
-                "Stream %d may not depend on itself" % self.stream_id
-            )
-
-        return [event]
 
     def _build_headers_frames(self,
                               headers,
