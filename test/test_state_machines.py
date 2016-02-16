@@ -135,23 +135,6 @@ class TestStreamStateMachine(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             s.process_input(h2.stream.StreamInputs.SEND_PUSH_PROMISE)
 
-    @pytest.mark.parametrize("state", h2.stream.StreamState)
-    @pytest.mark.parametrize(
-        "input_",
-        [
-            h2.stream.StreamInputs.RECV_PRIORITY,
-            h2.stream.StreamInputs.SEND_PRIORITY
-        ]
-    )
-    def test_priority_frames_allowed_in_all_states(self, state, input_):
-        """
-        Priority frames can be sent/received in all stream states.
-        """
-        c = h2.stream.H2StreamStateMachine(stream_id=1)
-        c.state = state
-
-        c.process_input(input_)
-
     @pytest.mark.parametrize(
         "input_",
         [
