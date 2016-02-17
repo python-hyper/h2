@@ -20,6 +20,13 @@ Bugfixes
 - Defaulted the value of ``SETTINGS_MAX_CONCURRENT_STREAMS`` to 100, unless
   explicitly overridden. This is a safe defensive initial value for this
   setting.
+
+2.1.2 (2016-02-17)
+------------------
+
+Bugfixes
+~~~~~~~~
+
 - Reject attempts to push streams on streams that were themselves pushed:
   streams can only be pushed on streams that were initiated by the client.
 - Correctly allow CONTINUATION frames to extend the header block started by a
