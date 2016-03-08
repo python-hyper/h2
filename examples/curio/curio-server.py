@@ -196,6 +196,8 @@ if __name__ == '__main__':
                               "{}.crt.pem".format(host),
                               "{}.key".format(host)))
     print("Try GETting:")
-    print("    OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
+    print("    On OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
     print("/usr/local/Cellar/curl/7.47.1/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
+    print("Or open a browser to: https://localhost:5000/")
+    print("   (Accept all the warning)")
     kernel.run()
