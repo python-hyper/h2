@@ -1,3 +1,4 @@
+#!/usr/bin/env python3.5
 # -*- coding: utf-8 -*-
 """
 curio-server.py
@@ -21,7 +22,7 @@ import h2.events
 READ_CHUNK_SIZE = 8192
 
 
-def create_listening_ssl_socket(address):
+def create_listening_ssl_socket(address, certfile, keyfile):
     """
     Create and return a listening TLS socket on a given address.
     """
@@ -30,7 +31,7 @@ def create_listening_ssl_socket(address):
         ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_COMPRESSION
     )
     ssl_context.set_ciphers("ECDHE+AESGCM")
-    ssl_context.load_cert_chain(certfile="cert.crt", keyfile="cert.key")
+    ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
     ssl_context.set_alpn_protocols(["h2"])
 
     sock = socket.socket()
@@ -42,14 +43,14 @@ def create_listening_ssl_socket(address):
     return sock
 
 
-async def h2_server(address, root):
+async def h2_server(address, root, certfile, keyfile):
     """
     Create an HTTP/2 server at the given address.
     """
-    sock = create_listening_ssl_socket(address)
+    sock = create_listening_ssl_socket(address, certfile, keyfile)
     print("Now listening on %s:%d" % address)
 
-    with sock:
+    async with sock:
         while True:
             client, _ = await sock.accept()
             server = H2Server(client, root)
@@ -138,7 +139,7 @@ class H2Server:
         await self.sock.sendall(self.conn.data_to_send())
 
         with open(file_path, 'rb', buffering=0) as f:
-            f = io.File(f)
+            f = io.Stream(f)
             await self._send_file_data(f, stream_id)
 
     async def _send_file_data(self, fileobj, stream_id):
@@ -146,11 +147,11 @@ class H2Server:
         Send the data portion of a file. Handles flow control rules.
         """
         while True:
-            while not self.conn.remote_flow_control_window(stream_id):
+            while not self.conn.local_flow_control_window(stream_id):
                 await self.wait_for_flow_control(stream_id)
 
             chunk_size = min(
-                self.conn.remote_flow_control_window(stream_id),
+                self.conn.local_flow_control_window(stream_id),
                 READ_CHUNK_SIZE,
             )
 
@@ -190,6 +191,13 @@ class H2Server:
 
 
 if __name__ == '__main__':
-    kernel = Kernel()
-    kernel.add_task(h2_server(('', 8080), sys.argv[1]))
+    host = sys.argv[2] if len(sys.argv) > 2 else "localhost"
+    kernel = Kernel(with_monitor=True)
+    kernel.add_task(h2_server((host, 5000),
+                              sys.argv[1],
+                              "{}.crt.pem".format(host),
+                              "{}.key".format(host)))
+    print("Try GETting:")
+    print("    OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
+    print("/usr/local/Cellar/curl/7.47.1/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
     kernel.run()
