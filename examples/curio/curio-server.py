@@ -12,7 +12,7 @@ import mimetypes
 import os
 import sys
 
-from curio import Kernel, Event, new_task, socket, ssl, io
+from curio import Kernel, Event, new_task, socket, ssl
 
 import h2.connection
 import h2.events
@@ -139,7 +139,6 @@ class H2Server:
         await self.sock.sendall(self.conn.data_to_send())
 
         with open(file_path, 'rb', buffering=0) as f:
-            f = io.Stream(f)
             await self._send_file_data(f, stream_id)
 
     async def _send_file_data(self, fileobj, stream_id):
@@ -155,7 +154,7 @@ class H2Server:
                 READ_CHUNK_SIZE,
             )
 
-            data = await fileobj.read(chunk_size)
+            data = fileobj.read(chunk_size)
             keep_reading = (len(data) == chunk_size)
 
             self.conn.send_data(stream_id, data, not keep_reading)
