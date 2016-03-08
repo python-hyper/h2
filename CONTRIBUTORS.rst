@@ -34,3 +34,17 @@ In chronological order:
 - Evgeny Tataurov (@etataurov)
 
   - Added the ``additional_data`` field to the ``ConnectionTerminated`` event.
+
+- Brett Cannon (@brettcannon)
+
+  - Changed Travis status icon to SVG.
+  - Documentation improvements.
+
+- Felix Yan (@felixonmars)
+
+  - Widened allowed version numbers of enum34.
+  - Updated test requirements.
+
+- Keith Dart (@kdart)
+
+  - Fixed curio example server flow control problems.
