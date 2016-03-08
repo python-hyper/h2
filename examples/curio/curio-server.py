@@ -182,9 +182,12 @@ class H2Server:
             evt = self.flow_control_events.pop(stream_id)
             await evt.set()
         elif not stream_id:
-            for evt in self.flow_control_events.values():
-                await evt.set()
-
+            # Need to keep a real list here to use only the events present at
+            # this time.
+            blocked_streams = list(self.flow_control_events.keys())
+            for stream_id in blocked_streams:
+                event = self.flow_control_events.pop(stream_id)
+                await event.set()
         return
 
 
