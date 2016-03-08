@@ -185,8 +185,6 @@ class H2Server:
             for evt in self.flow_control_events.values():
                 await evt.set()
 
-            self.flow_control_events = {}
-
         return
 
 
@@ -201,5 +199,5 @@ if __name__ == '__main__':
     print("    On OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
     print("/usr/local/Cellar/curl/7.47.1/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
     print("Or open a browser to: https://localhost:5000/")
-    print("   (Accept all the warning)")
+    print("   (Accept all the warnings)")
     kernel.run()
