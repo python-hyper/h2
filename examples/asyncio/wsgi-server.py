@@ -59,7 +59,6 @@ when the *complete* data for that event has been written to the asyncio
 transport. Any earlier will cause untold craziness.
 """
 import asyncio
-import collections
 import importlib
 import queue
 import ssl
@@ -148,7 +147,7 @@ class H2Protocol(asyncio.Protocol):
 
         for event in events:
             if isinstance(event, RequestReceived):
-                self.request_received(event.headers, event.stream_id)
+                self.request_received(event)
             elif isinstance(event, DataReceived):
                 self.data_frame_received(event)
             elif isinstance(event, WindowUpdated):
@@ -265,7 +264,7 @@ class H2Protocol(asyncio.Protocol):
                 # We sent everything. We can let the WSGI app progress.
                 event.set()
 
-    def request_received(self, headers, stream_id):
+    def request_received(self, event):
         """
         A HTTP/2 request has been received. We need to invoke the WSGI
         application in a background thread to handle it.
@@ -274,11 +273,11 @@ class H2Protocol(asyncio.Protocol):
         # for this request/response. For that, we have a stream object. We
         # need to store the stream object somewhere reachable for when data
         # arrives later.
-        s = Stream(stream_id, self)
-        self.streams[stream_id] = s
+        s = Stream(event.stream_id, self)
+        self.streams[event.stream_id] = s
 
         # Next, we need to build the WSGI environ dictionary.
-        environ = _build_environ_dict(headers, s)
+        environ = _build_environ_dict(event.headers, s)
 
         # Finally, we want to throw these arguments out to a threadpool and
         # let it run.
@@ -693,9 +692,10 @@ def _build_environ_dict(headers, stream):
         query = u""
     server_name = header_dict.pop(u':authority')
     try:
-        server_name, port = path.split(u':', 1)
-    except ValueError:
+        server_name, port = server_name.split(u':', 1)
+    except ValueError as e:
         port = "8443"
+
     environ = {
         u'REQUEST_METHOD': header_dict.pop(u':method'),
         u'SCRIPT_NAME': u'',
@@ -719,7 +719,7 @@ def _build_environ_dict(headers, stream):
     if u'content-length' in header_dict:
         environ[u'CONTENT_LENGTH'] = header_dict[u'content-length']
     for name, value in header_dict.items():
-        environ[u'HTTP_' + name] = value
+        environ[u'HTTP_' + name.upper()] = value
     return environ
 
 
