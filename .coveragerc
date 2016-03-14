@@ -1,5 +1,6 @@
 [run]
 branch = True
+source = h2
 
 [report]
 fail_under = 100
@@ -8,3 +9,9 @@ exclude_lines =
     pragma: no cover
     .*:.* # Python \d.*
     assert False, "Should not be reachable"
+
+[paths]
+source =
+    h2/
+    .tox/*/lib/python*/site-packages/h2
+    .tox/pypy*/site-packages/h2
