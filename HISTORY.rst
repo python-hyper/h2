@@ -21,6 +21,12 @@ Bugfixes
   explicitly overridden. This is a safe defensive initial value for this
   setting.
 
+Deprecations
+~~~~~~~~~~~~
+
+- Passing dictionaries to ``send_headers`` as the header block is deprecated,
+  and will be removed in 3.0.
+
 2.1.2 (2016-02-17)
 ------------------
 

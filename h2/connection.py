@@ -513,6 +513,14 @@ class H2Connection(object):
         In all situations it is a protocol error to call ``send_headers`` more
         than twice.
 
+        .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
+            headers (that is, ones whose header keys begin with ``:``) appear
+            at the start of the header block, before any normal headers.
+            If you pass a dictionary to the ``headers`` parameter, it is
+            unlikely that they will iterate in that order, and your connection
+            may fail. For this reason, passing a ``dict`` to ``headers`` is
+            *deprecated*, and will be removed in 3.0.
+
         :param stream_id: The stream ID to send the headers on. If this stream
             does not currently exist, it will be created.
         :type stream_id: ``int``

@@ -81,5 +81,31 @@ unbounded form of
 you avoid subtle bugs.
 
 
+Headers
+-------
+
+HTTP/2 defines several "special header fields" which are used to encode data
+that was previously sent in either the request or status line of HTTP/1.1.
+These header fields are distinguished from ordinary header fields because their
+field name begins with a ``:`` character. The special header fields defined in
+`RFC 7540`_ are:
+
+- ``:status``
+- ``:path``
+- ``:method``
+- ``:scheme``
+- ``:authority``
+
+`RFC 7540`_ **mandates** that all of these header fields appear *first* in the
+header block, before the ordinary header fields. This can cause difficulty if
+you call the :meth:`send_headers <h2.connection.H2Connection.send_headers>`
+method with a plain ``dict`` for the ``headers`` argument, because ``dict``
+objects are unordered.
+
+For this reason, passing a ``dict`` to ``send_headers`` is *deprecated* as of
+the 2.1 series of releases. This functionality will be removed entirely in
+version 3.0 of hyper-h2.
+
+
 .. _RFC 7540: https://tools.ietf.org/html/rfc7540
 .. _an implementation: http://python-hyper/priority/
