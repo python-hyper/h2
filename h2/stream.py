@@ -5,6 +5,8 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
+import warnings
+
 from enum import Enum, IntEnum
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
@@ -779,7 +781,13 @@ class H2Stream(object):
         Helper method to build headers or push promise frames.
         """
         # Convert headers to two-tuples.
+        # FIXME: The fallback for dictionary headers is to be removed in 3.0.
         try:
+            warnings.warn(
+                "Implicit conversion of dictionaries to two-tuples for "
+                "headers is deprecated and will be removed in 3.0.",
+                DeprecationWarning
+            )
             headers = headers.items()
         except AttributeError:
             headers = headers
