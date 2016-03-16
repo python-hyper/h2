@@ -1,6 +1,15 @@
 Release History
 ===============
 
+2.1.3 (2016-03-16)
+------------------
+
+Deprecations
+~~~~~~~~~~~~
+
+- Passing dictionaries to ``send_headers`` as the header block is deprecated,
+  and will be removed in 3.0.
+
 2.1.2 (2016-02-17)
 ------------------
 
