@@ -21,6 +21,9 @@ Bugfixes
   explicitly overridden. This is a safe defensive initial value for this
   setting.
 
+2.1.3 (2016-03-16)
+------------------
+
 Deprecations
 ~~~~~~~~~~~~
 
