@@ -173,7 +173,7 @@ key = crypto.load_privatekey(crypto.FILETYPE_PEM, key_data)
 options = ssl.CertificateOptions(
     privateKey=key,
     certificate=cert,
-    nextProtocols=[b'h2', b'http/1.1'],
+    acceptableProtocols=[b'h2'],
 )
 
 endpoint = endpoints.SSL4ServerEndpoint(reactor, 8080, options, backlog=128)
