@@ -101,6 +101,10 @@ class TestEventReprs(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_informational_headers = [
+        (':status', '100'),
+        ('server', 'fake-serv/0.1.0')
+    ]
     example_response_headers = [
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
@@ -147,6 +151,20 @@ class TestEventReprs(object):
         assert repr(e) == (
             "<TrailersReceived stream_id:62, headers:["
             "(':status', '200'), "
+            "('server', 'fake-serv/0.1.0')]>"
+        )
+
+    def test_informationalresponsereceived_repr(self):
+        """
+        InformationalResponseReceived has a useful debug representation.
+        """
+        e = h2.events.InformationalResponseReceived()
+        e.stream_id = 62
+        e.headers = self.example_informational_headers
+
+        assert repr(e) == (
+            "<InformationalResponseReceived stream_id:62, headers:["
+            "(':status', '100'), "
             "('server', 'fake-serv/0.1.0')]>"
         )
 
