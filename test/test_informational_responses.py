@@ -163,9 +163,13 @@ class TestSendingInformationalResponses(object):
         (':method', 'GET'),
         ('expect', '100-continue'),
     ]
-    example_informational_headers = [
-        (':status', '100'),
-        ('server', 'fake-serv/0.1.0')
+    unicode_informational_headers = [
+        (u':status', u'100'),
+        (u'server', u'fake-serv/0.1.0')
+    ]
+    bytes_informational_headers = [
+        (b':status', b'100'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     example_response_headers = [
         (':status', '200'),
@@ -175,7 +179,10 @@ class TestSendingInformationalResponses(object):
         ('trailer', 'you-bet'),
     ]
 
-    def test_single_informational_response(self, frame_factory):
+    @pytest.mark.parametrize(
+        'hdrs', (unicode_informational_headers, bytes_informational_headers),
+    )
+    def test_single_informational_response(self, frame_factory, hdrs):
         """
         When sending a informational response, the appropriate frames are
         emitted.
@@ -193,16 +200,19 @@ class TestSendingInformationalResponses(object):
 
         c.send_headers(
             stream_id=1,
-            headers=self.example_informational_headers,
+            headers=hdrs
         )
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_informational_headers,
+            headers=hdrs,
             stream_id=1,
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_sending_multiple_header_blocks(self, frame_factory):
+    @pytest.mark.parametrize(
+        'hdrs', (unicode_informational_headers, bytes_informational_headers),
+    )
+    def test_sending_multiple_header_blocks(self, frame_factory, hdrs):
         """
         At least three header blocks can be sent: informational, headers,
         trailers.
@@ -221,7 +231,7 @@ class TestSendingInformationalResponses(object):
         # Send the three header blocks.
         c.send_headers(
             stream_id=1,
-            headers=self.example_informational_headers
+            headers=hdrs
         )
         c.send_headers(
             stream_id=1,
@@ -235,7 +245,7 @@ class TestSendingInformationalResponses(object):
 
         # Check that we sent them properly.
         f1 = frame_factory.build_headers_frame(
-            headers=self.example_informational_headers,
+            headers=hdrs,
             stream_id=1,
         )
         f2 = frame_factory.build_headers_frame(
@@ -252,7 +262,12 @@ class TestSendingInformationalResponses(object):
             f1.serialize() + f2.serialize() + f3.serialize()
         )
 
-    def test_sending_multiple_informational_responses(self, frame_factory):
+    @pytest.mark.parametrize(
+        'hdrs', (unicode_informational_headers, bytes_informational_headers),
+    )
+    def test_sending_multiple_informational_responses(self,
+                                                      frame_factory,
+                                                      hdrs):
         """
         More than one informational response is allowed.
         """
@@ -270,7 +285,7 @@ class TestSendingInformationalResponses(object):
         # Send two informational responses.
         c.send_headers(
             stream_id=1,
-            headers=self.example_informational_headers
+            headers=hdrs,
         )
         c.send_headers(
             stream_id=1,
@@ -279,7 +294,7 @@ class TestSendingInformationalResponses(object):
 
         # Check we sent them both.
         f1 = frame_factory.build_headers_frame(
-            headers=self.example_informational_headers,
+            headers=hdrs,
             stream_id=1,
         )
         f2 = frame_factory.build_headers_frame(
@@ -288,7 +303,12 @@ class TestSendingInformationalResponses(object):
         )
         assert c.data_to_send() == f1.serialize() + f2.serialize()
 
-    def test_send_provisional_response_with_end_stream(self, frame_factory):
+    @pytest.mark.parametrize(
+        'hdrs', (unicode_informational_headers, bytes_informational_headers),
+    )
+    def test_send_provisional_response_with_end_stream(self,
+                                                       frame_factory,
+                                                       hdrs):
         """
         Sending provisional responses with END_STREAM set causes
         ProtocolErrors.
@@ -305,6 +325,6 @@ class TestSendingInformationalResponses(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(
                 stream_id=1,
-                headers=self.example_informational_headers,
+                headers=hdrs,
                 end_stream=True,
             )
