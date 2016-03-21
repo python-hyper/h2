@@ -74,6 +74,35 @@ class TrailersReceived(object):
         )
 
 
+class InformationalResponseReceived(object):
+    """
+    The InformationalResponseReceived event is fired when an informational
+    response (that is, one whose status code is a 1XX code) is received from
+    the remote peer.
+
+    The remote peer may send any number of these, from zero upwards. These
+    responses are most commonly sent in response to requests that have the
+    ``expect: 100-continue`` header field present. Most users can safely
+    ignore this event unless you are intending to use the
+    ``expect: 100-continue`` flow, or are for any reason expecting a different
+    1XX status code.
+
+    .. versionadded:: 2.2.0
+    """
+    def __init__(self):
+        #: The Stream ID for the stream this informational response was made
+        #: on.
+        self.stream_id = None
+
+        #: The headers for this informational response.
+        self.headers = None
+
+    def __repr__(self):
+        return "<InformationalResponseReceived stream_id:%s, headers:%s>" % (
+            self.stream_id, self.headers
+        )
+
+
 class DataReceived(object):
     """
     The DataReceived event is fired whenever data is received on a stream from

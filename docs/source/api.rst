@@ -33,6 +33,9 @@ Events
 .. autoclass:: h2.events.TrailersReceived
    :members:
 
+.. autoclass:: h2.events.InformationalResponseReceived
+   :members:
+
 .. autoclass:: h2.events.DataReceived
    :members:
 
