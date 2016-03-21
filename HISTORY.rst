@@ -7,6 +7,14 @@ dev
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- Added support for sending informational responses (responses with 1XX status)
+  codes as part of the standard flow. HTTP/2 allows zero or more informational
+  responses with no upper limit: hyper-h2 does too.
+- Added support for receiving informational responses (responses with 1XX
+  status) codes as part of the standard flow. HTTP/2 allows zero or more
+  informational responses with no upper limit: hyper-h2 does too.
+- Added a new event: ``ReceivedInformationalResponse``. This response is fired
+  when informational responses (those with 1XX status codes).
 - Added an ``additional_data`` field to the ``ConnectionTerminated`` event that
   carries any additional data sent on the GOAWAY frame. May be ``None`` if no
   such data was sent.
