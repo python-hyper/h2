@@ -6,8 +6,11 @@ test_informational_responses
 Tests that validate that hyper-h2 correctly handles informational (1XX)
 responses in its state machine.
 """
+import pytest
+
 import h2.connection
 import h2.events
+import h2.exceptions
 
 
 class TestReceivingInformationalResponses(object):
@@ -122,6 +125,31 @@ class TestReceivingInformationalResponses(object):
         assert isinstance(events[1], h2.events.InformationalResponseReceived)
         assert events[1].headers == [(':status', '101')]
         assert events[1].stream_id == 1
+
+    def test_receive_provisional_response_with_end_stream(self, frame_factory):
+        """
+        Receiving provisional responses with END_STREAM set causes
+        ProtocolErrors.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_informational_headers,
+            stream_id=1,
+            flags=['END_STREAM']
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=1,
+        )
+        assert c.data_to_send() == expected.serialize()
 
 
 class TestSendingInformationalResponses(object):
@@ -259,3 +287,24 @@ class TestSendingInformationalResponses(object):
             stream_id=1,
         )
         assert c.data_to_send() == f1.serialize() + f2.serialize()
+
+    def test_send_provisional_response_with_end_stream(self, frame_factory):
+        """
+        Sending provisional responses with END_STREAM set causes
+        ProtocolErrors.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers,
+            stream_id=1
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(
+                stream_id=1,
+                headers=self.example_informational_headers,
+                end_stream=True,
+            )
