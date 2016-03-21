@@ -17,11 +17,12 @@ from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
+    InformationalResponseReceived,
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
-from .utilities import guard_increment_window
+from .utilities import guard_increment_window, is_informational_response
 
 
 class StreamState(IntEnum):
@@ -48,6 +49,8 @@ class StreamInputs(Enum):
     RECV_WINDOW_UPDATE = 10
     RECV_END_STREAM = 11
     RECV_CONTINUATION = 12  # Added in 2.0.0
+    SEND_INFORMATIONAL_HEADERS = 13  # Added in 2.2.0
+    RECV_INFORMATIONAL_HEADERS = 14  # Added in 2.2.0
 
 
 # This array is initialized once, and is indexed by the stream states above.
@@ -297,6 +300,15 @@ class H2StreamStateMachine(object):
         assert previous_state == StreamState.CLOSED
         raise ProtocolError("Attempted to push on closed stream.")
 
+    def recv_informational_response(self, previous_state):
+        """
+        Called when an informational header block is received (that is, a block
+        where the :status header has a 1XX value).
+        """
+        event = InformationalResponseReceived()
+        event.stream_id = self.stream_id
+        return [event]
+
 
 # STATE MACHINE
 #
@@ -436,6 +448,10 @@ _transitions = {
         (H2StreamStateMachine.send_push_promise, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_INFORMATIONAL_HEADERS):
+        (None, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_INFORMATIONAL_HEADERS):
+        (H2StreamStateMachine.recv_informational_response, StreamState.OPEN),
 
     # State: half-closed remote
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
@@ -570,13 +586,37 @@ class H2Stream(object):
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
         or trailers.
         """
+        # Convert headers to two-tuples.
+        # FIXME: The fallback for dictionary headers is to be removed in 3.0.
+        try:
+            warnings.warn(
+                "Implicit conversion of dictionaries to two-tuples for "
+                "headers is deprecated and will be removed in 3.0.",
+                DeprecationWarning
+            )
+            headers = headers.items()
+        except AttributeError:
+            headers = headers
+
         # Because encoding headers makes an irreversible change to the header
-        # compression context, we make the state transition *first*.
+        # compression context, we make the state transition before we encode
+        # them.
+
+        # First, check if we're a client. If we are, no problem: if we aren't,
+        # we need to scan the header block to see if this is an informational
+        # response.
+        input_ = StreamInputs.SEND_HEADERS
+        if ((not self.state_machine.client) and
+                is_informational_response(headers)):
+            if end_stream:
+                raise ProtocolError(
+                    "Cannot set END_STREAM on informational responses."
+                )
+
+            input_ = StreamInputs.SEND_INFORMATIONAL_HEADERS
 
         # This does not trigger any events.
-        events = self.state_machine.process_input(
-            StreamInputs.SEND_HEADERS
-        )
+        events = self.state_machine.process_input(input_)
         assert not events
 
         hf = HeadersFrame(self.stream_id)
@@ -692,7 +732,16 @@ class H2Stream(object):
         """
         Receive a set of headers (or trailers).
         """
-        events = self.state_machine.process_input(StreamInputs.RECV_HEADERS)
+        if is_informational_response(headers):
+            if end_stream:
+                raise ProtocolError(
+                    "Cannot set END_STREAM on informational responses"
+                )
+            input_ = StreamInputs.RECV_INFORMATIONAL_HEADERS
+        else:
+            input_ = StreamInputs.RECV_HEADERS
+
+        events = self.state_machine.process_input(input_)
 
         if end_stream:
             events += self.state_machine.process_input(
@@ -780,18 +829,6 @@ class H2Stream(object):
         """
         Helper method to build headers or push promise frames.
         """
-        # Convert headers to two-tuples.
-        # FIXME: The fallback for dictionary headers is to be removed in 3.0.
-        try:
-            warnings.warn(
-                "Implicit conversion of dictionaries to two-tuples for "
-                "headers is deprecated and will be removed in 3.0.",
-                DeprecationWarning
-            )
-            headers = headers.items()
-        except AttributeError:
-            headers = headers
-
         headers = ((name.lower(), value) for name, value in headers)
         encoded_headers = encoder.encode(headers)
 
