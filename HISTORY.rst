@@ -4,6 +4,15 @@ Release History
 dev
 ---
 
+2.2.1 (2016-03-23)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fixed issue where users using locales that did not default to UTF-8 were
+  unable to install source distributions of the package.
+
 2.2.0 (2016-03-23)
 ------------------
 
