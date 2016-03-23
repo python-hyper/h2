@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import codecs
 import os
 import re
 import sys
@@ -29,11 +30,14 @@ packages = [
     'h2',
 ]
 
+readme = codecs.open('README.rst', encoding='utf-8').read()
+history = codecs.open('HISTORY.rst', encoding='utf-8').read()
+
 setup(
     name='h2',
     version=version,
     description='HTTP/2 State-Machine based protocol implementation',
-    long_description=open('README.rst').read() + '\n\n' + open('HISTORY.rst').read(),
+    long_description=u'\n\n'.join([readme, history]),
     author='Cory Benfield',
     author_email='cory@lukasa.co.uk',
     url='http://hyper.rtfd.org',
