@@ -510,8 +510,20 @@ class H2Connection(object):
         ``send_headers`` has *already* been called, this will send trailers
         instead.
 
-        In all situations it is a protocol error to call ``send_headers`` more
-        than twice.
+        When acting as a server, you may call ``send_headers`` any number of
+        times allowed by the following rules, in this order:
+
+        - zero or more times with ``(':status', '1XX')`` (where ``1XX`` is a
+          placeholder for any 100-level status code).
+        - once with any other status header.
+        - zero or one time for trailers.
+
+        That is, you are allowed to send as many informational responses as you
+        like, followed by one complete response and zero or one HTTP trailer
+        blocks.
+
+        Clients may send one or two header blocks: one request block, and
+        optionally one trailer block.
 
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
