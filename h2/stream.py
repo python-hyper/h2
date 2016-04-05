@@ -300,11 +300,26 @@ class H2StreamStateMachine(object):
         assert previous_state == StreamState.CLOSED
         raise ProtocolError("Attempted to push on closed stream.")
 
+    def send_informational_response(self, previous_state):
+        """
+        Called when an informational header block is sent (that is, a block
+        where the :status header has a 1XX value).
+
+        Only enforces that these are sent *before* final headers are sent.
+        """
+        if self.headers_sent:
+            raise ProtocolError("Information response after final response")
+
+        return []
+
     def recv_informational_response(self, previous_state):
         """
         Called when an informational header block is received (that is, a block
         where the :status header has a 1XX value).
         """
+        if self.headers_received:
+            raise ProtocolError("Informational response after final response")
+
         event = InformationalResponseReceived()
         event.stream_id = self.stream_id
         return [event]
@@ -449,7 +464,7 @@ _transitions = {
     (StreamState.OPEN, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.SEND_INFORMATIONAL_HEADERS):
-        (None, StreamState.OPEN),
+        (H2StreamStateMachine.send_informational_response, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.recv_informational_response, StreamState.OPEN),
 
@@ -479,6 +494,9 @@ _transitions = {
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
+        (H2StreamStateMachine.send_informational_response,
+            StreamState.HALF_CLOSED_REMOTE),
 
     # State: half-closed local
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -498,6 +516,9 @@ _transitions = {
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise,
+            StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_INFORMATIONAL_HEADERS):
+        (H2StreamStateMachine.recv_informational_response,
             StreamState.HALF_CLOSED_LOCAL),
 
     # State: closed
