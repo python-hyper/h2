@@ -11,6 +11,8 @@ Bugfixes
   sent in the ``HALF_CLOSED_REMOTE`` state.
 - Fixed issue where informational responses were erroneously not allowed to be
   received in the ``HALF_CLOSED_LOCAL`` state.
+- Fixed issue where we allowed information responses to be sent or received
+  after final responses.
 
 2.2.1 (2016-03-23)
 ------------------
