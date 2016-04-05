@@ -175,6 +175,40 @@ class TestReceivingInformationalResponses(object):
         )
         assert c.data_to_send() == expected.serialize()
 
+    @pytest.mark.parametrize('end_stream', (True, False))
+    def test_receiving_out_of_order_headers(self, frame_factory, end_stream):
+        """
+        When receiving a informational response after the actual response
+        headers we consider it a ProtocolError and raise it.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_request_headers,
+            end_stream=end_stream
+        )
+
+        f1 = frame_factory.build_headers_frame(
+            headers=self.example_response_headers,
+            stream_id=1,
+        )
+        f2 = frame_factory.build_headers_frame(
+            headers=self.example_informational_headers,
+            stream_id=1,
+        )
+        c.receive_data(f1.serialize())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f2.serialize())
+
+        expected = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=1,
+        )
+        assert c.data_to_send() == expected.serialize()
+
 
 class TestSendingInformationalResponses(object):
     """
@@ -371,4 +405,38 @@ class TestSendingInformationalResponses(object):
                 stream_id=1,
                 headers=hdrs,
                 end_stream=True,
+            )
+
+    @pytest.mark.parametrize(
+        'hdrs', (unicode_informational_headers, bytes_informational_headers),
+    )
+    @pytest.mark.parametrize('end_stream', (True, False))
+    def test_reject_sending_out_of_order_headers(self,
+                                                 frame_factory,
+                                                 hdrs,
+                                                 end_stream):
+        """
+        When sending an informational response after the actual response
+        headers we consider it a ProtocolError and raise it.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        flags = ['END_STREAM'] if end_stream else []
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers,
+            stream_id=1,
+            flags=flags,
+        )
+        c.receive_data(f.serialize())
+
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_response_headers
+        )
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(
+                stream_id=1,
+                headers=hdrs
             )
