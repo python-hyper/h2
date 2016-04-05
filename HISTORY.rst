@@ -1,6 +1,17 @@
 Release History
 ===============
 
+dev
+---
+
+Bugfixes
+~~~~~~~~
+
+- Fixed issue where informational responses were erroneously not allowed to be
+  sent in the ``HALF_CLOSED_REMOTE`` state.
+- Fixed issue where informational responses were erroneously not allowed to be
+  received in the ``HALF_CLOSED_LOCAL`` state.
+
 2.2.1 (2016-03-23)
 ------------------
 
