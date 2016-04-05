@@ -479,6 +479,8 @@ _transitions = {
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
+        (None, StreamState.HALF_CLOSED_REMOTE),
 
     # State: half-closed local
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -498,6 +500,9 @@ _transitions = {
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_promise,
+            StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_INFORMATIONAL_HEADERS):
+        (H2StreamStateMachine.recv_informational_response,
             StreamState.HALF_CLOSED_LOCAL),
 
     # State: closed
