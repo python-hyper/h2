@@ -1,8 +1,9 @@
 .PHONY: publish test
 
 publish:
-	python setup.py sdist upload
-	python setup.py bdist_wheel upload
+	rm -rf dist/
+	python setup.py sdist bdist_wheel
+	twine upload -s dist/*
 
 test:
 	py.test -n 4 --cov h2 test/
