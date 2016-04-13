@@ -35,7 +35,10 @@ INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
 
 #: Indicates the size of the largest frame payload that the sender is willing
 #: to receive, in octets.
-MAX_FRAME_SIZE = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
+try:  # Platform-specific: Hyperframe < 4.0.0
+    MAX_FRAME_SIZE = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
+except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
+    MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
 
 
 #: A value structure for storing changed settings.
