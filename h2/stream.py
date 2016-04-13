@@ -749,7 +749,7 @@ class H2Stream(object):
         )
         return [], events
 
-    def receive_headers(self, headers, end_stream):
+    def receive_headers(self, headers, end_stream, header_encoding):
         """
         Receive a set of headers (or trailers).
         """
@@ -774,6 +774,12 @@ class H2Stream(object):
         if isinstance(events[0], TrailersReceived):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
+
+        if header_encoding:
+            headers = [
+                (n.decode(header_encoding), v.decode(header_encoding))
+                for n, v in headers
+            ]
 
         events[0].headers = headers
         return [], events
@@ -882,7 +888,7 @@ class H2Stream(object):
         Content-Length header to be present.
         """
         for n, v in headers:
-            if n == 'content-length':
+            if n == b'content-length':
                 try:
                     self._expected_content_length = int(v, 10)
                 except ValueError:
