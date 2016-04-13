@@ -9,6 +9,7 @@ exclude_lines =
     pragma: no cover
     .*:.* # Python \d.*
     assert False, "Should not be reachable"
+    .*:.* # Platform-specific:
 
 [paths]
 source =
