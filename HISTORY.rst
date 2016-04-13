@@ -1,6 +1,22 @@
 Release History
 ===============
 
+2.2.3 (2016-04-13)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Allowed the 4.X series of hyperframe releases as dependencies.
+
+2.1.4 (2016-04-13)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Allowed the 4.X series of hyperframe releases as dependencies.
+
 2.2.2 (2016-04-05)
 ------------------
 
