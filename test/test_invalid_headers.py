@@ -15,9 +15,9 @@ import h2.exceptions
 import h2.utilities
 
 from hypothesis import given
-from hypothesis.strategies import text, lists, tuples
+from hypothesis.strategies import binary, lists, tuples
 
-HEADERS_STRATEGY = lists(tuples(text(), text()))
+HEADERS_STRATEGY = lists(tuples(binary(), binary()))
 
 
 class TestInvalidFrameSequences(object):
