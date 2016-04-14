@@ -9,16 +9,16 @@ import re
 
 from .exceptions import ProtocolError, FlowControlError
 
-UPPER_RE = re.compile("[A-Z]")
+UPPER_RE = re.compile(b"[A-Z]")
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
 CONNECTION_HEADERS = set([
-    'connection',
-    'proxy-connection',
-    'keep-alive',
-    'transfer-encoding',
-    'upgrade',
+    b'connection',
+    b'proxy-connection',
+    b'keep-alive',
+    b'transfer-encoding',
+    b'upgrade',
 ])
 
 
@@ -117,8 +117,8 @@ def _reject_te(headers):
     its value is anything other than "trailers".
     """
     for header in headers:
-        if header[0] == 'te':
-            if header[1].lower().strip() != 'trailers':
+        if header[0] == b'te':
+            if header[1].lower().strip() != b'trailers':
                 raise ProtocolError(
                     "Invalid value for Transfer-Encoding header: %s" %
                     header[1]
@@ -151,7 +151,7 @@ def _reject_pseudo_header_fields(headers):
     seen_regular_header = False
 
     for header in headers:
-        if header[0].startswith(':'):
+        if header[0].startswith(b':'):
             if header[0] in seen_pseudo_header_fields:
                 raise ProtocolError(
                     "Received duplicate pseudo-header field %s" % header[0]

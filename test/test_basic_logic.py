@@ -35,8 +35,12 @@ class TestBasicClient(object):
         (':method', 'GET'),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (u':status', u'200'),
+        (u'server', u'fake-serv/0.1.0')
+    ]
+    bytes_example_response_headers = [
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
 
     def test_begin_connection(self, frame_factory):
@@ -126,6 +130,28 @@ class TestBasicClient(object):
         assert isinstance(event, h2.events.ResponseReceived)
         assert event.stream_id == 1
         assert event.headers == self.example_response_headers
+
+    def test_receiving_a_response_bytes(self, frame_factory):
+        """
+        When receiving a response, the ResponseReceived event fires with bytes
+        headers if the encoding is set appropriately.
+        """
+        c = h2.connection.H2Connection(header_encoding=False)
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        # Clear the data
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.bytes_example_response_headers
 
     def test_end_stream_without_data(self, frame_factory):
         """
@@ -528,10 +554,16 @@ class TestBasicServer(object):
     Basic server-side tests.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (u':authority', u'example.com'),
+        (u':path', u'/'),
+        (u':scheme', u'https'),
+        (u':method', u'GET'),
+    ]
+    bytes_example_request_headers = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
         (':status', '200'),
@@ -596,6 +628,27 @@ class TestBasicServer(object):
         assert isinstance(event, h2.events.RequestReceived)
         assert event.stream_id == 1
         assert event.headers == self.example_request_headers
+
+    def test_headers_event_bytes(self, frame_factory):
+        """
+        When a headers frame is received a RequestReceived event fires with
+        bytes headers if the encoding is set appropriately.
+        """
+        c = h2.connection.H2Connection(
+            client_side=False, header_encoding=False
+        )
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        data = f.serialize()
+        events = c.receive_data(data)
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.RequestReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.bytes_example_request_headers
 
     def test_data_event(self, frame_factory):
         """

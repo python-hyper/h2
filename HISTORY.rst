@@ -4,6 +4,16 @@ Release History
 dev
 ---
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added a new flag to the ``H2Connection`` constructor: ``header_encoding``,
+  that controls what encoding is used (if any) to decode the headers from bytes
+  to unicode. This defaults to UTF-8 for backward compatibility. To disable the
+  decode and use bytes exclusively, set the field to False, None, or the empty
+  string.
+- Bumped the minimum version of HPACK allowed from 2.0 to 2.1.
+
 2.2.3 (2016-04-13)
 ------------------
 

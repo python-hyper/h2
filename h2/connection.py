@@ -231,11 +231,22 @@ class H2Connection(object):
     constraints of those state machines are met as well. Attempts to create
     frames that cannot be sent will raise a ``ProtocolError``.
 
+    .. versionchanged:: 2.3.0
+       Added the ``header_encoding`` keyword argument.
+
     :param client_side: Whether this object is to be used on the client side of
         a connection, or on the server side. Affects the logic used by the
         state machine, the default settings values, the allowable stream IDs,
         and several other properties. Defaults to ``True``.
     :type client_side: ``bool``
+
+    :param header_encoding: Controls whether the headers emitted by this object
+        in events are transparently decoded to ``unicode`` strings, and what
+        encoding is used to do that decoding. For historical reason, this
+        defaults to ``'utf-8'``. To prevent the decoding of headers (that is,
+        to force them to be returned as bytestrings), this can be set to
+        ``False`` or the empty string.
+    :type header_encoding: ``str`` or ``False``
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
@@ -251,7 +262,7 @@ class H2Connection(object):
     # The largest acceptable window increment.
     MAX_WINDOW_INCREMENT = 2**31 - 1
 
-    def __init__(self, client_side=True):
+    def __init__(self, client_side=True, header_encoding='utf-8'):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_inbound_stream_id = 0
@@ -290,6 +301,16 @@ class H2Connection(object):
         #: The maximum size of a frame that can be received by this peer, in
         #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
+
+        #: Controls whether the headers emitted by this object in events are
+        #: transparently decoded to ``unicode`` strings, and what encoding is
+        #: used to do that decoding. For historical reason, this defaults to
+        #: ``'utf-8'``. To prevent the decoding of headers (that is, to force
+        #: them to be returned as bytestrings), this can be set to ``False`` or
+        #: the empty string.
+        #:
+        #: .. versionadded:: 2.3.0
+        self.header_encoding = header_encoding
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -1022,9 +1043,11 @@ class H2Connection(object):
                     (max_open_streams, self.open_outbound_streams)
                 )
 
-        # Let's decode the headers.
+        # Let's decode the headers. We handle headers as bytes internally up
+        # until we hang them off the event, at which point we may optionally
+        # convert them to unicode.
         try:
-            headers = self.decoder.decode(frame.data)
+            headers = self.decoder.decode(frame.data, raw=True)
         except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
             # We should only need HPACKError here, but versions of HPACK
             # older than 2.1.0 throw all three others as well. For maximum
@@ -1040,7 +1063,8 @@ class H2Connection(object):
         )
         frames, stream_events = stream.receive_headers(
             headers,
-            'END_STREAM' in frame.flags
+            'END_STREAM' in frame.flags,
+            self.header_encoding
         )
 
         if 'PRIORITY' in frame.flags:
