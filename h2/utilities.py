@@ -11,6 +11,14 @@ from .exceptions import ProtocolError, FlowControlError
 
 UPPER_RE = re.compile("[A-Z]")
 
+_ALLOWED_PSEUDO_HEADER_FIELDS = set([
+    ':method',
+    ':scheme',
+    ':authority',
+    ':path',
+    ':status',
+])
+
 
 def guard_increment_window(current, increment):
     """
@@ -119,6 +127,12 @@ def _reject_pseudo_header_fields(headers):
                     "Received pseudo-header field out of sequence: %s" %
                     header[0]
                 )
+
+            if header[0] not in _ALLOWED_PSEUDO_HEADER_FIELDS:
+                raise ProtocolError(
+                    "Received custom pseudo-header field %s" % header[0]
+                )
+
         else:
             seen_regular_header = True
 
