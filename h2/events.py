@@ -379,6 +379,49 @@ class ConnectionTerminated(object):
         )
 
 
+class AlternativeServiceAvailable(object):
+    """
+    The AlternativeServiceAvailable event is fired when the remote peer
+    advertises an `RFC 7838 <https://tools.ietf.org/html/rfc7838>`_ Alternative
+    Service using an ALTSVC frame.
+
+    This event always carries the origin to which the ALTSVC information
+    applies. That origin is either supplied by the server directly, or inferred
+    by hyper-h2 from the ``:authority`` pseudo-header field that was sent by
+    the user when initiating a given stream.
+
+    This event also carries what RFC 7838 calls the "Alternative Service Field
+    Value", which is formatted like a HTTP header field and contains the
+    relevant alternative service information. Hyper-h2 does not parse or in any
+    way modify that information: the user is required to do that.
+
+    This event can only be fired on the client end of a connection.
+
+    .. versionadded:: 2.3.0
+    """
+    def __init__(self):
+        #: The origin to which the alternative service field value applies.
+        #: This field is either supplied by the server directly, or inferred by
+        #: hyper-h2 from the ``:authority`` pseudo-header field that was sent
+        #: by the user when initiating the stream on which the frame was
+        #: received.
+        self.origin = None
+
+        #: The ALTSVC field value. This contains information about the HTTP
+        #: alternative service being advertised by the server. Hyper-h2 does
+        #: not parse this field: it is left exactly as sent by the server. The
+        #: structure of the data in this field is given by `RFC 7838 Section 3
+        #: <https://tools.ietf.org/html/rfc7838#section-3>`_.
+        self.field_value = None
+
+    def __repr__(self):
+        return (
+            "<AlternativeServiceAvailable origin:%s, field_value:%s>" % (
+                self.origin, self.field_value,
+            )
+        )
+
+
 def _bytes_representation(data):
     """
     Converts a bytestring into something that is safe to print on all Python
