@@ -102,3 +102,8 @@ class TestFilter(object):
             assert headers == h2.utilities.validate_headers(headers)
         except h2.exceptions.ProtocolError:
             assert True
+
+    def test_invalid_pseudo_headers(self):
+        headers = [(b':custom', b'value')]
+        with pytest.raises(h2.exceptions.ProtocolError):
+            h2.utilities.validate_headers(headers)
