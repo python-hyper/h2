@@ -15,6 +15,11 @@ API Changes (Backward-Compatible)
 - Bumped the minimum version of HPACK allowed from 2.0 to 2.1.
 - Added support for advertising RFC 7838 Alternative services.
 
+Bugfixes
+~~~~~~~~
+
+- Correctly forbid pseudo-headers that were not defined in RFC 7540.
+
 2.2.3 (2016-04-13)
 ------------------
 
