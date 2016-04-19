@@ -360,14 +360,6 @@ class H2StreamStateMachine(object):
         if self.client is False:
             return []
 
-        # If we haven't sent our headers yet, the server has no idea what
-        # origin we believe this stream applies to, so they can't meaningfully
-        # tell us what alternative services are available! Generally the state
-        # machine protects against this, but defense in depth doesn't hurt
-        # here.
-        if not self.headers_sent:  # pragma: no cover
-            return []
-
         # If we've received the response headers from the server they can't
         # guarantee we still have any state around. Other implementations
         # (like nghttp2) ignore ALTSVC in this state, so we will too.
@@ -389,19 +381,6 @@ class H2StreamStateMachine(object):
         That means: when we are a server, when we have received the request
         headers, and when we have not yet sent our own response headers.
         """
-        # Clients cannot send ALTSVC frames. This is defense-in-depth: the
-        # connection-level state machine should forbid this, but we'll
-        # explicitly do it here anyway.
-        if self.client:  # pragma: no cover
-            raise ProtocolError("Cannot send alternative service when client.")
-
-        # We should not send ALTSVC before we've received request headers, or
-        # we don't know what origin we're advertising for.
-        if not self.headers_received:
-            raise ProtocolError(
-                "Cannot send ALTSVC before receiving request headers."
-            )
-
         # We should not send ALTSVC after we've sent response headers, as the
         # client may have disposed of its state.
         if self.headers_sent:
