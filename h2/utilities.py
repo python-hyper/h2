@@ -101,8 +101,11 @@ def authority_from_headers(headers):
     :returns: The value of the authority header, or ``None``.
     """
     for n, v in headers:
-        if n == b':authority':
-            return v
+        # This gets run against headers that come both from HPACK and from the
+        # user, so we may have unicode floating around in here. We only want
+        # bytes.
+        if n in (b':authority', u':authority'):
+            return v.encode('utf-8') if not isinstance(v, bytes) else v
 
     return None
 
