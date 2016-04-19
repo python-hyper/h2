@@ -88,6 +88,25 @@ def guard_increment_window(current, increment):
     return new_size
 
 
+def authority_from_headers(headers):
+    """
+    Given a header set, searches for the authority header and returns the
+    value.
+
+    Note that this doesn't terminate early, so should only be called if the
+    headers are for a client request. Otherwise, will loop over the entire
+    header set, which is potentially unwise.
+
+    :param headers: The HTTP header set.
+    :returns: The value of the authority header, or ``None``.
+    """
+    for n, v in headers:
+        if n == b':authority':
+            return v
+
+    return None
+
+
 def validate_headers(headers):
     """
     Validates a header sequence against a set of constraints from RFC 7540.

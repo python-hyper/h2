@@ -22,7 +22,9 @@ from .events import (
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
-from .utilities import guard_increment_window, is_informational_response
+from .utilities import (
+    guard_increment_window, is_informational_response, authority_from_headers
+)
 
 
 class StreamState(IntEnum):
@@ -582,6 +584,9 @@ class H2Stream(object):
         # The actual received content length. Always tracked.
         self._actual_content_length = 0
 
+        # The authority we believe this stream belongs to.
+        self._authority = None
+
     @property
     def open(self):
         """
@@ -651,6 +656,9 @@ class H2Stream(object):
 
         if self.state_machine.trailers_sent and not end_stream:
             raise ProtocolError("Trailers must have END_STREAM set.")
+
+        if self.state_machine.client and self._authority is None:
+            self._authority = authority_from_headers(headers)
 
         return frames
 
