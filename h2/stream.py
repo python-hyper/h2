@@ -362,8 +362,10 @@ class H2StreamStateMachine(object):
 
         # If we haven't sent our headers yet, the server has no idea what
         # origin we believe this stream applies to, so they can't meaningfully
-        # tell us what alternative services are available!
-        if not self.headers_sent:
+        # tell us what alternative services are available! Generally the state
+        # machine protects against this, but defense in depth doesn't hurt
+        # here.
+        if not self.headers_sent:  # pragma: no cover
             return []
 
         # If we've received the response headers from the server they can't
