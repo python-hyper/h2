@@ -5,8 +5,11 @@ test_rfc7838
 
 Test the RFC 7838 ALTSVC support.
 """
+import pytest
+
 import h2.connection
 import h2.events
+import h2.exceptions
 
 
 class TestRFC7838Client(object):
@@ -235,6 +238,36 @@ class TestRFC7838Client(object):
         # No data gets sent.
         assert not c.data_to_send()
 
+    def test_cannot_send_explicit_alternative_service(self, frame_factory):
+        """
+        A client cannot send an explicit alternative service.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.advertise_alternative_service(
+                field_value=b'h2=":8000"; ma=60',
+                origin=b"example.com",
+            )
+
+    def test_cannot_send_implicit_alternative_service(self, frame_factory):
+        """
+        A client cannot send an implicit alternative service.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.advertise_alternative_service(
+                field_value=b'h2=":8000"; ma=60',
+                stream_id=1,
+            )
+
 
 class TestRFC7838Server(object):
     """
@@ -291,3 +324,121 @@ class TestRFC7838Server(object):
 
         assert len(events) == 0
         assert not c.data_to_send()
+
+    def test_sending_explicit_alternative_service(self, frame_factory):
+        """
+        A server can send an explicit alternative service.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        c.advertise_alternative_service(
+            field_value=b'h2=":8000"; ma=60',
+            origin=b"example.com",
+        )
+
+        f = frame_factory.build_alt_svc_frame(
+            stream_id=0, origin=b"example.com", field=b'h2=":8000"; ma=60'
+        )
+        assert c.data_to_send() == f.serialize()
+
+    def test_sending_implicit_alternative_service(self, frame_factory):
+        """
+        A server can send an implicit alternative service.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+        c.clear_outbound_data_buffer()
+
+        c.advertise_alternative_service(
+            field_value=b'h2=":8000"; ma=60',
+            stream_id=1,
+        )
+
+        f = frame_factory.build_alt_svc_frame(
+            stream_id=1, origin=b"", field=b'h2=":8000"; ma=60'
+        )
+        assert c.data_to_send() == f.serialize()
+
+    def test_no_implicit_alternative_service_before_headers(self,
+                                                            frame_factory):
+        """
+        If headers haven't been received yet, the server forbids sending an
+        implicit alternative service.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.advertise_alternative_service(
+                field_value=b'h2=":8000"; ma=60',
+                stream_id=1,
+            )
+
+    def test_no_implicit_alternative_service_after_response(self,
+                                                            frame_factory):
+        """
+        If the server has sent response headers, hyper-h2 forbids sending an
+        implicit alternative service.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+        c.send_headers(stream_id=1, headers=self.example_response_headers)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.advertise_alternative_service(
+                field_value=b'h2=":8000"; ma=60',
+                stream_id=1,
+            )
+
+    def test_cannot_provide_origin_and_stream_id(self, frame_factory):
+        """
+        The user cannot provide both the origin and stream_id arguments when
+        advertising alternative services.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(ValueError):
+            c.advertise_alternative_service(
+                field_value=b'h2=":8000"; ma=60',
+                origin=b"example.com",
+                stream_id=1,
+            )
+
+    def test_cannot_provide_unicode_altsvc_field(self, frame_factory):
+        """
+        The user cannot provide the field value for alternative services as a
+        unicode string.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        with pytest.raises(ValueError):
+            c.advertise_alternative_service(
+                field_value=u'h2=":8000"; ma=60',
+                origin=b"example.com",
+            )

@@ -807,6 +807,85 @@ class H2Connection(object):
         s.settings = new_settings
         self._prepare_for_sending([s])
 
+    def advertise_alternative_service(self,
+                                      field_value,
+                                      origin=None,
+                                      stream_id=None):
+        """
+        Notify a client about an available Alternative Service.
+
+        An Alternative Service is defined in `RFC 7838
+        <https://tools.ietf.org/html/rfc7838>`_. An Alternative Service
+        notification informs a client that a given origin is also available
+        elsewhere.
+
+        Alternative Services can be advertised in two ways. Firstly, they can
+        be advertised explicitly: that is, a server can say "origin X is also
+        available at Y". To advertise like this, set the ``origin`` argument
+        and not the ``stream_id`` argument. Alternatively, they can be
+        advertised implicitly: that is, a server can say "the origin you're
+        contacting on stream X is also available at Y". To advertise like this,
+        set the ``stream_id`` argument and not the ``origin`` argument.
+
+        The explicit method of advertising can be done as long as the
+        connection is active. The implicit method can only be done after the
+        client has sent the request headers and before the server has sent the
+        response headers: outside of those points, Hyper-h2 will forbid sending
+        the Alternative Service advertisement by raising a ProtocolError.
+
+        The ``field_value`` parameter is specified in RFC 7838. Hyper-h2 does
+        not validate or introspect this argument: the user is required to
+        ensure that it's well-formed. ``field_value`` corresponds to RFC 7838's
+        "Alternative Service Field Value".
+
+        .. note:: It is strongly preferred to use the explicit method of
+                  advertising Alternative Services. The implicit method of
+                  advertising Alternative Services has a number of subtleties
+                  and can lead to inconsistencies between the server and
+                  client. Hyper-h2 allows both mechanisms, but caution is
+                  strongly advised.
+
+        .. versionadded:: 2.3.0
+
+        :param field_value: The RFC 7838 Alternative Service Field Value. This
+            argument is not introspected by Hyper-h2: the user is responsible
+            for ensuring that it is well-formed.
+        :type field_value: ``bytes``
+
+        :param origin: The origin/authority to which the Alternative Service
+            being advertised applies. Must not be provided at the same time as
+            ``stream_id``.
+        :type origin: ``bytes`` or ``None``
+
+        :param stream_id: The ID of the stream which was sent to the authority
+            for which this Alternative Service advertisement applies. Must not
+            be provided at the same time as ``origin``.
+        :type stream_id: ``int`` or ``None``
+
+        :returns: Nothing.
+        """
+        if not isinstance(field_value, bytes):
+            raise ValueError("Field must be bytestring.")
+
+        if origin is not None and stream_id is not None:
+            raise ValueError("Must not provide both origin and stream_id")
+
+        self.state_machine.process_input(
+            ConnectionInputs.SEND_ALTERNATIVE_SERVICE
+        )
+
+        if origin is not None:
+            # This ALTSVC is sent on stream zero.
+            f = AltSvcFrame(stream_id=0)
+            f.origin = origin
+            f.field = field_value
+            frames = [f]
+        else:
+            stream = self._get_stream_by_id(stream_id)
+            frames = stream.advertise_alternative_service(field_value)
+
+        self._prepare_for_sending(frames)
+
     def local_flow_control_window(self, stream_id):
         """
         Returns the maximum amount of data that can be sent on stream

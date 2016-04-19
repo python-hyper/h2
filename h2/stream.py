@@ -10,7 +10,7 @@ import warnings
 from enum import Enum, IntEnum
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
-    RstStreamFrame, PushPromiseFrame,
+    RstStreamFrame, PushPromiseFrame, AltSvcFrame
 )
 
 from .errors import STREAM_CLOSED
@@ -376,6 +376,39 @@ class H2StreamStateMachine(object):
         # the event and let it get populated.
         return [AlternativeServiceAvailable()]
 
+    def send_alt_svc(self, previous_state):
+        """
+        Called when sending an ALTSVC frame on this stream.
+
+        For consistency with the restrictions we apply on receiving ALTSVC
+        frames in ``recv_alt_svc``, we want to restrict when users can send
+        ALTSVC frames to the situations when we ourselves would accept them.
+
+        That means: when we are a server, when we have received the request
+        headers, and when we have not yet sent our own response headers.
+        """
+        # Clients cannot send ALTSVC frames. This is defense-in-depth: the
+        # connection-level state machine should forbid this, but we'll
+        # explicitly do it here anyway.
+        if self.client:  # pragma: no cover
+            raise ProtocolError("Cannot send alternative service when client.")
+
+        # We should not send ALTSVC before we've received request headers, or
+        # we don't know what origin we're advertising for.
+        if not self.headers_received:
+            raise ProtocolError(
+                "Cannot send ALTSVC before receiving request headers."
+            )
+
+        # We should not send ALTSVC after we've sent response headers, as the
+        # client may have disposed of its state.
+        if self.headers_sent:
+            raise ProtocolError(
+                "Cannot send ALTSVC after sending response headers."
+            )
+
+        return
+
 
 # STATE MACHINE
 #
@@ -477,7 +510,7 @@ _transitions = {
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_ALTERNATIVE_SERVICE):
-        (None, StreamState.RESERVED_LOCAL),
+        (H2StreamStateMachine.send_alt_svc, StreamState.RESERVED_LOCAL),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (None, StreamState.RESERVED_LOCAL),
 
@@ -528,7 +561,7 @@ _transitions = {
     (StreamState.OPEN, StreamInputs.RECV_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.recv_informational_response, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.SEND_ALTERNATIVE_SERVICE):
-        (None, StreamState.OPEN),
+        (H2StreamStateMachine.send_alt_svc, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (H2StreamStateMachine.recv_alt_svc, StreamState.OPEN),
 
@@ -562,7 +595,7 @@ _transitions = {
         (H2StreamStateMachine.send_informational_response,
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_ALTERNATIVE_SERVICE):
-        (None, StreamState.HALF_CLOSED_REMOTE),
+        (H2StreamStateMachine.send_alt_svc, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (H2StreamStateMachine.recv_alt_svc, StreamState.HALF_CLOSED_REMOTE),
 
@@ -589,7 +622,7 @@ _transitions = {
         (H2StreamStateMachine.recv_informational_response,
             StreamState.HALF_CLOSED_LOCAL),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_ALTERNATIVE_SERVICE):
-        (None, StreamState.HALF_CLOSED_LOCAL),
+        (H2StreamStateMachine.send_alt_svc, StreamState.HALF_CLOSED_LOCAL),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (H2StreamStateMachine.recv_alt_svc, StreamState.HALF_CLOSED_LOCAL),
 
@@ -598,8 +631,6 @@ _transitions = {
         (H2StreamStateMachine.window_updated, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
         (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
-    (StreamState.CLOSED, StreamInputs.SEND_ALTERNATIVE_SERVICE):
-        (None, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (None, StreamState.CLOSED),
 
@@ -797,6 +828,16 @@ class H2Stream(object):
         df = DataFrame(self.stream_id)
         df.flags.add('END_STREAM')
         return [df]
+
+    def advertise_alternative_service(self, field_value):
+        """
+        Advertise an RFC 7838 alternative service. The semantics of this are
+        better documented in the ``H2Connection`` class.
+        """
+        self.state_machine.process_input(StreamInputs.SEND_ALTERNATIVE_SERVICE)
+        asf = AltSvcFrame(self.stream_id)
+        asf.field = field_value
+        return [asf]
 
     def increase_flow_control_window(self, increment):
         """
