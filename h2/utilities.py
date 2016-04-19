@@ -99,6 +99,7 @@ def authority_from_headers(headers):
 
     :param headers: The HTTP header set.
     :returns: The value of the authority header, or ``None``.
+    :rtype: ``bytes`` or ``None``.
     """
     for n, v in headers:
         # This gets run against headers that come both from HPACK and from the
