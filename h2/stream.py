@@ -10,19 +10,21 @@ import warnings
 from enum import Enum, IntEnum
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
-    RstStreamFrame, PushPromiseFrame,
+    RstStreamFrame, PushPromiseFrame, AltSvcFrame
 )
 
 from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    InformationalResponseReceived,
+    InformationalResponseReceived, AlternativeServiceAvailable
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
-from .utilities import guard_increment_window, is_informational_response
+from .utilities import (
+    guard_increment_window, is_informational_response, authority_from_headers
+)
 
 
 class StreamState(IntEnum):
@@ -51,6 +53,8 @@ class StreamInputs(Enum):
     RECV_CONTINUATION = 12  # Added in 2.0.0
     SEND_INFORMATIONAL_HEADERS = 13  # Added in 2.2.0
     RECV_INFORMATIONAL_HEADERS = 14  # Added in 2.2.0
+    SEND_ALTERNATIVE_SERVICE = 15  # Added in 2.3.0
+    RECV_ALTERNATIVE_SERVICE = 16  # Added in 2.3.0
 
 
 # This array is initialized once, and is indexed by the stream states above.
@@ -211,6 +215,7 @@ class H2StreamStateMachine(object):
         """
         assert self.client is None
         self.client = False
+        self.headers_received = True
         return []
 
     def recv_new_pushed_stream(self, previous_state):
@@ -221,6 +226,7 @@ class H2StreamStateMachine(object):
         """
         assert self.client is None
         self.client = True
+        self.headers_sent = True
         return []
 
     def send_push_promise(self, previous_state):
@@ -324,6 +330,87 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
+    def recv_alt_svc(self, previous_state):
+        """
+        Called when receiving an ALTSVC frame.
+
+        RFC 7838 allows us to receive ALTSVC frames at any stream state, which
+        is really absurdly overzealous. For that reason, we want to limit the
+        states in which we can actually receive it. It's really only sensible
+        to receive it after we've sent our own headers and before the server
+        has sent its header block: the server can't guarantee that we have any
+        state around after it completes its header block, and the server
+        doesn't know what origin we're talking about before we've sent ours.
+
+        For that reason, this function applies a few extra checks on both state
+        and some of the little state variables we keep around. If those suggest
+        an unreasonable situation for the ALTSVC frame to have been sent in,
+        we quietly ignore it (as RFC 7838 suggests).
+
+        This function is also *not* always called by the state machine. In some
+        states (IDLE, RESERVED_LOCAL, CLOSED) we don't bother to call it,
+        because we know the frame cannot be valid in that state (IDLE because
+        the server cannot know what origin the stream applies to, CLOSED
+        because the server cannot assume we still have state around,
+        RESERVED_LOCAL because by definition if we're in the RESERVED_LOCAL
+        state then *we* are the server).
+        """
+        # Servers can't receive ALTSVC frames, but RFC 7838 tells us to ignore
+        # them.
+        if self.client is False:
+            return []
+
+        # If we haven't sent our headers yet, the server has no idea what
+        # origin we believe this stream applies to, so they can't meaningfully
+        # tell us what alternative services are available! Generally the state
+        # machine protects against this, but defense in depth doesn't hurt
+        # here.
+        if not self.headers_sent:  # pragma: no cover
+            return []
+
+        # If we've received the response headers from the server they can't
+        # guarantee we still have any state around. Other implementations
+        # (like nghttp2) ignore ALTSVC in this state, so we will too.
+        if self.headers_received:
+            return []
+
+        # Otherwise, this is a sensible enough frame to have received. Return
+        # the event and let it get populated.
+        return [AlternativeServiceAvailable()]
+
+    def send_alt_svc(self, previous_state):
+        """
+        Called when sending an ALTSVC frame on this stream.
+
+        For consistency with the restrictions we apply on receiving ALTSVC
+        frames in ``recv_alt_svc``, we want to restrict when users can send
+        ALTSVC frames to the situations when we ourselves would accept them.
+
+        That means: when we are a server, when we have received the request
+        headers, and when we have not yet sent our own response headers.
+        """
+        # Clients cannot send ALTSVC frames. This is defense-in-depth: the
+        # connection-level state machine should forbid this, but we'll
+        # explicitly do it here anyway.
+        if self.client:  # pragma: no cover
+            raise ProtocolError("Cannot send alternative service when client.")
+
+        # We should not send ALTSVC before we've received request headers, or
+        # we don't know what origin we're advertising for.
+        if not self.headers_received:
+            raise ProtocolError(
+                "Cannot send ALTSVC before receiving request headers."
+            )
+
+        # We should not send ALTSVC after we've sent response headers, as the
+        # client may have disposed of its state.
+        if self.headers_sent:
+            raise ProtocolError(
+                "Cannot send ALTSVC after sending response headers."
+            )
+
+        return
+
 
 # STATE MACHINE
 #
@@ -408,6 +495,8 @@ _transitions = {
     (StreamState.IDLE, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_new_pushed_stream,
             StreamState.RESERVED_REMOTE),
+    (StreamState.IDLE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (None, StreamState.IDLE),
 
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
@@ -422,6 +511,10 @@ _transitions = {
         (None, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.RESERVED_LOCAL, StreamInputs.SEND_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.send_alt_svc, StreamState.RESERVED_LOCAL),
+    (StreamState.RESERVED_LOCAL, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (None, StreamState.RESERVED_LOCAL),
 
     # State: reserved remote
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_HEADERS):
@@ -437,6 +530,8 @@ _transitions = {
         (None, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
+    (StreamState.RESERVED_REMOTE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.recv_alt_svc, StreamState.RESERVED_REMOTE),
 
     # State: open
     (StreamState.OPEN, StreamInputs.SEND_HEADERS):
@@ -467,6 +562,10 @@ _transitions = {
         (H2StreamStateMachine.send_informational_response, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.recv_informational_response, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.SEND_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.send_alt_svc, StreamState.OPEN),
+    (StreamState.OPEN, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.recv_alt_svc, StreamState.OPEN),
 
     # State: half-closed remote
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
@@ -497,6 +596,10 @@ _transitions = {
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.send_informational_response,
             StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.send_alt_svc, StreamState.HALF_CLOSED_REMOTE),
+    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.recv_alt_svc, StreamState.HALF_CLOSED_REMOTE),
 
     # State: half-closed local
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_HEADERS):
@@ -520,12 +623,18 @@ _transitions = {
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.recv_informational_response,
             StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.send_alt_svc, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (H2StreamStateMachine.recv_alt_svc, StreamState.HALF_CLOSED_LOCAL),
 
     # State: closed
     (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
         (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
+    (StreamState.CLOSED, StreamInputs.RECV_ALTERNATIVE_SERVICE):
+        (None, StreamState.CLOSED),
 
     # While closed, all other received frames should cause RST_STREAM
     # frames to be emitted. END_STREAM is always carried *by* a frame,
@@ -581,6 +690,9 @@ class H2Stream(object):
 
         # The actual received content length. Always tracked.
         self._actual_content_length = 0
+
+        # The authority we believe this stream belongs to.
+        self._authority = None
 
     @property
     def open(self):
@@ -652,6 +764,9 @@ class H2Stream(object):
         if self.state_machine.trailers_sent and not end_stream:
             raise ProtocolError("Trailers must have END_STREAM set.")
 
+        if self.state_machine.client and self._authority is None:
+            self._authority = authority_from_headers(headers)
+
         return frames
 
     def push_stream_in_band(self, related_stream_id, headers, encoder):
@@ -716,6 +831,16 @@ class H2Stream(object):
         df.flags.add('END_STREAM')
         return [df]
 
+    def advertise_alternative_service(self, field_value):
+        """
+        Advertise an RFC 7838 alternative service. The semantics of this are
+        better documented in the ``H2Connection`` class.
+        """
+        self.state_machine.process_input(StreamInputs.SEND_ALTERNATIVE_SERVICE)
+        asf = AltSvcFrame(self.stream_id)
+        asf.field = field_value
+        return [asf]
+
     def increase_flow_control_window(self, increment):
         """
         Increase the size of the flow control window for the remote side.
@@ -725,7 +850,10 @@ class H2Stream(object):
         wuf.window_increment = increment
         return [wuf]
 
-    def receive_push_promise_in_band(self, promised_stream_id, headers):
+    def receive_push_promise_in_band(self,
+                                     promised_stream_id,
+                                     headers,
+                                     header_encoding):
         """
         Receives a push promise frame sent on this stream, pushing a remote
         stream. This is called on the stream that has the PUSH_PROMISE sent
@@ -735,10 +863,16 @@ class H2Stream(object):
             StreamInputs.RECV_PUSH_PROMISE
         )
         events[0].pushed_stream_id = promised_stream_id
+
+        if header_encoding:
+            headers = [
+                (n.decode(header_encoding), v.decode(header_encoding))
+                for n, v in headers
+            ]
         events[0].headers = headers
         return [], events
 
-    def remotely_pushed(self):
+    def remotely_pushed(self, pushed_headers):
         """
         Mark this stream as one that was pushed by the remote peer. Must be
         called immediately after initialization. Sends no frames, simply
@@ -747,6 +881,7 @@ class H2Stream(object):
         events = self.state_machine.process_input(
             StreamInputs.RECV_PUSH_PROMISE
         )
+        self._authority = authority_from_headers(pushed_headers)
         return [], events
 
     def receive_headers(self, headers, end_stream, header_encoding):
@@ -826,6 +961,29 @@ class H2Stream(object):
             StreamInputs.RECV_CONTINUATION
         )
         assert False, "Should not be reachable"
+
+    def receive_alt_svc(self, frame):
+        """
+        An Alternative Service frame was received on the stream. This frame
+        inherits the origin associated with this stream.
+        """
+        # If the origin is present, RFC 7838 says we have to ignore it.
+        if frame.origin:
+            return [], []
+
+        events = self.state_machine.process_input(
+            StreamInputs.RECV_ALTERNATIVE_SERVICE
+        )
+
+        # There are lots of situations where we want to ignore the ALTSVC
+        # frame. If we need to pay attention, we'll have an event and should
+        # fill it out.
+        if events:
+            assert isinstance(events[0], AlternativeServiceAvailable)
+            events[0].origin = self._authority
+            events[0].field_value = frame.field
+
+        return [], events
 
     def reset_stream(self, error_code=0):
         """

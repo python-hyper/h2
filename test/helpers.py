@@ -8,7 +8,7 @@ This module contains helpers for the h2 tests.
 from hyperframe.frame import (
     HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
     GoAwayFrame, RstStreamFrame, PushPromiseFrame, PriorityFrame,
-    ContinuationFrame
+    ContinuationFrame, AltSvcFrame
 )
 from hpack.hpack import Encoder
 
@@ -157,4 +157,13 @@ class FrameFactory(object):
         f.depends_on = depends_on
         f.stream_weight = weight
         f.exclusive = exclusive
+        return f
+
+    def build_alt_svc_frame(self, stream_id, origin, field):
+        """
+        Builds a single ALTSVC frame.
+        """
+        f = AltSvcFrame(stream_id)
+        f.origin = origin
+        f.field = field
         return f

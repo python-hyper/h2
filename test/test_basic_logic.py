@@ -29,10 +29,16 @@ class TestBasicClient(object):
     Basic client-side tests.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (u':authority', u'example.com'),
+        (u':path', u'/'),
+        (u':scheme', u'https'),
+        (u':method', u'GET'),
+    ]
+    bytes_example_request_headers = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
         (u':status', u'200'),
@@ -223,6 +229,45 @@ class TestBasicClient(object):
         )
         assert response_event.stream_id == 2
         assert response_event.headers == self.example_response_headers
+
+    def test_receiving_pushed_stream_bytes(self, frame_factory):
+        """
+        Pushed headers are not decoded if the header encoding is set to False.
+        """
+        c = h2.connection.H2Connection(header_encoding=False)
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+
+        f1 = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        f2 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+        f3 = frame_factory.build_headers_frame(
+            self.example_response_headers,
+            stream_id=2,
+        )
+        data = b''.join(x.serialize() for x in [f1, f2, f3])
+
+        events = c.receive_data(data)
+
+        assert len(events) == 3
+        stream_push_event = events[1]
+        response_event = events[2]
+        assert isinstance(stream_push_event, h2.events.PushedStreamReceived)
+        assert isinstance(response_event, h2.events.ResponseReceived)
+
+        assert stream_push_event.pushed_stream_id == 2
+        assert stream_push_event.parent_stream_id == 1
+        assert (
+            stream_push_event.headers == self.bytes_example_request_headers
+        )
+        assert response_event.stream_id == 2
+        assert response_event.headers == self.bytes_example_response_headers
 
     def test_cannot_receive_pushed_stream_when_enable_push_is_0(self,
                                                                 frame_factory):

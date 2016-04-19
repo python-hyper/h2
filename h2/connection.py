@@ -11,7 +11,7 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
-    ContinuationFrame
+    ContinuationFrame, AltSvcFrame
 )
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
@@ -19,7 +19,8 @@ from hpack.exceptions import HPACKError
 from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
-    SettingsAcknowledged, ConnectionTerminated, PriorityUpdated
+    SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
+    AlternativeServiceAvailable,
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
@@ -61,6 +62,8 @@ class ConnectionInputs(Enum):
     RECV_SETTINGS = 15
     RECV_RST_STREAM = 16
     RECV_PRIORITY = 17
+    SEND_ALTERNATIVE_SERVICE = 18  # Added in 2.3.0
+    RECV_ALTERNATIVE_SERVICE = 19  # Added in 2.3.0
 
 
 class AllowedStreamIDs(IntEnum):
@@ -113,6 +116,10 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_PRIORITY):
             (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_ALTERNATIVE_SERVICE):
+            (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+            (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -149,6 +156,9 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PRIORITY):
             (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN,
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, server side.
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -185,6 +195,12 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_RST_STREAM):
             (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN,
+            ConnectionInputs.SEND_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN,
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.SERVER_OPEN),
 
         # State: closed
         (ConnectionState.CLOSED, ConnectionInputs.SEND_GOAWAY):
@@ -339,6 +355,7 @@ class H2Connection(object):
             PriorityFrame: self._receive_priority_frame,
             GoAwayFrame: self._receive_goaway_frame,
             ContinuationFrame: self._receive_naked_continuation,
+            AltSvcFrame: self._receive_alt_svc_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -790,6 +807,85 @@ class H2Connection(object):
         s.settings = new_settings
         self._prepare_for_sending([s])
 
+    def advertise_alternative_service(self,
+                                      field_value,
+                                      origin=None,
+                                      stream_id=None):
+        """
+        Notify a client about an available Alternative Service.
+
+        An Alternative Service is defined in `RFC 7838
+        <https://tools.ietf.org/html/rfc7838>`_. An Alternative Service
+        notification informs a client that a given origin is also available
+        elsewhere.
+
+        Alternative Services can be advertised in two ways. Firstly, they can
+        be advertised explicitly: that is, a server can say "origin X is also
+        available at Y". To advertise like this, set the ``origin`` argument
+        and not the ``stream_id`` argument. Alternatively, they can be
+        advertised implicitly: that is, a server can say "the origin you're
+        contacting on stream X is also available at Y". To advertise like this,
+        set the ``stream_id`` argument and not the ``origin`` argument.
+
+        The explicit method of advertising can be done as long as the
+        connection is active. The implicit method can only be done after the
+        client has sent the request headers and before the server has sent the
+        response headers: outside of those points, Hyper-h2 will forbid sending
+        the Alternative Service advertisement by raising a ProtocolError.
+
+        The ``field_value`` parameter is specified in RFC 7838. Hyper-h2 does
+        not validate or introspect this argument: the user is required to
+        ensure that it's well-formed. ``field_value`` corresponds to RFC 7838's
+        "Alternative Service Field Value".
+
+        .. note:: It is strongly preferred to use the explicit method of
+                  advertising Alternative Services. The implicit method of
+                  advertising Alternative Services has a number of subtleties
+                  and can lead to inconsistencies between the server and
+                  client. Hyper-h2 allows both mechanisms, but caution is
+                  strongly advised.
+
+        .. versionadded:: 2.3.0
+
+        :param field_value: The RFC 7838 Alternative Service Field Value. This
+            argument is not introspected by Hyper-h2: the user is responsible
+            for ensuring that it is well-formed.
+        :type field_value: ``bytes``
+
+        :param origin: The origin/authority to which the Alternative Service
+            being advertised applies. Must not be provided at the same time as
+            ``stream_id``.
+        :type origin: ``bytes`` or ``None``
+
+        :param stream_id: The ID of the stream which was sent to the authority
+            for which this Alternative Service advertisement applies. Must not
+            be provided at the same time as ``origin``.
+        :type stream_id: ``int`` or ``None``
+
+        :returns: Nothing.
+        """
+        if not isinstance(field_value, bytes):
+            raise ValueError("Field must be bytestring.")
+
+        if origin is not None and stream_id is not None:
+            raise ValueError("Must not provide both origin and stream_id")
+
+        self.state_machine.process_input(
+            ConnectionInputs.SEND_ALTERNATIVE_SERVICE
+        )
+
+        if origin is not None:
+            # This ALTSVC is sent on stream zero.
+            f = AltSvcFrame(stream_id=0)
+            f.origin = origin
+            f.field = field_value
+            frames = [f]
+        else:
+            stream = self._get_stream_by_id(stream_id)
+            frames = stream.advertise_alternative_service(field_value)
+
+        self._prepare_for_sending(frames)
+
     def local_flow_control_window(self, stream_id):
         """
         Returns the maximum amount of data that can be sent on stream
@@ -1009,7 +1105,7 @@ class H2Connection(object):
             if frame.stream_id not in self._reset_streams:
                 raise
             events = []
-        except KeyError as e:
+        except KeyError as e:  # pragma: no cover
             # We don't have a function for handling this frame. Let's call this
             # a PROTOCOL_ERROR and exit.
             raise UnsupportedFrameError("Unexpected frame: %s" % frame)
@@ -1081,7 +1177,7 @@ class H2Connection(object):
         if not self.local_settings.enable_push:
             raise ProtocolError("Received pushed stream")
 
-        pushed_headers = self.decoder.decode(frame.data)
+        pushed_headers = self.decoder.decode(frame.data, raw=True)
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
@@ -1117,13 +1213,14 @@ class H2Connection(object):
         frames, stream_events = stream.receive_push_promise_in_band(
             frame.promised_stream_id,
             pushed_headers,
+            self.header_encoding,
         )
 
         new_stream = self._begin_new_stream(
             frame.promised_stream_id, AllowedStreamIDs.EVEN
         )
         self.streams[frame.promised_stream_id] = new_stream
-        new_stream.remotely_pushed()
+        new_stream.remotely_pushed(pushed_headers)
 
         return frames, events + stream_events
 
@@ -1322,6 +1419,51 @@ class H2Connection(object):
         stream = self._get_stream_by_id(frame.stream_id)
         stream.receive_continuation()
         assert False, "Should not be reachable"
+
+    def _receive_alt_svc_frame(self, frame):
+        """
+        An ALTSVC frame has been received. This frame, specified in RFC 7838,
+        is used to advertise alternative places where the same service can be
+        reached.
+
+        This frame can optionally be received either on a stream or on stream
+        0, and its semantics are different in each case.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE
+        )
+        frames = []
+
+        if frame.stream_id:
+            # Given that it makes no sense to receive ALTSVC on a stream
+            # before that stream has been opened with a HEADERS frame, the
+            # ALTSVC frame cannot create a stream. If the stream is not
+            # present, we simply ignore the frame.
+            try:
+                stream = self._get_stream_by_id(frame.stream_id)
+            except (NoSuchStreamError, StreamClosedError):
+                pass
+            else:
+                stream_frames, stream_events = stream.receive_alt_svc(frame)
+                frames.extend(stream_frames)
+                events.extend(stream_events)
+        else:
+            # This frame is sent on stream 0. The origin field on the frame
+            # must be present, though if it isn't it's not a ProtocolError
+            # (annoyingly), we just need to ignore it.
+            if not frame.origin:
+                return frames, events
+
+            # If we're a server, we want to ignore this (RFC 7838 says so).
+            if not self.client_side:
+                return frames, events
+
+            event = AlternativeServiceAvailable()
+            event.origin = frame.origin
+            event.field_value = frame.field
+            events.append(event)
+
+        return frames, events
 
     def _local_settings_acked(self):
         """

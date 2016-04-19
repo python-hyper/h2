@@ -303,3 +303,16 @@ class TestEventReprs(object):
             "<ConnectionTerminated error_code:12, last_stream_id:33, "
             "additional_data:%s>" % data_repr
         )
+
+    def test_alternativeserviceavailable_repr(self):
+        """
+        AlternativeServiceAvailable has a useful debug representation.
+        """
+        e = h2.events.AlternativeServiceAvailable()
+        e.origin = b"example.com"
+        e.field_value = b'h2=":8000"; ma=60'
+
+        assert repr(e) == (
+            '<AlternativeServiceAvailable origin:example.com, '
+            'field_value:h2=":8000"; ma=60>'
+        )
