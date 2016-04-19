@@ -1081,7 +1081,7 @@ class H2Connection(object):
         if not self.local_settings.enable_push:
             raise ProtocolError("Received pushed stream")
 
-        pushed_headers = self.decoder.decode(frame.data)
+        pushed_headers = self.decoder.decode(frame.data, raw=True)
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
