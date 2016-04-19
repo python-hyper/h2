@@ -11,7 +11,7 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
-    ContinuationFrame
+    ContinuationFrame, AltSvcFrame
 )
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
@@ -19,7 +19,8 @@ from hpack.exceptions import HPACKError
 from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
-    SettingsAcknowledged, ConnectionTerminated, PriorityUpdated
+    SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
+    AlternativeServiceAvailable,
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
@@ -61,6 +62,8 @@ class ConnectionInputs(Enum):
     RECV_SETTINGS = 15
     RECV_RST_STREAM = 16
     RECV_PRIORITY = 17
+    SEND_ALTERNATIVE_SERVICE = 18  # Added in 2.3.0
+    RECV_ALTERNATIVE_SERVICE = 19  # Added in 2.3.0
 
 
 class AllowedStreamIDs(IntEnum):
@@ -113,6 +116,10 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_PRIORITY):
             (None, ConnectionState.IDLE),
+        (ConnectionState.IDLE, ConnectionInputs.SEND_ALTERNATIVE_SERVICE):
+            (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+            (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, client side.
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -149,6 +156,9 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PRIORITY):
             (None, ConnectionState.CLIENT_OPEN),
+        (ConnectionState.CLIENT_OPEN,
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.CLIENT_OPEN),
 
         # State: open, server side.
         (ConnectionState.SERVER_OPEN, ConnectionInputs.SEND_HEADERS):
@@ -185,6 +195,12 @@ class H2ConnectionStateMachine(object):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_RST_STREAM):
             (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN,
+            ConnectionInputs.SEND_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.SERVER_OPEN),
+        (ConnectionState.SERVER_OPEN,
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE):
+                (None, ConnectionState.SERVER_OPEN),
 
         # State: closed
         (ConnectionState.CLOSED, ConnectionInputs.SEND_GOAWAY):
@@ -339,6 +355,7 @@ class H2Connection(object):
             PriorityFrame: self._receive_priority_frame,
             GoAwayFrame: self._receive_goaway_frame,
             ContinuationFrame: self._receive_naked_continuation,
+            AltSvcFrame: self._receive_alt_svc_frame,
         }
 
     def _prepare_for_sending(self, frames):
@@ -1322,6 +1339,51 @@ class H2Connection(object):
         stream = self._get_stream_by_id(frame.stream_id)
         stream.receive_continuation()
         assert False, "Should not be reachable"
+
+    def _receive_alt_svc_frame(self, frame):
+        """
+        An ALTSVC frame has been received. This frame, specified in RFC 7838,
+        is used to advertise alternative places where the same service can be
+        reached.
+
+        This frame can optionally be received either on a stream or on stream
+        0, and its semantics are different in each case.
+        """
+        events = self.state_machine.process_input(
+            ConnectionInputs.RECV_ALTERNATIVE_SERVICE
+        )
+        frames = []
+
+        if frame.stream_id:
+            # Given that it makes no sense to receive ALTSVC on a stream
+            # before that stream has been opened with a HEADERS frame, the
+            # ALTSVC frame cannot create a stream. If the stream is not
+            # present, we simply ignore the frame.
+            try:
+                stream = self._get_stream_by_id(frame.stream_id)
+            except (NoSuchStreamError, StreamClosedError):
+                pass
+            else:
+                stream_frames, stream_events = stream.receive_alt_svc(frame)
+                frames.extend(stream_frames)
+                events.extend(stream_events)
+        else:
+            # This frame is sent on stream 0. The origin field on the frame
+            # must be present, though if it isn't it's not a ProtocolError
+            # (annoyingly), we just need to ignore it.
+            if not frame.origin:
+                return frames, events
+
+            # If we're a server, we want to ignore this (RFC 7838 says so).
+            if not self.client_side:
+                return frames, events
+
+            event = AlternativeServiceAvailable()
+            event.origin = frame.origin
+            event.field_value = frame.field
+            events.append(event)
+
+        return frames, events
 
     def _local_settings_acked(self):
         """
