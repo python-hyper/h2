@@ -48,3 +48,7 @@ In chronological order:
 - Keith Dart (@kdart)
 
   - Fixed curio example server flow control problems.
+
+- Gil Gonçalves (@LuRsT)
+
+  - Added code forbidding non-RFC 7540 pseudo-headers.
