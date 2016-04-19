@@ -417,7 +417,8 @@ class AlternativeServiceAvailable(object):
     def __repr__(self):
         return (
             "<AlternativeServiceAvailable origin:%s, field_value:%s>" % (
-                self.origin, self.field_value,
+                self.origin.decode('utf-8', 'ignore'),
+                self.field_value.decode('utf-8', 'ignore'),
             )
         )
 
