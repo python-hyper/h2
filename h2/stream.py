@@ -807,7 +807,10 @@ class H2Stream(object):
         wuf.window_increment = increment
         return [wuf]
 
-    def receive_push_promise_in_band(self, promised_stream_id, headers):
+    def receive_push_promise_in_band(self,
+                                     promised_stream_id,
+                                     headers,
+                                     header_encoding):
         """
         Receives a push promise frame sent on this stream, pushing a remote
         stream. This is called on the stream that has the PUSH_PROMISE sent
@@ -817,6 +820,12 @@ class H2Stream(object):
             StreamInputs.RECV_PUSH_PROMISE
         )
         events[0].pushed_stream_id = promised_stream_id
+
+        if header_encoding:
+            headers = [
+                (n.decode(header_encoding), v.decode(header_encoding))
+                for n, v in headers
+            ]
         events[0].headers = headers
         return [], events
 

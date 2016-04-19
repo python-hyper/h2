@@ -1134,6 +1134,7 @@ class H2Connection(object):
         frames, stream_events = stream.receive_push_promise_in_band(
             frame.promised_stream_id,
             pushed_headers,
+            self.header_encoding,
         )
 
         new_stream = self._begin_new_stream(
