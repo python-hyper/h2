@@ -1009,7 +1009,7 @@ class H2Connection(object):
             if frame.stream_id not in self._reset_streams:
                 raise
             events = []
-        except KeyError as e:
+        except KeyError as e:  # pragma: no cover
             # We don't have a function for handling this frame. Let's call this
             # a PROTOCOL_ERROR and exit.
             raise UnsupportedFrameError("Unexpected frame: %s" % frame)
