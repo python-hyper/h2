@@ -213,6 +213,7 @@ class H2StreamStateMachine(object):
         """
         assert self.client is None
         self.client = False
+        self.headers_received = True
         return []
 
     def recv_new_pushed_stream(self, previous_state):
@@ -223,6 +224,7 @@ class H2StreamStateMachine(object):
         """
         assert self.client is None
         self.client = True
+        self.headers_sent = True
         return []
 
     def send_push_promise(self, previous_state):
@@ -746,7 +748,7 @@ class H2Stream(object):
         events[0].headers = headers
         return [], events
 
-    def remotely_pushed(self):
+    def remotely_pushed(self, pushed_headers):
         """
         Mark this stream as one that was pushed by the remote peer. Must be
         called immediately after initialization. Sends no frames, simply
@@ -755,6 +757,7 @@ class H2Stream(object):
         events = self.state_machine.process_input(
             StreamInputs.RECV_PUSH_PROMISE
         )
+        self._authority = authority_from_headers(pushed_headers)
         return [], events
 
     def receive_headers(self, headers, end_stream, header_encoding):

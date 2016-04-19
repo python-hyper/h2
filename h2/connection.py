@@ -1123,7 +1123,7 @@ class H2Connection(object):
             frame.promised_stream_id, AllowedStreamIDs.EVEN
         )
         self.streams[frame.promised_stream_id] = new_stream
-        new_stream.remotely_pushed()
+        new_stream.remotely_pushed(pushed_headers)
 
         return frames, events + stream_events
 
