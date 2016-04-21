@@ -845,10 +845,7 @@ class H2Stream(object):
         events[0].pushed_stream_id = promised_stream_id
 
         if header_encoding:
-            headers = [
-                (n.decode(header_encoding), v.decode(header_encoding))
-                for n, v in headers
-            ]
+            headers = list(_decode_headers(headers, header_encoding))
         events[0].headers = headers
         return [], events
 
@@ -891,10 +888,7 @@ class H2Stream(object):
                 raise ProtocolError("Trailers must have END_STREAM set")
 
         if header_encoding:
-            headers = [
-                (n.decode(header_encoding), v.decode(header_encoding))
-                for n, v in headers
-            ]
+            headers = list(_decode_headers(headers, header_encoding))
 
         events[0].headers = headers
         return [], events
@@ -1070,3 +1064,20 @@ def _lowercase_header_names(headers):
             yield header.__class__(header[0].lower(), header[1])
         else:
             yield (header[0].lower(), header[1])
+
+
+def _decode_headers(headers, encoding):
+    """
+    Given an iterable of header two-tuples and an encoding, decodes those
+    headers using that encoding while preserving the type of the header tuple.
+    This ensures that the use of ``HeaderTuple`` is preserved.
+    """
+    for header in headers:
+        # This function expects to work on decoded headers, which are always
+        # HeaderTuple objects.
+        assert isinstance(header, HeaderTuple)
+
+        name, value = header
+        name = name.decode(encoding)
+        value = value.decode(encoding)
+        yield header.__class__(name, value)
