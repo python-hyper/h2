@@ -8,6 +8,7 @@ An implementation of a HTTP/2 stream.
 import warnings
 
 from enum import Enum, IntEnum
+from hpack import HeaderTuple
 from hyperframe.frame import (
     HeadersFrame, ContinuationFrame, DataFrame, WindowUpdateFrame,
     RstStreamFrame, PushPromiseFrame, AltSvcFrame
@@ -993,7 +994,8 @@ class H2Stream(object):
         """
         Helper method to build headers or push promise frames.
         """
-        headers = ((name.lower(), value) for name, value in headers)
+        # We need to lowercase the header names.
+        headers = _lowercase_header_names(headers)
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:
@@ -1055,3 +1057,16 @@ class H2Stream(object):
 
             if end_stream and expected != actual:
                 raise InvalidBodyLengthError(expected, actual)
+
+
+def _lowercase_header_names(headers):
+    """
+    Given an iterable of header two-tuples, rebuilds that iterable with the
+    header names lowercased. This generator produces tuples that preserve the
+    original type of the header tuple for tuple and any ``HeaderTuple``.
+    """
+    for header in headers:
+        if isinstance(header, HeaderTuple):
+            yield header.__class__(header[0].lower(), header[1])
+        else:
+            yield (header[0].lower(), header[1])
