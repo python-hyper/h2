@@ -7,6 +7,8 @@ Utility functions that do not belong in a separate module.
 """
 import re
 
+from hpack import NeverIndexedHeaderTuple
+
 from .exceptions import ProtocolError, FlowControlError
 
 UPPER_RE = re.compile(b"[A-Z]")
@@ -29,6 +31,32 @@ _ALLOWED_PSEUDO_HEADER_FIELDS = set([
     b':path',
     b':status',
 ])
+
+
+def secure_headers(headers):
+    """
+    Certain headers are at risk of being attacked during the header compression
+    phase, and so need to be kept out of header compression contexts. This
+    function automatically transforms certain specific headers into HPACK
+    never-indexed fields to ensure they don't get added to header compression
+    contexts.
+
+    This function currently implements two rules:
+
+    - All 'authorization' headers are automatically made never-indexed.
+    - Any 'cookie' header field shorter than 20 bytes long is made
+      never-indexed.
+
+    These two fields are the most at-risk. These rules are inspired by Firefox
+    and nghttp2.
+    """
+    for header in headers:
+        if header[0] in (b'authorization', u'authorization'):
+            yield NeverIndexedHeaderTuple(*header)
+        elif header[0] in (b'cookie', u'cookie') and len(header[1]) < 20:
+            yield NeverIndexedHeaderTuple(*header)
+        else:
+            yield header
 
 
 def is_informational_response(headers):
