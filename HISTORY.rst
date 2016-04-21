@@ -12,7 +12,7 @@ API Changes (Backward-Compatible)
   to unicode. This defaults to UTF-8 for backward compatibility. To disable the
   decode and use bytes exclusively, set the field to False, None, or the empty
   string. This affects all headers, including those pushed by servers.
-- Bumped the minimum version of HPACK allowed from 2.0 to 2.1.
+- Bumped the minimum version of HPACK allowed from 2.0 to 2.2.
 - Added support for advertising RFC 7838 Alternative services.
 
 Bugfixes
