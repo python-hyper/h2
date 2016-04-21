@@ -24,6 +24,8 @@ Bugfixes
 ~~~~~~~~
 
 - Correctly forbid pseudo-headers that were not defined in RFC 7540.
+- Automatically ensure that all ``Authorization`` headers and short ``Cookie``
+  headers are prevented from being added to encoding contexts.
 
 2.2.3 (2016-04-13)
 ------------------
