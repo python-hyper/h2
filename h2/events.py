@@ -19,6 +19,10 @@ class RequestReceived(object):
     The RequestReceived event is fired whenever request headers are received.
     This event carries the HTTP headers for the given request and the stream ID
     of the new stream.
+
+    .. versionchanged:: 2.3.0
+       Changed the type of ``headers`` to :class:`HeaderTuple
+       <hpack:hpack.HeaderTuple>`. This has no effect on current users.
     """
     def __init__(self):
         #: The Stream ID for the stream this request was made on.
@@ -38,6 +42,10 @@ class ResponseReceived(object):
     The ResponseReceived event is fired whenever request headers are received.
     This event carries the HTTP headers for the given response and the stream
     ID of the new stream.
+
+    .. versionchanged:: 2.3.0
+       Changed the type of ``headers`` to :class:`HeaderTuple
+       <hpack:hpack.HeaderTuple>`. This has no effect on current users.
     """
     def __init__(self):
         #: The Stream ID for the stream this response was made on.
@@ -60,6 +68,10 @@ class TrailersReceived(object):
     ahead of time (e.g. content-length). This event carries the HTTP header
     fields that form the trailers and the stream ID of the stream on which they
     were received.
+
+    .. versionchanged:: 2.3.0
+       Changed the type of ``headers`` to :class:`HeaderTuple
+       <hpack:hpack.HeaderTuple>`. This has no effect on current users.
     """
     def __init__(self):
         #: The Stream ID for the stream on which these trailers were received.
@@ -88,6 +100,10 @@ class InformationalResponseReceived(object):
     1XX status code.
 
     .. versionadded:: 2.2.0
+
+    .. versionchanged:: 2.3.0
+       Changed the type of ``headers`` to :class:`HeaderTuple
+       <hpack:hpack.HeaderTuple>`. This has no effect on current users.
     """
     def __init__(self):
         #: The Stream ID for the stream this informational response was made
