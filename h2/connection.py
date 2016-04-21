@@ -717,6 +717,13 @@ class H2Connection(object):
         """
         Push a response to the client by sending a PUSH_PROMISE frame.
 
+        If it is important to send HPACK "never indexed" header fields (as
+        defined in `RFC 7451 Section 7.1.3
+        <https://tools.ietf.org/html/rfc7541#section-7.1.3>`_), the user may
+        instead provide headers using the HPACK library's :class:`HeaderTuple
+        <hpack:hpack.HeaderTuple>` and :class:`NeverIndexedHeaderTuple
+        <hpack:hpack.NeverIndexedHeaderTuple>` objects.
+
         :param stream_id: The ID of the stream that this push is a response to.
         :type stream_id: ``int``
         :param promised_stream_id: The ID of the stream that the pushed
@@ -724,7 +731,8 @@ class H2Connection(object):
         :type promised_stream_id: ``int``
         :param request_headers: The headers of the request that the pushed
             response will be responding to.
-        :type request_headers: An iterable of two tuples of bytestrings.
+        :type request_headers: An iterable of two tuples of bytestrings or
+            :class:`HeaderTuple <hpack:hpack.HeaderTuple>` objects.
         :returns: Nothing
         """
         if not self.remote_settings.enable_push:
