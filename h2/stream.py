@@ -24,7 +24,8 @@ from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
 from .utilities import (
-    guard_increment_window, is_informational_response, authority_from_headers
+    guard_increment_window, is_informational_response, authority_from_headers,
+    secure_headers
 )
 
 
@@ -988,8 +989,10 @@ class H2Stream(object):
         """
         Helper method to build headers or push promise frames.
         """
-        # We need to lowercase the header names.
+        # We need to lowercase the header names, and to ensure that secure
+        # header fields are kept out of compression contexts.
         headers = _lowercase_header_names(headers)
+        headers = secure_headers(headers)
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:

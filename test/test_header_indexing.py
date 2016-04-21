@@ -311,3 +311,291 @@ class TestHeaderIndexing(object):
 
         assert isinstance(event, h2.events.PushedStreamReceived)
         assert_header_blocks_actually_equal(headers, event.headers)
+
+
+class TestSecureHeaders(object):
+    """
+    Certain headers should always be transformed to their never-indexed form.
+    """
+    example_request_headers = [
+        (u':authority', u'example.com'),
+        (u':path', u'/'),
+        (u':scheme', u'https'),
+        (u':method', u'GET'),
+    ]
+    bytes_example_request_headers = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+    ]
+    possible_auth_headers = [
+        (u'authorization', u'test'),
+        (u'Authorization', u'test'),
+        (u'authorization', u'really long test'),
+        HeaderTuple(u'authorization', u'test'),
+        HeaderTuple(u'Authorization', u'test'),
+        HeaderTuple(u'authorization', u'really long test'),
+        NeverIndexedHeaderTuple(u'authorization', u'test'),
+        NeverIndexedHeaderTuple(u'Authorization', u'test'),
+        NeverIndexedHeaderTuple(u'authorization', u'really long test'),
+        (b'authorization', b'test'),
+        (b'Authorization', b'test'),
+        (b'authorization', b'really long test'),
+        HeaderTuple(b'authorization', b'test'),
+        HeaderTuple(b'Authorization', b'test'),
+        HeaderTuple(b'authorization', b'really long test'),
+        NeverIndexedHeaderTuple(b'authorization', b'test'),
+        NeverIndexedHeaderTuple(b'Authorization', b'test'),
+        NeverIndexedHeaderTuple(b'authorization', b'really long test'),
+    ]
+    secured_cookie_headers = [
+        (u'cookie', u'short'),
+        (u'Cookie', u'short'),
+        (u'cookie', u'nineteen byte cooki'),
+        HeaderTuple(u'cookie', u'short'),
+        HeaderTuple(u'Cookie', u'short'),
+        HeaderTuple(u'cookie', u'nineteen byte cooki'),
+        NeverIndexedHeaderTuple(u'cookie', u'short'),
+        NeverIndexedHeaderTuple(u'Cookie', u'short'),
+        NeverIndexedHeaderTuple(u'cookie', u'nineteen byte cooki'),
+        NeverIndexedHeaderTuple(u'cookie', u'longer manually secured cookie'),
+        (b'cookie', b'short'),
+        (b'Cookie', b'short'),
+        (b'cookie', b'nineteen byte cooki'),
+        HeaderTuple(b'cookie', b'short'),
+        HeaderTuple(b'Cookie', b'short'),
+        HeaderTuple(b'cookie', b'nineteen byte cooki'),
+        NeverIndexedHeaderTuple(b'cookie', b'short'),
+        NeverIndexedHeaderTuple(b'Cookie', b'short'),
+        NeverIndexedHeaderTuple(b'cookie', b'nineteen byte cooki'),
+        NeverIndexedHeaderTuple(b'cookie', b'longer manually secured cookie'),
+    ]
+    unsecured_cookie_headers = [
+        (u'cookie', u'twenty byte cookie!!'),
+        (u'Cookie', u'twenty byte cookie!!'),
+        (u'cookie', u'substantially longer than 20 byte cookie'),
+        HeaderTuple(u'cookie', u'twenty byte cookie!!'),
+        HeaderTuple(u'cookie', u'twenty byte cookie!!'),
+        HeaderTuple(u'Cookie', u'twenty byte cookie!!'),
+        (b'cookie', b'twenty byte cookie!!'),
+        (b'Cookie', b'twenty byte cookie!!'),
+        (b'cookie', b'substantially longer than 20 byte cookie'),
+        HeaderTuple(b'cookie', b'twenty byte cookie!!'),
+        HeaderTuple(b'cookie', b'twenty byte cookie!!'),
+        HeaderTuple(b'Cookie', b'twenty byte cookie!!'),
+    ]
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('auth_header', possible_auth_headers)
+    def test_authorization_headers_never_indexed(self,
+                                                 headers,
+                                                 auth_header,
+                                                 frame_factory):
+        """
+        Authorization headers are always forced to be never-indexed, regardless
+        of their form.
+        """
+        # Regardless of what we send, we expect it to be never indexed.
+        send_headers = headers + [auth_header]
+        expected_headers = headers + [
+            NeverIndexedHeaderTuple(auth_header[0].lower(), auth_header[1])
+        ]
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, send_headers)
+
+        f = frame_factory.build_headers_frame(headers=expected_headers)
+        assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('auth_header', possible_auth_headers)
+    def test_authorization_headers_never_indexed_push(self,
+                                                      headers,
+                                                      auth_header,
+                                                      frame_factory):
+        """
+        Authorization headers are always forced to be never-indexed, regardless
+        of their form, when pushed by a server.
+        """
+        # Regardless of what we send, we expect it to be never indexed.
+        send_headers = headers + [auth_header]
+        expected_headers = headers + [
+            NeverIndexedHeaderTuple(auth_header[0].lower(), auth_header[1])
+        ]
+
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        # We can use normal headers for the request.
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        frame_factory.refresh_encoder()
+        expected_frame = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=expected_headers,
+            flags=['END_HEADERS'],
+        )
+
+        c.clear_outbound_data_buffer()
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=send_headers
+        )
+
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('cookie_header', secured_cookie_headers)
+    def test_short_cookie_headers_never_indexed(self,
+                                                headers,
+                                                cookie_header,
+                                                frame_factory):
+        """
+        Short cookie headers, and cookies provided as NeverIndexedHeaderTuple,
+        are never indexed.
+        """
+        # Regardless of what we send, we expect it to be never indexed.
+        send_headers = headers + [cookie_header]
+        expected_headers = headers + [
+            NeverIndexedHeaderTuple(cookie_header[0].lower(), cookie_header[1])
+        ]
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, send_headers)
+
+        f = frame_factory.build_headers_frame(headers=expected_headers)
+        assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('cookie_header', secured_cookie_headers)
+    def test_short_cookie_headers_never_indexed_push(self,
+                                                     headers,
+                                                     cookie_header,
+                                                     frame_factory):
+        """
+        Short cookie headers, and cookies provided as NeverIndexedHeaderTuple,
+        are never indexed when pushed by servers.
+        """
+        # Regardless of what we send, we expect it to be never indexed.
+        send_headers = headers + [cookie_header]
+        expected_headers = headers + [
+            NeverIndexedHeaderTuple(cookie_header[0].lower(), cookie_header[1])
+        ]
+
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        # We can use normal headers for the request.
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        frame_factory.refresh_encoder()
+        expected_frame = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=expected_headers,
+            flags=['END_HEADERS'],
+        )
+
+        c.clear_outbound_data_buffer()
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=send_headers
+        )
+
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('cookie_header', unsecured_cookie_headers)
+    def test_long_cookie_headers_can_be_indexed(self,
+                                                headers,
+                                                cookie_header,
+                                                frame_factory):
+        """
+        Longer cookie headers can be indexed.
+        """
+        # Regardless of what we send, we expect it to be indexed.
+        send_headers = headers + [cookie_header]
+        expected_headers = headers + [
+            HeaderTuple(cookie_header[0].lower(), cookie_header[1])
+        ]
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, send_headers)
+
+        f = frame_factory.build_headers_frame(headers=expected_headers)
+        assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize(
+        'headers', (example_request_headers, bytes_example_request_headers)
+    )
+    @pytest.mark.parametrize('cookie_header', unsecured_cookie_headers)
+    def test_long_cookie_headers_can_be_indexed_push(self,
+                                                     headers,
+                                                     cookie_header,
+                                                     frame_factory):
+        """
+        Longer cookie headers can be indexed.
+        """
+        # Regardless of what we send, we expect it to be never indexed.
+        send_headers = headers + [cookie_header]
+        expected_headers = headers + [
+            HeaderTuple(cookie_header[0].lower(), cookie_header[1])
+        ]
+
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+
+        # We can use normal headers for the request.
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        c.receive_data(f.serialize())
+
+        frame_factory.refresh_encoder()
+        expected_frame = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=expected_headers,
+            flags=['END_HEADERS'],
+        )
+
+        c.clear_outbound_data_buffer()
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=send_headers
+        )
+
+        assert c.data_to_send() == expected_frame.serialize()
