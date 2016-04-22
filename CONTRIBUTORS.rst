@@ -10,6 +10,12 @@ Contributors
 
 In chronological order:
 
+- Robert Collins (@rbtcollins)
+
+  - Provided invaluable and substantial early input into API design and layout.
+  - Added code preventing ``Proxy-Authorization`` from getting added to HPACK
+    compression contexts.
+
 - Maximilian Hils (@maximilianhils)
 
   - Added asyncio example.
