@@ -348,6 +348,24 @@ class TestSecureHeaders(object):
         NeverIndexedHeaderTuple(b'authorization', b'test'),
         NeverIndexedHeaderTuple(b'Authorization', b'test'),
         NeverIndexedHeaderTuple(b'authorization', b'really long test'),
+        (u'proxy-authorization', u'test'),
+        (u'Proxy-Authorization', u'test'),
+        (u'proxy-authorization', u'really long test'),
+        HeaderTuple(u'proxy-authorization', u'test'),
+        HeaderTuple(u'Proxy-Authorization', u'test'),
+        HeaderTuple(u'proxy-authorization', u'really long test'),
+        NeverIndexedHeaderTuple(u'proxy-authorization', u'test'),
+        NeverIndexedHeaderTuple(u'Proxy-Authorization', u'test'),
+        NeverIndexedHeaderTuple(u'proxy-authorization', u'really long test'),
+        (b'proxy-authorization', b'test'),
+        (b'Proxy-Authorization', b'test'),
+        (b'proxy-authorization', b'really long test'),
+        HeaderTuple(b'proxy-authorization', b'test'),
+        HeaderTuple(b'Proxy-Authorization', b'test'),
+        HeaderTuple(b'proxy-authorization', b'really long test'),
+        NeverIndexedHeaderTuple(b'proxy-authorization', b'test'),
+        NeverIndexedHeaderTuple(b'Proxy-Authorization', b'test'),
+        NeverIndexedHeaderTuple(b'proxy-authorization', b'really long test'),
     ]
     secured_cookie_headers = [
         (u'cookie', u'short'),
@@ -395,8 +413,8 @@ class TestSecureHeaders(object):
                                                  auth_header,
                                                  frame_factory):
         """
-        Authorization headers are always forced to be never-indexed, regardless
-        of their form.
+        Authorization and Proxy-Authorization headers are always forced to be
+        never-indexed, regardless of their form.
         """
         # Regardless of what we send, we expect it to be never indexed.
         send_headers = headers + [auth_header]
@@ -423,8 +441,8 @@ class TestSecureHeaders(object):
                                                       auth_header,
                                                       frame_factory):
         """
-        Authorization headers are always forced to be never-indexed, regardless
-        of their form, when pushed by a server.
+        Authorization and Proxy-Authorization headers are always forced to be
+        never-indexed, regardless of their form, when pushed by a server.
         """
         # Regardless of what we send, we expect it to be never indexed.
         send_headers = headers + [auth_header]
