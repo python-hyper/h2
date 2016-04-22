@@ -33,6 +33,13 @@ _ALLOWED_PSEUDO_HEADER_FIELDS = set([
 ])
 
 
+_SECURE_HEADERS = frozenset([
+    # May have basic credentials which are vulnerable to dictionary attacks.
+    b'authorization', u'authorization',
+    b'proxy-authorization', u'proxy-authorization',
+])
+
+
 def secure_headers(headers):
     """
     Certain headers are at risk of being attacked during the header compression
@@ -43,15 +50,16 @@ def secure_headers(headers):
 
     This function currently implements two rules:
 
-    - All 'authorization' headers are automatically made never-indexed.
+    - 'authorization' and 'proxy-authorization' fields are automatically made
+      never-indexed.
     - Any 'cookie' header field shorter than 20 bytes long is made
       never-indexed.
 
-    These two fields are the most at-risk. These rules are inspired by Firefox
+    These fields are the most at-risk. These rules are inspired by Firefox
     and nghttp2.
     """
     for header in headers:
-        if header[0] in (b'authorization', u'authorization'):
+        if header[0] in _SECURE_HEADERS:
             yield NeverIndexedHeaderTuple(*header)
         elif header[0] in (b'cookie', u'cookie') and len(header[1]) < 20:
             yield NeverIndexedHeaderTuple(*header)
