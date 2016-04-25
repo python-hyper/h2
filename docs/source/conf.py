@@ -266,4 +266,5 @@ texinfo_documents = [
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3.5/', None),
     'hpack': ('https://python-hyper.org/hpack/en/stable/', None),
+    'pyopenssl': ('https://pyopenssl.readthedocs.org/en/latest/', None),
 }

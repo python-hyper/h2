@@ -19,6 +19,8 @@ API Changes (Backward-Compatible)
 - Changed all events that carry headers to emit ``hpack.HeaderTuple`` and
   ``hpack.NeverIndexedHeaderTuple`` instead of plain tuples. This allows users
   to maintain header indexing state.
+- Added support for plaintext upgrade with the ``initiate_upgrade_connection``
+  method.
 
 Bugfixes
 ~~~~~~~~

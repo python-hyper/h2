@@ -57,6 +57,8 @@ class StreamInputs(Enum):
     RECV_INFORMATIONAL_HEADERS = 14  # Added in 2.2.0
     SEND_ALTERNATIVE_SERVICE = 15  # Added in 2.3.0
     RECV_ALTERNATIVE_SERVICE = 16  # Added in 2.3.0
+    UPGRADE_CLIENT = 17  # Added 2.3.0
+    UPGRADE_SERVER = 18  # Added 2.3.0
 
 
 # This array is initialized once, and is indexed by the stream states above.
@@ -478,6 +480,11 @@ _transitions = {
             StreamState.RESERVED_REMOTE),
     (StreamState.IDLE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (None, StreamState.IDLE),
+    (StreamState.IDLE, StreamInputs.UPGRADE_CLIENT):
+        (H2StreamStateMachine.request_sent, StreamState.HALF_CLOSED_LOCAL),
+    (StreamState.IDLE, StreamInputs.UPGRADE_SERVER):
+        (H2StreamStateMachine.request_received,
+            StreamState.HALF_CLOSED_REMOTE),
 
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
@@ -694,6 +701,22 @@ class H2Stream(object):
         Whether the stream is closed.
         """
         return self.state_machine.state == StreamState.CLOSED
+
+    def upgrade(self, client_side):
+        """
+        Called by the connection to indicate that this stream is the initial
+        request/response of an upgraded connection. Places the stream into an
+        appropriate state.
+        """
+        assert self.stream_id == 1
+        input_ = (
+            StreamInputs.UPGRADE_CLIENT if client_side
+            else StreamInputs.UPGRADE_SERVER
+        )
+
+        # This may return events, we deliberately don't want them.
+        self.state_machine.process_input(input_)
+        return
 
     def send_headers(self, headers, encoder, end_stream=False):
         """
