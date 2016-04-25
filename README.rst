@@ -12,7 +12,9 @@ stack. It's written from the ground up to be embeddable in whatever program you
 choose to use, ensuring that you can speak HTTP/2 regardless of your
 programming paradigm.
 
-You use it like this::
+You use it like this:
+
+.. code-block:: python
 
     import h2.connection
 
@@ -27,9 +29,11 @@ about concurrency. Instead, it's a purely in-memory solution, defined in terms
 of data actions and HTTP/2 frames. This is one building block of a full Python
 HTTP implementation.
 
-To install it, just run::
+To install it, just run:
 
-    pip install h2
+.. code-block:: console
+
+    $ pip install h2
 
 Documentation
 =============
