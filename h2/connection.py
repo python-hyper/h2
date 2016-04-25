@@ -11,7 +11,7 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
-    ContinuationFrame
+    ContinuationFrame, AltSvcFrame,
 )
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
@@ -307,6 +307,7 @@ class H2Connection(object):
             PriorityFrame: self._receive_priority_frame,
             GoAwayFrame: self._receive_goaway_frame,
             ContinuationFrame: self._receive_naked_continuation,
+            AltSvcFrame: self._receive_frame_noop,
         }
 
     def _prepare_for_sending(self, frames):
@@ -984,6 +985,12 @@ class H2Connection(object):
         f.error_code = error_code
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
         self._prepare_for_sending([f])
+
+    def _receive_frame_noop(self, frame):
+        """
+        Receive a frame, but do nothing.
+        """
+        return [], []
 
     def _receive_headers_frame(self, frame):
         """
