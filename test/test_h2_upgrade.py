@@ -140,7 +140,6 @@ class TestClientUpgrade(object):
             c.send_data(stream_id=1, data=b'some data')
 
 
-
 class TestServerUpgrade(object):
     """
     Tests of the server-side of the HTTP/2 upgrade dance.

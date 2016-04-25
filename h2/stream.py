@@ -395,7 +395,6 @@ class H2StreamStateMachine(object):
         return
 
 
-
 # STATE MACHINE
 #
 # The stream state machine is defined here to avoid the need to allocate it
