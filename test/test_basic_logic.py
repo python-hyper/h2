@@ -1247,3 +1247,23 @@ class TestBasicServer(object):
 
         assert isinstance(event, h2.events.ConnectionTerminated)
         assert event.additional_data == additional_data
+
+    def test_ignore_alt_svc_frame(self, frame_factory):
+        """
+        Hyper-h2 ignores ALTSVC frames.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        # This is an ALTSVC frame, which is ignored.
+        frame_data = (
+            b'\x00\x00\x2B\x0A\x00\x00\x00\x00\x00'
+            b'\x00\x00\x00\x1D\x00\x50\x00\x02'
+            b'h2\x0Agoogle.comhttps://yahoo.com:8080'
+        )
+        events = c.receive_data(frame_data)
+
+        assert not events
+        assert not c.data_to_send()
