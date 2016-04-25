@@ -483,6 +483,8 @@ class H2Connection(object):
         Finally, this method also prepares the appropriate preamble to be sent
         after the upgrade.
 
+        .. versionadded:: 2.3.0
+
         :param settings_header: (optional, server-only): The value of the
              ``HTTP2-Settings`` header field received from the client.
         :type settings_header: ``bytes``
