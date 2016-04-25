@@ -23,10 +23,29 @@ API Changes (Backward-Compatible)
 Bugfixes
 ~~~~~~~~
 
-- Correctly forbid pseudo-headers that were not defined in RFC 7540.
 - Automatically ensure that all ``Authorization`` and ``Proxy-Authorization``
   headers, as well as short ``Cookie`` headers, are prevented from being added
   to encoding contexts.
+
+2.2.4 (2016-04-25)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Correctly forbid pseudo-headers that were not defined in RFC 7540.
+- Ignore AltSvc frames, rather than exploding when receiving them.
+
+2.1.5 (2016-04-25)
+------------------
+
+*Final 2.1.X release*
+
+Bugfixes
+~~~~~~~~
+
+- Correctly forbid pseudo-headers that were not defined in RFC 7540.
+- Ignore AltSvc frames, rather than exploding when receiving them.
 
 2.2.3 (2016-04-13)
 ------------------
