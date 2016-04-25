@@ -30,6 +30,7 @@ Contents
 
    installation
    basic-usage
+   negotiating-http2
    examples
    advanced-usage
    api
