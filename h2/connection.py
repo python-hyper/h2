@@ -5,6 +5,8 @@ h2/connection
 
 An implementation of a HTTP/2 connection.
 """
+import base64
+
 from enum import Enum, IntEnum
 
 from hyperframe.exceptions import InvalidPaddingError
@@ -457,6 +459,63 @@ class H2Connection(object):
             f.settings[setting] = value
 
         self._data_to_send += preamble + f.serialize()
+
+    def initiate_upgrade_connection(self, settings_header=None):
+        """
+        Call to initialise the connection object for use with an upgraded
+        HTTP/2 connection (i.e. a connection negotiated using the
+        ``Upgrade: h2c`` HTTP header).
+
+        This method differs from :meth:`initiate_connection
+        <h2.connection.H2Connection.initiate_connection>` in several ways.
+        Firstly, it handles the additional SETTINGS frame that is sent in the
+        ``HTTP2-Settings`` header field. When called on a client connection,
+        this method will return a bytestring that the caller can put in the
+        ``HTTP2-Settings`` field they send on their initial request. When
+        called on a server connection, the user **must** provide the value they
+        received from the client in the ``HTTP2-Settings`` header field to the
+        ``settings_header`` argument, which will be used appropriately.
+
+        Additionally, this method sets up stream 1 in a half-closed state
+        appropriate for this side of the connection, to reflect the fact that
+        the request is already complete.
+
+        Finally, this method also prepares the appropriate preamble to be sent
+        after the upgrade.
+
+        :param settings_header: (optional, server-only): The value of the
+             ``HTTP2-Settings`` header field received from the client.
+        :type settings_header: ``bytes``
+
+        :returns: For clients, a bytestring to put in the ``HTTP2-Settings``.
+            For servers, returns nothing.
+        :rtype: ``bytes`` or ``None``
+        """
+        frame_data = None
+
+        if self.client_side:
+            f = SettingsFrame(0)
+            for setting, value in self.local_settings.items():
+                f.settings[setting] = value
+
+            frame_data = f.serialize()
+            frame_data = base64.urlsafe_b64encode(frame_data)
+
+        # Set up appropriate state. Stream 1 in a half-closed state:
+        # half-closed(local) for clients, half-closed(remote) for servers.
+        # Additionally, we need to set up the Connection state machine.
+        self.initiate_connection()
+
+        connection_input = (
+            ConnectionInputs.SEND_HEADERS if self.client_side
+            else ConnectionInputs.RECV_HEADERS
+        )
+        self.state_machine.process_input(connection_input)
+
+        # Set up stream 1.
+        self._begin_new_stream(stream_id=1, allowed_ids=AllowedStreamIDs.ODD)
+        self.streams[1].upgrade(self.client_side)
+        return frame_data
 
     def _get_or_create_stream(self, stream_id, allowed_ids):
         """
