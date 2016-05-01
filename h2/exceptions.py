@@ -61,11 +61,7 @@ class StreamIDTooLowError(ProtocolError):
     """
     An attempt was made to open a stream that had an ID that is lower than the
     highest ID we have seen on this connection.
-
-    For backwards-compatibility reasons, this is also a subclass of
-    ``ValueError``.
     """
-    # TODO: Remove inheritance from ValueError.
     def __init__(self, stream_id, max_stream_id):
         #: The ID of the stream that we attempted to open.
         self.stream_id = stream_id
