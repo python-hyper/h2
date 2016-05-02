@@ -1419,7 +1419,7 @@ class H2Connection(object):
             events.append(evt)
         else:
             f = PingFrame(0)
-            f.flags = set(['ACK'])
+            f.flags = {'ACK'}
             f.opaque_data = frame.opaque_data
             flags.append(f)
 

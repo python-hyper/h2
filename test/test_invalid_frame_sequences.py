@@ -195,7 +195,7 @@ class TestInvalidFrameSequences(object):
         f = frame_factory.build_headers_frame(
             self.example_request_headers,
         )
-        f.flags = set(['END_STREAM'])
+        f.flags = {'END_STREAM'}
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
 
