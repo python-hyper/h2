@@ -58,3 +58,11 @@ In chronological order:
 - Gil Gonçalves (@LuRsT)
 
   - Added code forbidding non-RFC 7540 pseudo-headers.
+
+- Louis Taylor (@kragniz)
+
+  - Cleaned up the README
+
+- Berker Peksag (@berkerpeksag)
+
+  - Improved the docstring for ``StreamIDTooLowError``.
