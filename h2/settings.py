@@ -230,7 +230,7 @@ def _validate_setting(setting, value):
         if value not in (0, 1):
             return PROTOCOL_ERROR
     elif setting == INITIAL_WINDOW_SIZE:
-        if not 0 <= value <= 2147483647 or value < 0:  # 2^31 - 1
+        if not 0 <= value <= 2147483647:  # 2^31 - 1
             return FLOW_CONTROL_ERROR
     elif setting == MAX_FRAME_SIZE:
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
