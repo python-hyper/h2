@@ -374,7 +374,7 @@ class TestBasicClient(object):
             map(lambda f: len(f.data) <= c.max_outbound_frame_size, frames)
         )
 
-        assert frames[0].flags == set(['END_STREAM'])
+        assert frames[0].flags == {'END_STREAM'}
 
         buffer.add_data(data[-1:])
         headers = list(buffer)[0]

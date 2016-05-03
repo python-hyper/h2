@@ -209,7 +209,7 @@ class TestContinuationFrames(object):
         frames = [
             frame_factory.build_continuation_frame(c) for c in chunks
         ]
-        f.flags = set(['END_STREAM'])
+        f.flags = {'END_STREAM'}
         frames[-1].flags.add('END_HEADERS')
         frames.insert(0, f)
         return frames
@@ -360,7 +360,7 @@ class TestContinuationFramesPushPromise(object):
         frames = [
             frame_factory.build_continuation_frame(c) for c in chunks
         ]
-        f.flags = set(['END_STREAM'])
+        f.flags = {'END_STREAM'}
         frames[-1].flags.add('END_HEADERS')
         frames.insert(0, f)
         return frames
