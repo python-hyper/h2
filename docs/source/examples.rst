@@ -24,3 +24,4 @@ Example Clients
    :maxdepth: 2
 
    twisted-head-example
+   twisted-post-example
