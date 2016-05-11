@@ -56,6 +56,8 @@ crashes.
 It is highly recommended that you send data at regular intervals, ideally as
 soon as possible.
 
+.. _advanced-sending-data:
+
 Sending Data
 ~~~~~~~~~~~~
 
@@ -80,6 +82,33 @@ unbounded form of
 :meth:`data_to_send <h2.connection.H2Connection.data_to_send>`, and will help
 you avoid subtle bugs.
 
+When To Send
+~~~~~~~~~~~~
+
+In addition to knowing how much data to send (see :ref:`advanced-sending-data`)
+it is important to know when to send data. For hyper-h2, this amounts to
+knowing when to call :meth:`data_to_send
+<h2.connection.H2Connection.data_to_send>`.
+
+Hyper-h2 may write data into its send buffer at two times. The first is
+whenever :meth:`receive_data <h2.connection.H2Connection.receive_data>` is
+called. This data is sent in response to some control frames that require no
+user input: for example, responding to PING frames. The second time is in
+response to user action: whenever a user calls a method like
+:meth:`send_headers <h2.connection.H2Connection.send_headers>`, data may be
+written into the buffer.
+
+In a standard design for a hyper-h2 consumer, then, that means there are two
+places where you'll potentially want to send data. The first is in your
+"receive data" loop. This is where you take the data you receive, pass it into
+:meth:`receive_data <h2.connection.H2Connection.receive_data>`, and then
+dispatch events. For this loop, it is usually best to save sending data until
+the loop is complete: that allows you to empty the buffer only once.
+
+The other place you'll want to send the data is when initiating requests or
+taking any other active, unprompted action on the connection. In this instance,
+you'll want to make all the relevant ``send_*`` calls, and *then* call
+:meth:`data_to_send <h2.connection.H2Connection.data_to_send>`.
 
 Headers
 -------
