@@ -330,6 +330,37 @@ class TestContinuationFrames(object):
 
         assert "invalid frame" in str(e.value).lower()
 
+    def test_continuation_frame_multiple_blocks(self, frame_factory):
+        """
+        Test that we correctly decode several header blocks split across
+        continuation frames.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        for stream_id in range(1, 7, 2):
+            frames = self._build_continuation_sequence(
+                headers=self.example_request_headers,
+                block_size=2,
+                frame_factory=frame_factory,
+            )
+            for frame in frames:
+                frame.stream_id = stream_id
+
+            data = b''.join(f.serialize() for f in frames)
+            events = c.receive_data(data)
+
+            assert len(events) == 2
+            first_event, second_event = events
+
+            assert isinstance(first_event, h2.events.RequestReceived)
+            assert first_event.headers == self.example_request_headers
+            assert first_event.stream_id == stream_id
+
+            assert isinstance(second_event, h2.events.StreamEnded)
+            assert second_event.stream_id == stream_id
+
 
 class TestContinuationFramesPushPromise(object):
     """
@@ -522,3 +553,31 @@ class TestContinuationFramesPushPromise(object):
             error_code=h2.errors.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == f.serialize()
+
+    def test_continuation_frame_multiple_push_promise(self, frame_factory):
+        """
+        Test that we correctly decode  header blocks split across continuation
+        frames when those header block is initiated with a PUSH_PROMISE, for
+        more than one pushed stream.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+
+        for promised_stream_id in range(2, 8, 2):
+            frames = self._build_continuation_sequence(
+                headers=self.example_request_headers,
+                block_size=2,
+                frame_factory=frame_factory,
+            )
+            frames[0].promised_stream_id = promised_stream_id
+            data = b''.join(f.serialize() for f in frames)
+            events = c.receive_data(data)
+
+            assert len(events) == 1
+            event = events[0]
+
+            assert isinstance(event, h2.events.PushedStreamReceived)
+            assert event.headers == self.example_request_headers
+            assert event.parent_stream_id == 1
+            assert event.pushed_stream_id == promised_stream_id

@@ -4,6 +4,12 @@ Release History
 dev
 ---
 
+Bugfixes
+~~~~~~~~
+
+- Resolved ``AttributeError`` encountered when receiving more than one sequence
+  of CONTINUATION frames on a given connection.
+
 2.3.0 (2016-04-26)
 ------------------
 
