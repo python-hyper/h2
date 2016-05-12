@@ -121,7 +121,7 @@ class FrameBuffer(object):
                 f = self._headers_buffer[0]
                 f.flags.add('END_HEADERS')
                 f.data = b''.join(x.data for x in self._headers_buffer)
-                self._headers_buffer = None
+                self._headers_buffer = []
             else:
                 f = None
         elif (isinstance(f, (HeadersFrame, PushPromiseFrame)) and
