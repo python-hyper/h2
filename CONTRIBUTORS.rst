@@ -31,6 +31,7 @@ In chronological order:
 - Thomas Kriechbaumer (@Kriechi)
 
   - Fixed incorrect arguments being passed to ``StreamIDTooLowError``.
+  - Added new arguments to ``close_connection``.
 
 - WeiZheng Xu (@boyxuper)
 

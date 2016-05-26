@@ -866,6 +866,9 @@ class H2Connection(object):
         """
         Close a connection, emitting a GOAWAY frame.
 
+        .. versionchanged:: 2.4.0
+           Added ``additional_data`` and ``last_stream_id`` arguments.
+
         :param error_code: (optional) The error code to send in the GOAWAY
             frame.
         :param additional_data: (optional) Additional debug data indicating

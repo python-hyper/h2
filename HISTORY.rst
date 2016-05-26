@@ -4,6 +4,14 @@ Release History
 dev
 ---
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Adds ``additional_data`` to ``H2Connection.close_connection``, allowing the
+  user to send additional debug data on the GOAWAY frame.
+- Adds ``last_stream_id`` to ``H2Connection.close_connection``, allowing the
+  user to manually control what the reported last stream ID is.
+
 Bugfixes
 ~~~~~~~~
 
