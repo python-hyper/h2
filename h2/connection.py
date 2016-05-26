@@ -860,19 +860,31 @@ class H2Connection(object):
         self._reset_streams.add(stream_id)
         del self.streams[stream_id]
 
-    def close_connection(self, error_code=0):
+    def close_connection(self, error_code=0, additional_data=None,
+                         last_stream_id=None):
+
         """
         Close a connection, emitting a GOAWAY frame.
 
         :param error_code: (optional) The error code to send in the GOAWAY
             frame.
+        :param additional_data: (optional) Additional debug data indicating
+            a reason for closing the connection.
+        :param last_stream_id: (optional) The last stream which was processed
+            by the sender. Defaults to ``highest_inbound_stream_id``.
         :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
 
-        f = GoAwayFrame(0)
-        f.error_code = error_code
-        f.last_stream_id = self.highest_inbound_stream_id
+        if last_stream_id is None:
+            last_stream_id = self.highest_inbound_stream_id
+
+        f = GoAwayFrame(
+            stream_id=0,
+            last_stream_id=last_stream_id,
+            error_code=error_code,
+            additional_data=(additional_data or b'')
+        )
         self._prepare_for_sending([f])
 
     def update_settings(self, new_settings):
