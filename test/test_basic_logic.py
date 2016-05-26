@@ -850,6 +850,57 @@ class TestBasicServer(object):
         assert not events
         assert c.data_to_send() == expected_data
 
+    @pytest.mark.parametrize("last_stream_id,output", [
+        (None, 23),
+        (0, 0),
+        (42, 42)
+    ])
+    def test_close_connection_with_last_stream_id(self, frame_factory,
+                                                  last_stream_id, output):
+        """
+        Closing the connection with last_stream_id set emits a GOAWAY frame
+        with that value.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        headers_frame = frame_factory.build_headers_frame([], stream_id=23)
+        c.receive_data(headers_frame.serialize())
+
+        f = frame_factory.build_goaway_frame(
+            last_stream_id=output
+        )
+        expected_data = f.serialize()
+
+        c.clear_outbound_data_buffer()
+        events = c.close_connection(last_stream_id=last_stream_id)
+
+        assert not events
+        assert c.data_to_send() == expected_data
+
+    @pytest.mark.parametrize("additional_data,output", [
+        (None, b''),
+        (b'', b''),
+        ('foobar', b'foobar')
+    ])
+    def test_close_connection_with_additional_data(self, frame_factory,
+                                                   additional_data, output):
+        """
+        Closing the connection with additional debug data emits a GOAWAY frame
+        with that data attached.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_goaway_frame(
+            last_stream_id=0, additional_data=output
+        )
+        expected_data = f.serialize()
+
+        c.clear_outbound_data_buffer()
+        events = c.close_connection(additional_data=additional_data)
+
+        assert not events
+        assert c.data_to_send() == expected_data
+
     def test_reset_stream(self, frame_factory):
         """
         Resetting a stream with no error code emits a RST_STREAM frame with
