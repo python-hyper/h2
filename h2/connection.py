@@ -589,7 +589,9 @@ class H2Connection(object):
 
         return next_stream_id
 
-    def send_headers(self, stream_id, headers, end_stream=False):
+    def send_headers(self, stream_id, headers, end_stream=False,
+                     priority_weight=None, priority_depends_on=None,
+                     priority_exclusive=None):
         """
         Send headers on a given stream.
 
@@ -631,6 +633,13 @@ class H2Connection(object):
         <hpack:hpack.HeaderTuple>` and :class:`NeverIndexedHeaderTuple
         <hpack:hpack.NeverIndexedHeaderTuple>` objects.
 
+        This method also allows users to prioritize the stream immediately,
+        by sending priority information on the HEADERS frame directly. To do
+        this, any one of ``priority_weight``, ``priority_depends_on``, or
+        ``priority_exclusive`` must be set to a value that is not ``None``. For
+        more information on the priority fields, see :meth:`prioritize
+        <H2Connection.prioritize>`.
+
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
             at the start of the header block, before any normal headers.
@@ -643,12 +652,43 @@ class H2Connection(object):
            Added support for using :class:`HeaderTuple
            <hpack:hpack.HeaderTuple>` objects to store headers.
 
+        .. versionchanged:: 2.4.0
+           Added the ability to provide priority keyword arguments:
+           ``priority_weight``, ``priority_depends_on``, and
+           ``priority_exclusive``.
+
         :param stream_id: The stream ID to send the headers on. If this stream
             does not currently exist, it will be created.
         :type stream_id: ``int``
+
         :param headers: The request/response headers to send.
         :type headers: An iterable of two tuples of bytestrings or
             :class:`HeaderTuple <hpack:hpack.HeaderTuple>` objects.
+
+        :param end_stream: Whether this headers frame should end the stream
+            immediately (that is, whether no more data will be sent after this
+            frame). Defaults to ``False``.
+        :type end_stream: ``bool``
+
+        :param priority_weight: Sets the priority weight of the stream. See
+            :meth:`prioritize <H2Connection.prioritize>` for more about how
+            this field works. Defaults to ``None``, which means that no
+            priority information will be sent.
+        :type priority_weight: ``int`` or ``None``
+
+        :param priority_depends_on: Sets which stream this one depends on for
+            priority purposes. See :meth:`prioritize <H2Connection.prioritize>`
+            for more about how this field works. Defaults to ``None``, which
+            means that no priority information will be sent.
+        :type priority_depends_on: ``int`` or ``None``
+
+        :param priority_exclusive: Sets whether this stream exclusively depends
+            on the stream given in ``priority_depends_on`` for priority
+            purposes. See :meth:`prioritize <H2Connection.prioritize>` for more
+            about how this field workds. Defaults to ``None``, which means that
+            no priority information will be sent.
+        :type priority_depends_on: ``bool`` or ``None``
+
         :returns: Nothing
         """
         # Check we can open the stream.
@@ -667,6 +707,24 @@ class H2Connection(object):
         frames = stream.send_headers(
             headers, self.encoder, end_stream
         )
+
+        # We may need to send priority information.
+        priority_present = (
+            (priority_weight is not None) or
+            (priority_depends_on is not None) or
+            (priority_exclusive is not None)
+        )
+
+        if priority_present:
+            headers_frame = frames[0]
+            headers_frame.flags.add('PRIORITY')
+            frames[0] = _add_frame_priority(
+                headers_frame,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive
+            )
+
         self._prepare_for_sending(frames)
 
     def send_data(self, stream_id, data, end_stream=False):
@@ -982,7 +1040,8 @@ class H2Connection(object):
 
         self._prepare_for_sending(frames)
 
-    def prioritize(self, stream_id, weight=16, depends_on=0, exclusive=False):
+    def prioritize(self, stream_id, weight=None, depends_on=None,
+                   exclusive=None):
         """
         Notify a server about the priority of a stream.
 
@@ -1049,26 +1108,8 @@ class H2Connection(object):
             ConnectionInputs.SEND_PRIORITY
         )
 
-        # A stream may not depend on itself.
-        if depends_on == stream_id:
-            raise ProtocolError(
-                "Stream %d may not depend on itself" % stream_id
-            )
-
-        # Weight must be between 1 and 256.
-        if weight > 256 or weight < 1:
-            raise ProtocolError(
-                "Weight must be between 1 and 256, not %d" % weight
-            )
-
-        frame = PriorityFrame()
-        frame.stream_id = stream_id
-        frame.exclusive = exclusive
-        frame.depends_on = depends_on
-
-        # Weight is an integer between 1 and 256, but the byte only allows 0
-        # to 255: subtract one.
-        frame.weight = weight - 1
+        frame = PriorityFrame(stream_id)
+        frame = _add_frame_priority(frame, weight, depends_on, exclusive)
 
         self._prepare_for_sending([frame])
 
@@ -1672,3 +1713,42 @@ class H2Connection(object):
         (one initiated by this peer), returns ``False`` otherwise.
         """
         return (stream_id % 2 == int(self.client_side))
+
+
+def _add_frame_priority(frame, weight=None, depends_on=None, exclusive=None):
+    """
+    Adds priority data to a given frame. Does not change any flags set on that
+    frame: if the caller is adding priority information to a HEADERS frame they
+    must set that themselves.
+
+    This method also deliberately sets defaults for anything missing.
+
+    This method validates the input values.
+    """
+    # A stream may not depend on itself.
+    if depends_on == frame.stream_id:
+        raise ProtocolError(
+            "Stream %d may not depend on itself" % frame.stream_id
+        )
+
+    # Weight must be between 1 and 256.
+    if weight is not None:
+        if weight > 256 or weight < 1:
+            raise ProtocolError(
+                "Weight must be between 1 and 256, not %d" % weight
+            )
+        else:
+            # Weight is an integer between 1 and 256, but the byte only allows
+            # 0 to 255: subtract one.
+            weight -= 1
+
+    # Set defaults for anything not provided.
+    weight = weight if weight is not None else 15
+    depends_on = depends_on if depends_on is not None else 0
+    exclusive = exclusive if exclusive is not None else False
+
+    frame.stream_weight = weight
+    frame.depends_on = depends_on
+    frame.exclusive = exclusive
+
+    return frame
