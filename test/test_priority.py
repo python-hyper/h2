@@ -226,3 +226,87 @@ class TestPriority(object):
             )
 
         assert not c.data_to_send()
+
+    @pytest.mark.parametrize('weight', [0, -15, 257])
+    def test_prioritize_requires_valid_weight(self, weight):
+        """
+        A call to prioritize with an invalid weight causes a ProtocolError.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.prioritize(stream_id=1, weight=weight)
+
+        assert not c.data_to_send()
+
+    @pytest.mark.parametrize('weight', [0, -15, 257])
+    def test_send_headers_requires_valid_weight(self, weight):
+        """
+        A call to send_headers with an invalid weight causes a ProtocolError.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(
+                stream_id=1,
+                headers=self.example_request_headers,
+                priority_weight=weight
+            )
+
+        assert not c.data_to_send()
+
+    def test_prioritize_defaults(self, frame_factory):
+        """
+        When prioritize() is called with no explicit arguments, it emits a
+        weight of 16, depending on stream zero non-exclusively.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        c.prioritize(stream_id=1)
+
+        f = frame_factory.build_priority_frame(
+            stream_id=1,
+            weight=15,
+            depends_on=0,
+            exclusive=False,
+        )
+        assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize(
+        'priority_kwargs',
+        [
+            {'priority_weight': 16},
+            {'priority_depends_on': 0},
+            {'priority_exclusive': False},
+        ]
+    )
+    def test_send_headers_defaults(self, priority_kwargs, frame_factory):
+        """
+        When send_headers() is called with only one explicit argument, it emits
+        default values for everything else.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        c.send_headers(
+            stream_id=1,
+            headers=self.example_request_headers,
+            **priority_kwargs
+        )
+
+        f = frame_factory.build_headers_frame(
+            headers=self.example_request_headers,
+            stream_id=1,
+            flags=['PRIORITY'],
+            stream_weight=15,
+            depends_on=0,
+            exclusive=False,
+        )
+        assert c.data_to_send() == f.serialize()
