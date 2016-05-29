@@ -11,6 +11,10 @@ API Changes (Backward-Compatible)
   user to send additional debug data on the GOAWAY frame.
 - Adds ``last_stream_id`` to ``H2Connection.close_connection``, allowing the
   user to manually control what the reported last stream ID is.
+- Add new method: ``prioritize``.
+- Add support for emitting stream priority information when sending headers
+  frames using three new keyword arguments: ``priority_weight``,
+  ``priority_depends_on``, and ``priority_exclusive``.
 
 Bugfixes
 ~~~~~~~~
