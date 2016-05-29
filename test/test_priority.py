@@ -24,6 +24,10 @@ class TestPriority(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_response_headers = [
+        (':status', '200'),
+        ('server', 'pytest-h2'),
+    ]
 
     def test_receiving_priority_emits_priority_update(self, frame_factory):
         """
@@ -310,3 +314,43 @@ class TestPriority(object):
             exclusive=False,
         )
         assert c.data_to_send() == f.serialize()
+
+    def test_servers_cannot_prioritize(self, frame_factory):
+        """
+        Server stacks are not allowed to call ``prioritize()``.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_request_headers,
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(h2.exceptions.RFC1122Error):
+            c.prioritize(stream_id=1)
+
+    def test_servers_cannot_prioritize_with_headers(self, frame_factory):
+        """
+        Server stacks are not allowed to prioritize on headers either.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.example_request_headers,
+        )
+        c.receive_data(f.serialize())
+
+        with pytest.raises(h2.exceptions.RFC1122Error):
+            c.send_headers(
+                stream_id=1,
+                headers=self.example_response_headers,
+                priority_weight=16,
+            )
