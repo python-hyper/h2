@@ -27,7 +27,7 @@ from .events import (
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
     TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
-    NoAvailableStreamIDError, UnsupportedFrameError
+    NoAvailableStreamIDError, UnsupportedFrameError, RFC1122Error
 )
 from .frame_buffer import FrameBuffer
 from .settings import (
@@ -716,6 +716,9 @@ class H2Connection(object):
         )
 
         if priority_present:
+            if not self.client_side:
+                raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
+
             headers_frame = frames[0]
             headers_frame.flags.add('PRIORITY')
             frames[0] = _add_frame_priority(
@@ -1104,6 +1107,9 @@ class H2Connection(object):
             of the new exclusively-dependent stream. Defaults to ``False``.
         :type exclusive: ``bool``
         """
+        if not self.client_side:
+            raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
+
         self.state_machine.process_input(
             ConnectionInputs.SEND_PRIORITY
         )
