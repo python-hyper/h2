@@ -85,6 +85,10 @@ Exceptions
    :show-inheritance:
    :members:
 
+.. autoclass:: h2.exceptions.RFC1122Error
+   :show-inheritance:
+   :members:
+
 
 Protocol Errors
 ~~~~~~~~~~~~~~~

@@ -27,7 +27,7 @@ from .events import (
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
     TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
-    NoAvailableStreamIDError, UnsupportedFrameError
+    NoAvailableStreamIDError, UnsupportedFrameError, RFC1122Error
 )
 from .frame_buffer import FrameBuffer
 from .settings import (
@@ -589,7 +589,9 @@ class H2Connection(object):
 
         return next_stream_id
 
-    def send_headers(self, stream_id, headers, end_stream=False):
+    def send_headers(self, stream_id, headers, end_stream=False,
+                     priority_weight=None, priority_depends_on=None,
+                     priority_exclusive=None):
         """
         Send headers on a given stream.
 
@@ -631,6 +633,13 @@ class H2Connection(object):
         <hpack:hpack.HeaderTuple>` and :class:`NeverIndexedHeaderTuple
         <hpack:hpack.NeverIndexedHeaderTuple>` objects.
 
+        This method also allows users to prioritize the stream immediately,
+        by sending priority information on the HEADERS frame directly. To do
+        this, any one of ``priority_weight``, ``priority_depends_on``, or
+        ``priority_exclusive`` must be set to a value that is not ``None``. For
+        more information on the priority fields, see :meth:`prioritize
+        <H2Connection.prioritize>`.
+
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
             at the start of the header block, before any normal headers.
@@ -643,12 +652,43 @@ class H2Connection(object):
            Added support for using :class:`HeaderTuple
            <hpack:hpack.HeaderTuple>` objects to store headers.
 
+        .. versionchanged:: 2.4.0
+           Added the ability to provide priority keyword arguments:
+           ``priority_weight``, ``priority_depends_on``, and
+           ``priority_exclusive``.
+
         :param stream_id: The stream ID to send the headers on. If this stream
             does not currently exist, it will be created.
         :type stream_id: ``int``
+
         :param headers: The request/response headers to send.
         :type headers: An iterable of two tuples of bytestrings or
             :class:`HeaderTuple <hpack:hpack.HeaderTuple>` objects.
+
+        :param end_stream: Whether this headers frame should end the stream
+            immediately (that is, whether no more data will be sent after this
+            frame). Defaults to ``False``.
+        :type end_stream: ``bool``
+
+        :param priority_weight: Sets the priority weight of the stream. See
+            :meth:`prioritize <H2Connection.prioritize>` for more about how
+            this field works. Defaults to ``None``, which means that no
+            priority information will be sent.
+        :type priority_weight: ``int`` or ``None``
+
+        :param priority_depends_on: Sets which stream this one depends on for
+            priority purposes. See :meth:`prioritize <H2Connection.prioritize>`
+            for more about how this field works. Defaults to ``None``, which
+            means that no priority information will be sent.
+        :type priority_depends_on: ``int`` or ``None``
+
+        :param priority_exclusive: Sets whether this stream exclusively depends
+            on the stream given in ``priority_depends_on`` for priority
+            purposes. See :meth:`prioritize <H2Connection.prioritize>` for more
+            about how this field workds. Defaults to ``None``, which means that
+            no priority information will be sent.
+        :type priority_depends_on: ``bool`` or ``None``
+
         :returns: Nothing
         """
         # Check we can open the stream.
@@ -667,6 +707,27 @@ class H2Connection(object):
         frames = stream.send_headers(
             headers, self.encoder, end_stream
         )
+
+        # We may need to send priority information.
+        priority_present = (
+            (priority_weight is not None) or
+            (priority_depends_on is not None) or
+            (priority_exclusive is not None)
+        )
+
+        if priority_present:
+            if not self.client_side:
+                raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
+
+            headers_frame = frames[0]
+            headers_frame.flags.add('PRIORITY')
+            frames[0] = _add_frame_priority(
+                headers_frame,
+                priority_weight,
+                priority_depends_on,
+                priority_exclusive
+            )
+
         self._prepare_for_sending(frames)
 
     def send_data(self, stream_id, data, end_stream=False):
@@ -981,6 +1042,82 @@ class H2Connection(object):
             frames = stream.advertise_alternative_service(field_value)
 
         self._prepare_for_sending(frames)
+
+    def prioritize(self, stream_id, weight=None, depends_on=None,
+                   exclusive=None):
+        """
+        Notify a server about the priority of a stream.
+
+        Stream priorities are a form of guidance to a remote server: they
+        inform the server about how important a given response is, so that the
+        server may allocate its resources (e.g. bandwidth, CPU time, etc.)
+        accordingly. This exists to allow clients to ensure that the most
+        important data arrives earlier, while less important data does not
+        starve out the more important data.
+
+        Stream priorities are explained in depth in `RFC 7540 Section 5.3
+        <https://tools.ietf.org/html/rfc7540#section-5.3>`_.
+
+        This method updates the priority information of a single stream. It may
+        be called well before a stream is actively in use, or well after a
+        stream is closed.
+
+        .. warning:: RFC 7540 allows for servers to change the priority of
+                     streams. However, hyper-h2 **does not** allow server
+                     stacks to do this. This is because most clients do not
+                     adequately know how to respond when provided conflicting
+                     priority information, and relatively little utility is
+                     provided by making that functionality available.
+
+        .. note:: hyper-h2 **does not** maintain any information about the
+                  RFC 7540 priority tree. That means that hyper-h2 does not
+                  prevent incautious users from creating invalid priority
+                  trees, particularly by creating priority loops. While some
+                  basic error checking is provided by hyper-h2, users are
+                  strongly recommended to understand their prioritisation
+                  strategies before using the priority tools here.
+
+        .. note:: Priority information is strictly advisory. Servers are
+                  allowed to disregard it entirely. Avoid relying on the idea
+                  that your priority signaling will definitely be obeyed.
+
+        .. versionadded:: 2.4.0
+
+        :param stream_id: The ID of the stream to prioritize.
+        :type stream_id: ``int``
+
+        :param weight: The weight to give the stream. Defaults to ``16``, the
+             default weight of any stream. May be any value between ``1`` and
+             ``256`` inclusive. The relative weight of a stream indicates what
+             proportion of available resources will be allocated to that
+             stream.
+        :type weight: ``int``
+
+        :param depends_on: The ID of the stream on which this stream depends.
+             This stream will only be progressed if it is impossible to
+             progress the parent stream (the one on which this one depends).
+             Passing the value ``0`` means that this stream does not depend on
+             any other. Defaults to ``0``.
+        :type depends_on: ``int``
+
+        :param exclusive: Whether this stream is an exclusive dependency of its
+            "parent" stream (i.e. the stream given by ``depends_on``). If a
+            stream is an exclusive dependency of another, that means that all
+            previously-set children of the parent are moved to become children
+            of the new exclusively-dependent stream. Defaults to ``False``.
+        :type exclusive: ``bool``
+        """
+        if not self.client_side:
+            raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
+
+        self.state_machine.process_input(
+            ConnectionInputs.SEND_PRIORITY
+        )
+
+        frame = PriorityFrame(stream_id)
+        frame = _add_frame_priority(frame, weight, depends_on, exclusive)
+
+        self._prepare_for_sending([frame])
 
     def local_flow_control_window(self, stream_id):
         """
@@ -1582,3 +1719,42 @@ class H2Connection(object):
         (one initiated by this peer), returns ``False`` otherwise.
         """
         return (stream_id % 2 == int(self.client_side))
+
+
+def _add_frame_priority(frame, weight=None, depends_on=None, exclusive=None):
+    """
+    Adds priority data to a given frame. Does not change any flags set on that
+    frame: if the caller is adding priority information to a HEADERS frame they
+    must set that themselves.
+
+    This method also deliberately sets defaults for anything missing.
+
+    This method validates the input values.
+    """
+    # A stream may not depend on itself.
+    if depends_on == frame.stream_id:
+        raise ProtocolError(
+            "Stream %d may not depend on itself" % frame.stream_id
+        )
+
+    # Weight must be between 1 and 256.
+    if weight is not None:
+        if weight > 256 or weight < 1:
+            raise ProtocolError(
+                "Weight must be between 1 and 256, not %d" % weight
+            )
+        else:
+            # Weight is an integer between 1 and 256, but the byte only allows
+            # 0 to 255: subtract one.
+            weight -= 1
+
+    # Set defaults for anything not provided.
+    weight = weight if weight is not None else 15
+    depends_on = depends_on if depends_on is not None else 0
+    exclusive = exclusive if exclusive is not None else False
+
+    frame.stream_weight = weight
+    frame.depends_on = depends_on
+    frame.exclusive = exclusive
+
+    return frame
