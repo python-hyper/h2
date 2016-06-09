@@ -933,12 +933,16 @@ class H2Connection(object):
         :param error_code: (optional) The error code to send in the GOAWAY
             frame.
         :param additional_data: (optional) Additional debug data indicating
-            a reason for closing the connection.
+            a reason for closing the connection. Must be a bytestring.
         :param last_stream_id: (optional) The last stream which was processed
             by the sender. Defaults to ``highest_inbound_stream_id``.
         :returns: Nothing
         """
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
+
+        # Additional_data must be bytes
+        if additional_data is not None:
+            assert isinstance(additional_data, bytes)
 
         if last_stream_id is None:
             last_stream_id = self.highest_inbound_stream_id

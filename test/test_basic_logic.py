@@ -880,7 +880,7 @@ class TestBasicServer(object):
     @pytest.mark.parametrize("additional_data,output", [
         (None, b''),
         (b'', b''),
-        ('foobar', b'foobar')
+        (b'foobar', b'foobar')
     ])
     def test_close_connection_with_additional_data(self, frame_factory,
                                                    additional_data, output):
