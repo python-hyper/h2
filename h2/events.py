@@ -23,6 +23,9 @@ class RequestReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+       Added ``stream_ended`` and ``priority_updated`` properties.
     """
     def __init__(self):
         #: The Stream ID for the stream this request was made on.
@@ -30,6 +33,20 @@ class RequestReceived(object):
 
         #: The request headers.
         self.headers = None
+
+        #: If this request also ended the stream, the associated
+        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+        #: here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.stream_ended = None
+
+        #: If this request also had associated priority information, the
+        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+        #: event will be available here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.priority_updated = None
 
     def __repr__(self):
         return "<RequestReceived stream_id:%s, headers:%s>" % (
@@ -46,6 +63,9 @@ class ResponseReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+   .. versionchanged:: 2.4.0
+      Added ``stream_ended`` and ``priority_updated`` properties.
     """
     def __init__(self):
         #: The Stream ID for the stream this response was made on.
@@ -53,6 +73,20 @@ class ResponseReceived(object):
 
         #: The response headers.
         self.headers = None
+
+        #: If this response also ended the stream, the associated
+        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+        #: here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.stream_ended = None
+
+        #: If this response also had associated priority information, the
+        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+        #: event will be available here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.priority_updated = None
 
     def __repr__(self):
         return "<ResponseReceived stream_id:%s, headers:%s>" % (
@@ -72,6 +106,9 @@ class TrailersReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+       Added ``stream_ended`` and ``priority_updated`` properties.
     """
     def __init__(self):
         #: The Stream ID for the stream on which these trailers were received.
@@ -79,6 +116,19 @@ class TrailersReceived(object):
 
         #: The trailers themselves.
         self.headers = None
+
+        #: Trailers always end streams. This property has the associated
+        #: :class:`StreamEnded <h2.events.StreamEnded>` in it.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.stream_ended = None
+
+        #: If the trailers also set associated priority information, the
+        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+        #: event will be available here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.priority_updated = None
 
     def __repr__(self):
         return "<TrailersReceived stream_id:%s, headers:%s>" % (
@@ -104,6 +154,9 @@ class InformationalResponseReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+       Added ``priority_updated`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this informational response was made
@@ -112,6 +165,13 @@ class InformationalResponseReceived(object):
 
         #: The headers for this informational response.
         self.headers = None
+
+        #: If this response also had associated priority information, the
+        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+        #: event will be available here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.priority_updated = None
 
     def __repr__(self):
         return "<InformationalResponseReceived stream_id:%s, headers:%s>" % (
@@ -137,6 +197,13 @@ class DataReceived(object):
         #: when adjusting flow control you should always use this field rather
         #: than ``len(data)``.
         self.flow_controlled_length = None
+
+        #: If this data chunk also completed the stream, the associated
+        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+        #: here.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.stream_ended = None
 
     def __repr__(self):
         return (
