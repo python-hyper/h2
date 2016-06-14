@@ -901,9 +901,11 @@ class H2Stream(object):
         events = self.state_machine.process_input(input_)
 
         if end_stream:
-            events += self.state_machine.process_input(
+            es_events = self.state_machine.process_input(
                 StreamInputs.RECV_END_STREAM
             )
+            events[0].stream_ended = es_events[0]
+            events += es_events
 
         self._initialize_content_length(headers)
 
@@ -926,9 +928,11 @@ class H2Stream(object):
         self._track_content_length(len(data), end_stream)
 
         if end_stream:
-            events += self.state_machine.process_input(
+            es_events = self.state_machine.process_input(
                 StreamInputs.RECV_END_STREAM
             )
+            events[0].stream_ended = es_events[0]
+            events.extend(es_events)
 
         events[0].data = data
         events[0].flow_controlled_length = flow_control_len
