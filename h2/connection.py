@@ -1402,6 +1402,7 @@ class H2Connection(object):
 
         if 'PRIORITY' in frame.flags:
             p_frames, p_events = self._receive_priority_frame(frame)
+            stream_events[0].priority_updated = p_events[0]
             stream_events.extend(p_events)
             assert not p_frames
 
