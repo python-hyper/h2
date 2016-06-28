@@ -23,6 +23,9 @@ class RequestReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+       Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this request was made on.
@@ -30,6 +33,13 @@ class RequestReceived(object):
 
         #: The request headers.
         self.headers = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return "<RequestReceived stream_id:%s, headers:%s>" % (
@@ -46,6 +56,9 @@ class ResponseReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+       Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this response was made on.
@@ -53,6 +66,13 @@ class ResponseReceived(object):
 
         #: The response headers.
         self.headers = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return "<ResponseReceived stream_id:%s, headers:%s>" % (
@@ -72,6 +92,9 @@ class TrailersReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+   .. versionchanged:: 2.4.0
+       Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream on which these trailers were received.
@@ -79,6 +102,13 @@ class TrailersReceived(object):
 
         #: The trailers themselves.
         self.headers = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return "<TrailersReceived stream_id:%s, headers:%s>" % (
@@ -104,6 +134,9 @@ class InformationalResponseReceived(object):
     .. versionchanged:: 2.3.0
        Changed the type of ``headers`` to :class:`HeaderTuple
        <hpack:hpack.HeaderTuple>`. This has no effect on current users.
+
+    .. versionchanged:: 2.4.0
+        Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this informational response was made
@@ -112,6 +145,13 @@ class InformationalResponseReceived(object):
 
         #: The headers for this informational response.
         self.headers = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return "<InformationalResponseReceived stream_id:%s, headers:%s>" % (
@@ -124,6 +164,9 @@ class DataReceived(object):
     The DataReceived event is fired whenever data is received on a stream from
     the remote peer. The event carries the data itself, and the stream ID on
     which the data was received.
+
+    .. versionchanged:: 2.4.0
+        Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this data was received on.
@@ -137,6 +180,13 @@ class DataReceived(object):
         #: when adjusting flow control you should always use this field rather
         #: than ``len(data)``.
         self.flow_controlled_length = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return (
@@ -243,10 +293,20 @@ class StreamEnded(object):
     The StreamEnded event is fired whenever a stream is ended by a remote
     party. The stream may not be fully closed if it has not been closed
     locally, but no further data or headers should be expected on that stream.
+
+    .. versionchanged:: 2.4.0
+        Added ``related_events`` property.
     """
     def __init__(self):
         #: The Stream ID of the stream that was closed.
         self.stream_id = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return "<StreamEnded stream_id:%s>" % self.stream_id
@@ -333,6 +393,9 @@ class PriorityUpdated(object):
     This event is purely advisory, and does not need to be acted on.
 
     .. versionadded:: 2.0.0
+
+    .. versionchanged:: 2.4.0
+        Added ``related_events`` property.
     """
     def __init__(self):
         #: The ID of the stream whose priority information is being updated.
@@ -349,6 +412,13 @@ class PriorityUpdated(object):
         #: does, this stream should inherit the current children of its new
         #: parent.
         self.exclusive = None
+
+        #: Any events "related" to this one: that is, any events that occurred
+        #: at the exact same time as this one because their data was carried on
+        #: the same frame. All of these events need to be processed at once.
+        #:
+        #: .. versionadded:: 2.4.0
+        self.related_events = frozenset()
 
     def __repr__(self):
         return (

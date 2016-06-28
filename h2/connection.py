@@ -1296,7 +1296,16 @@ class H2Connection(object):
 
         try:
             for frame in self.incoming_buffer:
-                events.extend(self._receive_frame(frame))
+                frame_events = self._receive_frame(frame)
+
+                # If more than one event popped out here, we want to process
+                # them as "related events".
+                if len(frame_events) > 1:
+                    event_set = frozenset(frame_events)
+                    for event in frame_events:
+                        event.related_events = event_set
+
+                events.extend(frame_events)
         except InvalidPaddingError:
             self._terminate_connection(PROTOCOL_ERROR)
             raise ProtocolError("Received frame with invalid padding.")
