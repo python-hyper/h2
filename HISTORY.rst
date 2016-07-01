@@ -20,6 +20,8 @@ API Changes (Backward-Compatible)
 - Add support for emitting stream priority information when sending headers
   frames using three new keyword arguments: ``priority_weight``,
   ``priority_depends_on``, and ``priority_exclusive``.
+- Add support for "related events": events that fire simultaneously on a single
+  frame.
 
 
 2.3.1 (2016-05-12)
