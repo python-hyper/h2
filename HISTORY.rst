@@ -16,11 +16,26 @@ API Changes (Backward-Compatible)
   frames using three new keyword arguments: ``priority_weight``,
   ``priority_depends_on``, and ``priority_exclusive``.
 
+
+2.3.1 (2016-05-12)
+------------------
+
 Bugfixes
 ~~~~~~~~
 
 - Resolved ``AttributeError`` encountered when receiving more than one sequence
   of CONTINUATION frames on a given connection.
+
+
+2.2.5 (2016-05-12)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Resolved ``AttributeError`` encountered when receiving more than one sequence
+  of CONTINUATION frames on a given connection.
+
 
 2.3.0 (2016-04-26)
 ------------------
