@@ -184,6 +184,9 @@ class DataReceived(object):
     The DataReceived event is fired whenever data is received on a stream from
     the remote peer. The event carries the data itself, and the stream ID on
     which the data was received.
+
+    .. versionchanged:: 2.4.0
+       Added ``stream_ended`` property.
     """
     def __init__(self):
         #: The Stream ID for the stream this data was received on.
