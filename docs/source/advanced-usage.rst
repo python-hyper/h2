@@ -21,6 +21,87 @@ combined with the :class:`PriorityUpdated <h2.events.PriorityUpdated>` event fro
 this library, can be used to build a server that conforms to RFC 7540's
 recommendations for priority handling.
 
+Related Events
+--------------
+
+.. versionadded:: 2.4.0
+
+In the 2.4.0 release hyper-h2 added support for signaling "related events".
+These are a HTTP/2-only construct that exist because certain HTTP/2 events can
+occur simultaneously: that is, one HTTP/2 frame can cause multiple state
+transitions to occur at the same time. One example of this is a HEADERS frame
+that contains priority information and carries the END_STREAM flag: this would
+cause three events to fire (one of the various request/response received
+events, a :class:`PriorityUpdated <h2.events.PriorityUpdated>` event, and a
+:class:`StreamEnded <h2.events.StreamEnded>` event).
+
+Ordinarily hyper-h2's logic will emit those events to you one at a time. This
+means that you may attempt to process, for example, a
+:class:`DataReceived <h2.events.DataReceived>` event, not knowing that the next
+event out will be a :class:`StreamEnded <h2.events.StreamEnded>` event.
+hyper-h2 *does* know this, however, and so will forbid you from taking certain
+actions that are a violation of the HTTP/2 protocol.
+
+To avoid this asymmetry of information, events that can occur simultaneously
+now carry properties for their "related events". These allow users to find the
+events that can have occurred simultaneously with each other before the event
+is emitted by hyper-h2. The following objects have "related events":
+
+- :class:`RequestReceived <h2.events.RequestReceived>`:
+
+    - :data:`stream_ended <h2.events.RequestReceived.stream_ended>`: any
+      :class:`StreamEnded <h2.events.StreamEnded>` event that occurred at the
+      same time as receiving this request.
+
+    - :data:`priority_updated
+      <h2.events.RequestReceived.priority_updated>`: any
+      :class:`PriorityUpdated <h2.events.PriorityUpdated>` event that occurred
+      at the same time as receiving this request.
+
+- :class:`ResponseReceived <h2.events.ResponseReceived>`:
+
+    - :data:`stream_ended <h2.events.ResponseReceived.stream_ended>`: any
+      :class:`StreamEnded <h2.events.StreamEnded>` event that occurred at the
+      same time as receiving this response.
+
+    - :data:`priority_updated
+      <h2.events.ResponseReceived.priority_updated>`: any
+      :class:`PriorityUpdated <h2.events.PriorityUpdated>` event that occurred
+      at the same time as receiving this response.
+
+- :class:`TrailersReceived <h2.events.TrailersReceived>`:
+
+    - :data:`stream_ended <h2.events.TrailersReceived.stream_ended>`: any
+      :class:`StreamEnded <h2.events.StreamEnded>` event that occurred at the
+      same time as receiving this set of trailers. This will **always** be
+      present for trailers, as they must terminate streams.
+
+    - :data:`priority_updated
+      <h2.events.TrailersReceived.priority_updated>`: any
+      :class:`PriorityUpdated <h2.events.PriorityUpdated>` event that occurred
+      at the same time as receiving this response.
+
+- :class:`InformationalResponseReceived
+  <h2.events.InformationalResponseReceived>`:
+
+    - :data:`priority_updated
+      <h2.events.InformationalResponseReceived.priority_updated>`: any
+      :class:`PriorityUpdated <h2.events.PriorityUpdated>` event that occurred
+      at the same time as receiving this informational response.
+
+- :class:`DataReceived <h2.events.DataReceived>`:
+
+    - :data:`stream_ended <h2.events.DataReceived.stream_ended>`: any
+      :class:`StreamEnded <h2.events.StreamEnded>` event that occurred at the
+      same time as receiving this data.
+
+
+.. warning:: hyper-h2 does not know if you are looking for related events or
+             expecting to find events in the event stream. Therefore, it will
+             always emit "related events" in the event stream. If you are using
+             the "related events" event pattern, you will want to be careful to
+             avoid double-processing related events.
+
 .. _h2-connection-advanced:
 
 Connections: Advanced
