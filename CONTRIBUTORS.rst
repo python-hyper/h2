@@ -67,3 +67,7 @@ In chronological order:
 - Berker Peksag (@berkerpeksag)
 
   - Improved the docstring for ``StreamIDTooLowError``.
+
+- Adrian Lewis (@aidylewis)
+
+  - Fixed the broken Twisted HEAD request example.
