@@ -11,6 +11,7 @@ import h2.connection
 import h2.errors
 import h2.events
 import h2.exceptions
+from h2.utilities import extract_method_header
 
 # These tests require a non-list-returning range function.
 try:
@@ -151,3 +152,17 @@ class TestGetNextAvailableStreamID(object):
 
         third_stream_id = c.get_next_available_stream_id()
         assert third_stream_id == (first_stream_id + 2)
+
+
+class TestExtractHeader(object):
+
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+
+    def test_extract_header_method(self):
+        assert extract_method_header(self.example_request_headers) \
+            == b'GET'
