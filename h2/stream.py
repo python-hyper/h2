@@ -668,6 +668,7 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
+        self.headers = []
 
         # The curent value of the stream flow control windows
         self.outbound_flow_control_window = 65535
@@ -731,9 +732,9 @@ class H2Stream(object):
                 "headers is deprecated and will be removed in 3.0.",
                 DeprecationWarning
             )
-            headers = headers.items()
+            self.headers = headers.items()
         except AttributeError:
-            headers = headers
+            self.headers = headers
 
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition before we encode
@@ -1050,8 +1051,13 @@ class H2Stream(object):
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
+
+        request_method = dict(self.headers)[':method']
+
         for n, v in headers:
-            if n == b'content-length':
+            if request_method == 'HEAD' and n == b'content-length':
+                self._expected_content_length = 0
+            if request_method != 'HEAD' and n == b'content-length':
                 try:
                     self._expected_content_length = int(v, 10)
                 except ValueError:
