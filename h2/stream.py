@@ -738,7 +738,7 @@ class H2Stream(object):
             headers = headers
 
         # store request method for _initialize_content_length
-        self.request_method = dict(headers)[':method']
+        self.request_method = dict(headers).get(':method')
 
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition before we encode
