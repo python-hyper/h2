@@ -437,10 +437,10 @@ signaled the request. Let's define it.
         stream_id = event.stream_id
         conn.send_headers(
             stream_id=stream_id,
-            headers=OrderedDict([
+            headers=[
                 (':status', '200'), 
                 ('server', 'basic-h2-server/1.0')
-            ]),
+            ],
         )
         conn.send_data(
             stream_id=stream_id,
@@ -525,7 +525,6 @@ With these changes, your ``h2server.py`` file should look like this:
 .. code-block:: python
 
     import socket
-    from collections import OrderedDcit
 
     import h2.connection
     import h2.events
@@ -534,10 +533,10 @@ With these changes, your ``h2server.py`` file should look like this:
         stream_id = event.stream_id
         conn.send_headers(
             stream_id=stream_id,
-            headers=OrderedDict([
+            headers=[
                 (':status', '200'),
                 ('server', 'basic-h2-server/1.0'),
-            ]),
+            ],
         )
         conn.send_data(
             stream_id=stream_id,
@@ -603,12 +602,12 @@ function to take those headers and encode them as a JSON object. Let's do that:
 
         conn.send_headers(
             stream_id=stream_id,
-            headers=OrderedDict([
+            headers=[
                 (':status', '200'),
                 ('server', 'basic-h2-server/1.0'),
                 ('content-length', str(len(response_data))),
                 ('content-type', 'application/json'),
-            ]),
+            ],
         )
         conn.send_data(
             stream_id=stream_id,
@@ -641,12 +640,12 @@ file, which should now look like this:
 
         conn.send_headers(
             stream_id=stream_id,
-            headers=OrderedDict([
+            headers=[
                 (':status', '200'),
                 ('server', 'basic-h2-server/1.0'),
                 ('content-length', str(len(response_data))),
                 ('content-type', 'application/json'),
-            ]),
+            ],
         )
         conn.send_data(
             stream_id=stream_id,
