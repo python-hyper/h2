@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers
+    secure_headers, extract_method_header
 )
 
 
@@ -668,6 +668,7 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
+        self.request_method = None
 
         # The curent value of the stream flow control windows
         self.outbound_flow_control_window = 65535
@@ -723,6 +724,7 @@ class H2Stream(object):
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
         or trailers.
         """
+
         # Convert headers to two-tuples.
         # FIXME: The fallback for dictionary headers is to be removed in 3.0.
         try:
@@ -734,6 +736,9 @@ class H2Stream(object):
             headers = headers.items()
         except AttributeError:
             headers = headers
+
+        # store request method for _initialize_content_length
+        self.request_method = extract_method_header(headers)
 
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition before we encode
@@ -1050,6 +1055,11 @@ class H2Stream(object):
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
+
+        if self.request_method == (':method', 'HEAD'):
+            self._expected_content_length = 0
+            return
+
         for n, v in headers:
             if n == b'content-length':
                 try:
