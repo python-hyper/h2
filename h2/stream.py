@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers
+    secure_headers, extract_method_header
 )
 
 
@@ -738,7 +738,7 @@ class H2Stream(object):
             headers = headers
 
         # store request method for _initialize_content_length
-        self.request_method = dict(headers).get(':method')
+        self.request_method = extract_method_header(headers)
 
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition before we encode
@@ -1056,7 +1056,7 @@ class H2Stream(object):
         Content-Length header to be present.
         """
 
-        if self.request_method == 'HEAD':
+        if self.request_method == (':method', 'HEAD'):
             self._expected_content_length = 0
             return
 

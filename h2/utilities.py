@@ -67,6 +67,20 @@ def secure_headers(headers):
             yield header
 
 
+def extract_method_header(headers):
+
+    request_header = (
+            'GET', 'HEAD',
+            'POST', 'PUT'
+            'DELETE', 'TRACE',
+            'CONNECT',
+            )
+
+    for k, v in headers:
+        if k == ':method' and v in request_header:
+            return (k, v)
+
+
 def is_informational_response(headers):
     """
     Searches a header block for a :status header to confirm that a given
