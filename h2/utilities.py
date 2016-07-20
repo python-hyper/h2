@@ -41,7 +41,7 @@ _SECURE_HEADERS = frozenset([
 ])
 
 
-def secure_headers(headers, hdr_validation_flags):
+def _secure_headers(headers, hdr_validation_flags):
     """
     Certain headers are at risk of being attacked during the header compression
     phase, and so need to be kept out of header compression contexts. This
@@ -172,7 +172,7 @@ def validate_headers(headers, hdr_validation_flags):
     """
     Validates a header sequence against a set of constraints from RFC 7540.
 
-    :param headers: An iterable of headers.
+    :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
     # This validation logic is built on a sequence of generators that are
@@ -280,33 +280,30 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
         yield header
 
 
-def _check_host_authority_header(headers, hdr_validation_flags):
+def _validate_host_authority_header(headers):
     """
-    Raises a ProtocolError if a header block arrives that does not contain
-    :authority or a Host header, or if a header block contains both fields,
-    but their values do not match.
-    """
-    # We only expect to see :authority and Host headers on request header
-    # blocks that aren't trailers, so skip this validation if we're on the
-    # server side or looking at trailer blocks.
-    if hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
-        for header in headers:
-            yield header
-        return
+    Given the :authority and Host headers from a request block that isn't
+    a trailer, check that:
+     1. At least one of these headers is set.
+     2. If both headers are set, they match.
 
+    :param headers: The HTTP header set.
+    :raises: ``ProtocolError``
+    """
     # We use None as a sentinel value.  Iterate over the list of headers,
     # and record the value of these headers (if present).  We don't need
     # to worry about receiving duplicate :authority headers, as this is
     # enforced by the _reject_pseudo_header_fields() pipeline.
     #
-    # TODO: We should also guard against receiving duplicate Host headers.
+    # TODO: We should also guard against receiving duplicate Host headers,
+    # and against sending duplicate headers.
     authority_header_val = None
     host_header_val = None
 
     for header in headers:
-        if header[0] == b':authority':
+        if header[0] in (b':authority', u':authority'):
             authority_header_val = header[1]
-        elif header[0] == b'host':
+        elif header[0] in (b'host', u'host'):
             host_header_val = header[1]
 
         yield header
@@ -320,16 +317,32 @@ def _check_host_authority_header(headers, hdr_validation_flags):
     # an :authority header nor a Host header.
     if not authority_present and not host_present:
         raise ProtocolError(
-            "Did not receive an :authority or Host header."
+            "Request header block must have an :authority or Host header."
         )
 
     # If we receive both headers, they should definitely match.
     if authority_present and host_present:
         if authority_header_val != host_header_val:
             raise ProtocolError(
-                "Received mismatched :authority and Host headers: %r / %r" %
-                (authority_header_val, host_header_val)
+                "Request header block must have matching :authority and "
+                "Host headers: %r / %r"
+                % (authority_header_val, host_header_val)
             )
+
+
+def _check_host_authority_header(headers, hdr_validation_flags):
+    """
+    Raises a ProtocolError if a header block arrives that does not contain an
+    :authority or a Host header, or if a header block contains both fields,
+    but their values do not match.
+    """
+    # We only expect to see :authority and Host headers on request header
+    # blocks that aren't trailers, so skip this validation if we're on the
+    # server side or looking at trailer blocks.
+    if hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
+        return headers
+
+    return _validate_host_authority_header(headers)
 
 
 def _lowercase_header_names(headers, hdr_validation_flags):
@@ -345,15 +358,41 @@ def _lowercase_header_names(headers, hdr_validation_flags):
             yield (header[0].lower(), header[1])
 
 
+def _check_sent_host_authority_header(headers, hdr_validation_flags):
+    """
+    Raises an InvalidHeaderBlockError if we try to send a header block
+    that does not contain an :authority or a Host header, or if
+    the header block contains both fields, but their values do not match.
+    """
+    # We only expect to see :authority and Host headers on request header
+    # blocks that aren't trailers, so skip this validation if we're on the
+    # server side or looking at trailer blocks.
+    if not hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
+        return headers
+
+    return _validate_host_authority_header(headers)
+
+
+def normalize_sent_headers(headers, hdr_validation_flags):
+    """
+    Normalizes a header sequence that we are about to send.
+
+    :param headers: The HTTP header set.
+    :param hdr_validation_flags: An instance of HeaderValidationFlags.
+    """
+    headers = _lowercase_header_names(headers, hdr_validation_flags)
+    headers = _secure_headers(headers, hdr_validation_flags)
+
+    return headers
+
+
 def validate_sent_headers(headers, hdr_validation_flags):
     """
     Validates and normalizes a header sequence that we are about to send.
 
-    :param headers: An iterable of headers.
+    :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
-    headers = _lowercase_header_names(headers, hdr_validation_flags)
-    headers = secure_headers(headers, hdr_validation_flags)
+    headers = _check_sent_host_authority_header(headers, hdr_validation_flags)
 
-    for header in headers:
-        yield header
+    return headers

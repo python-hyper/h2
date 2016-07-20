@@ -157,10 +157,10 @@ class TestGetNextAvailableStreamID(object):
 class TestExtractHeader(object):
 
     example_request_headers = [
-            (':authority', 'example.com'),
-            (':path', '/'),
-            (':scheme', 'https'),
-            (':method', 'GET'),
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
     ]
 
     def test_extract_header_method(self):

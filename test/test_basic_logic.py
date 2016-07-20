@@ -388,7 +388,10 @@ class TestBasicClient(object):
         large_binary_string = b''.join(
             random.choice(all_bytes) for _ in range(0, 256)
         )
-        test_headers = [('key', large_binary_string)]
+        test_headers = [
+            (':authority', 'example.com'),
+            ('key', large_binary_string)
+        ]
         c = h2.connection.H2Connection()
 
         # Greatly shrink the max frame size to force us over.
@@ -436,7 +439,7 @@ class TestBasicClient(object):
         """
         Sending headers using dict is deprecated but still valid.
         """
-        test_headers = {'key': 'value'}
+        test_headers = {':authority': 'example.com', 'key': 'value'}
         c = h2.connection.H2Connection()
 
         pytest.deprecated_call(c.send_headers, 1, test_headers)
