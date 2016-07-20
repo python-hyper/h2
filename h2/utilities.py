@@ -8,7 +8,7 @@ Utility functions that do not belong in a separate module.
 import collections
 import re
 
-from hpack import NeverIndexedHeaderTuple
+from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
 from .exceptions import ProtocolError, FlowControlError
 
@@ -41,7 +41,7 @@ _SECURE_HEADERS = frozenset([
 ])
 
 
-def secure_headers(headers):
+def secure_headers(headers, hdr_validation_flags):
     """
     Certain headers are at risk of being attacked during the header compression
     phase, and so need to be kept out of header compression contexts. This
@@ -172,6 +172,7 @@ def validate_headers(headers, hdr_validation_flags):
     """
     Validates a header sequence against a set of constraints from RFC 7540.
 
+    :param headers: An iterable of headers.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
     # This validation logic is built on a sequence of generators that are
@@ -329,3 +330,30 @@ def _check_host_authority_header(headers, hdr_validation_flags):
                 "Received mismatched :authority and Host headers: %r / %r" %
                 (authority_header_val, host_header_val)
             )
+
+
+def _lowercase_header_names(headers, hdr_validation_flags):
+    """
+    Given an iterable of header two-tuples, rebuilds that iterable with the
+    header names lowercased. This generator produces tuples that preserve the
+    original type of the header tuple for tuple and any ``HeaderTuple``.
+    """
+    for header in headers:
+        if isinstance(header, HeaderTuple):
+            yield header.__class__(header[0].lower(), header[1])
+        else:
+            yield (header[0].lower(), header[1])
+
+
+def validate_sent_headers(headers, hdr_validation_flags):
+    """
+    Validates and normalizes a header sequence that we are about to send.
+
+    :param headers: An iterable of headers.
+    :param hdr_validation_flags: An instance of HeaderValidationFlags.
+    """
+    headers = _lowercase_header_names(headers, hdr_validation_flags)
+    headers = secure_headers(headers, hdr_validation_flags)
+
+    for header in headers:
+        yield header

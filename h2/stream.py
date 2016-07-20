@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers, validate_headers, HeaderValidationFlags,
+    validate_headers, validate_sent_headers, HeaderValidationFlags,
     extract_method_header
 )
 
@@ -1029,8 +1029,7 @@ class H2Stream(object):
         """
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
-        headers = _lowercase_header_names(headers)
-        headers = secure_headers(headers)
+        headers = validate_sent_headers(headers, None)
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:
@@ -1096,19 +1095,6 @@ class H2Stream(object):
 
             if end_stream and expected != actual:
                 raise InvalidBodyLengthError(expected, actual)
-
-
-def _lowercase_header_names(headers):
-    """
-    Given an iterable of header two-tuples, rebuilds that iterable with the
-    header names lowercased. This generator produces tuples that preserve the
-    original type of the header tuple for tuple and any ``HeaderTuple``.
-    """
-    for header in headers:
-        if isinstance(header, HeaderTuple):
-            yield header.__class__(header[0].lower(), header[1])
-        else:
-            yield (header[0].lower(), header[1])
 
 
 def _decode_headers(headers, encoding):
