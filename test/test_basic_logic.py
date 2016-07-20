@@ -863,7 +863,8 @@ class TestBasicServer(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
-        headers_frame = frame_factory.build_headers_frame([], stream_id=23)
+        headers_frame = frame_factory.build_headers_frame(
+            [(':authority', 'example.com')], stream_id=23)
         c.receive_data(headers_frame.serialize())
 
         f = frame_factory.build_goaway_frame(

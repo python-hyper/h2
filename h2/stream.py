@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers
+    secure_headers, validate_headers, HeaderValidationFlags
 )
 
 
@@ -912,6 +912,12 @@ class H2Stream(object):
         if isinstance(events[0], TrailersReceived):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
+
+        conn_state = HeaderValidationFlags(
+            is_client=self.state_machine.client,
+            is_trailer=isinstance(events[0], TrailersReceived)
+        )
+        headers = validate_headers(headers, conn_state)
 
         if header_encoding:
             headers = list(_decode_headers(headers, header_encoding))

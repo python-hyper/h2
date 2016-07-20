@@ -35,7 +35,7 @@ from .settings import (
     MAX_CONCURRENT_STREAMS
 )
 from .stream import H2Stream
-from .utilities import validate_headers, guard_increment_window
+from .utilities import guard_increment_window
 
 
 class ConnectionState(Enum):
@@ -1387,7 +1387,6 @@ class H2Connection(object):
             # compatibility, catch all of them.
             raise ProtocolError("Error decoding header block: %s" % e)
 
-        headers = validate_headers(headers)
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
         )

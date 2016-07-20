@@ -5,6 +5,7 @@ h2/utilities
 
 Utility functions that do not belong in a separate module.
 """
+import collections
 import re
 
 from hpack import NeverIndexedHeaderTuple
@@ -147,9 +148,19 @@ def authority_from_headers(headers):
     return None
 
 
-def validate_headers(headers):
+# Flags used by the validate_headers pipeline to determine which checks
+# should be applied to a given set of headers.
+HeaderValidationFlags = collections.namedtuple(
+    'HeaderValidationFlags',
+    ['is_client', 'is_trailer']
+)
+
+
+def validate_headers(headers, hdr_validation_flags):
     """
     Validates a header sequence against a set of constraints from RFC 7540.
+
+    :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
     # This validation logic is built on a sequence of generators that are
     # iterated over to provide the final header list. This reduces some of the
@@ -160,14 +171,26 @@ def validate_headers(headers):
     # For example, we avoid tuple upacking in loops because it represents a
     # fixed cost that we don't want to spend, instead indexing into the header
     # tuples.
-    headers = _reject_uppercase_header_fields(headers)
-    headers = _reject_te(headers)
-    headers = _reject_connection_header(headers)
-    headers = _reject_pseudo_header_fields(headers)
+    headers = _reject_uppercase_header_fields(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_te(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_connection_header(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_pseudo_header_fields(
+        headers, hdr_validation_flags
+    )
+    headers = _check_host_authority_header(
+        headers, hdr_validation_flags
+    )
+
     return list(headers)
 
 
-def _reject_uppercase_header_fields(headers):
+def _reject_uppercase_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if any uppercase character is found in a header
     block.
@@ -179,7 +202,7 @@ def _reject_uppercase_header_fields(headers):
         yield header
 
 
-def _reject_te(headers):
+def _reject_te(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if the TE header is present in a header block and
     its value is anything other than "trailers".
@@ -195,7 +218,7 @@ def _reject_te(headers):
         yield header
 
 
-def _reject_connection_header(headers):
+def _reject_connection_header(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if the Connection header is present in a header
     block.
@@ -209,7 +232,7 @@ def _reject_connection_header(headers):
         yield header
 
 
-def _reject_pseudo_header_fields(headers):
+def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
     header block or if a pseudo-header field arrives in a block after an
@@ -242,3 +265,55 @@ def _reject_pseudo_header_fields(headers):
             seen_regular_header = True
 
         yield header
+
+
+def _check_host_authority_header(headers, hdr_validation_flags):
+    """
+    Raises a ProtocolError if a header block arrives that does not contain
+    :authority or a Host header, or if a header block contains both fields,
+    but their values do not match.
+    """
+    # We only expect to see :authority and Host headers on request header
+    # blocks that aren't trailers, so skip this validation if we're on the
+    # server side or looking at trailer blocks.
+    if hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
+        for header in headers:
+            yield header
+        return
+
+    # We use None as a sentinel value.  Iterate over the list of headers,
+    # and record the value of these headers (if present).  We don't need
+    # to worry about receiving duplicate :authority headers, as this is
+    # enforced by the _reject_pseudo_header_fields() pipeline.
+    #
+    # TODO: We should also guard against receiving duplicate Host headers.
+    authority_header_val = None
+    host_header_val = None
+
+    for header in headers:
+        if header[0] == b':authority':
+            authority_header_val = header[1]
+        elif header[0] == b'host':
+            host_header_val = header[1]
+
+        yield header
+
+    # If we have not-None values for these variables, then we know we saw
+    # the corresponding header.
+    authority_present = (authority_header_val is not None)
+    host_present = (host_header_val is not None)
+
+    # It is an error for a request header block to contain neither
+    # an :authority header nor a Host header.
+    if not authority_present and not host_present:
+        raise ProtocolError(
+            "Did not receive an :authority or Host header."
+        )
+
+    # If we receive both headers, they should definitely match.
+    if authority_present and host_present:
+        if authority_header_val != host_header_val:
+            raise ProtocolError(
+                "Received mismatched :authority and Host headers: %r / %r" %
+                (authority_header_val, host_header_val)
+            )
