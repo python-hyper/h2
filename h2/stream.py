@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers
+    secure_headers, extract_method_header
 )
 
 
@@ -668,6 +668,7 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
+        self.request_method = None
 
         # The curent value of the stream flow control windows
         self.outbound_flow_control_window = 65535
@@ -770,6 +771,9 @@ class H2Stream(object):
 
         if self.state_machine.client and self._authority is None:
             self._authority = authority_from_headers(headers)
+
+        # store request method for _initialize_content_length
+        self.request_method = extract_method_header(headers)
 
         return frames
 
@@ -1046,6 +1050,10 @@ class H2Stream(object):
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
+        if self.request_method == b'HEAD':
+            self._expected_content_length = 0
+            return
+
         for n, v in headers:
             if n == b'content-length':
                 try:
