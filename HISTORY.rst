@@ -10,6 +10,8 @@ Bugfixes
 - Correctly reject request header blocks with neither :authority nor Host
   headers, or header blocks which contain mismatched :authority and Host
   headers, per RFC 7540 Section 8.1.2.3.
+- Correctly expect that responses to HEAD requests will have no body regardless
+  of the value of the Content-Length header, and reject those that do.
 
 2.4.0 (2016-07-01)
 ------------------
