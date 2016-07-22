@@ -22,7 +22,9 @@ from .events import (
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
-from .utilities import guard_increment_window, is_informational_response
+from .utilities import (
+    guard_increment_window, is_informational_response, extract_method_header
+)
 
 
 class StreamState(IntEnum):
@@ -571,6 +573,7 @@ class H2Stream(object):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
+        self.request_method = None
 
         # The curent value of the stream flow control windows
         self.outbound_flow_control_window = 65535
@@ -651,6 +654,9 @@ class H2Stream(object):
 
         if self.state_machine.trailers_sent and not end_stream:
             raise ProtocolError("Trailers must have END_STREAM set.")
+
+        # store request method for _initialize_content_length
+        self.request_method = extract_method_header(headers)
 
         return frames
 
@@ -881,6 +887,10 @@ class H2Stream(object):
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
+        if self.request_method == b'HEAD':
+            self._expected_content_length = 0
+            return
+
         for n, v in headers:
             if n == 'content-length':
                 try:
