@@ -1,6 +1,15 @@
 Release History
 ===============
 
+2.2.6 (2016-08-23)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Correctly expect that responses to HEAD requests will have no body regardless
+  of the value of the Content-Length header, and reject those that do.
+
 2.2.5 (2016-05-12)
 ------------------
 
