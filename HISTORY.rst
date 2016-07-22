@@ -1,6 +1,33 @@
 Release History
 ===============
 
+2.4.1 (2016-08-23)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Correctly expect that responses to HEAD requests will have no body regardless
+  of the value of the Content-Length header, and reject those that do.
+
+2.3.2 (2016-08-23)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Correctly expect that responses to HEAD requests will have no body regardless
+  of the value of the Content-Length header, and reject those that do.
+
+2.2.6 (2016-08-23)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Correctly expect that responses to HEAD requests will have no body regardless
+  of the value of the Content-Length header, and reject those that do.
+
 2.4.0 (2016-07-01)
 ------------------
 
@@ -15,7 +42,6 @@ API Changes (Backward-Compatible)
 - Add support for emitting stream priority information when sending headers
   frames using three new keyword arguments: ``priority_weight``,
   ``priority_depends_on``, and ``priority_exclusive``.
-
 
 2.3.1 (2016-05-12)
 ------------------
