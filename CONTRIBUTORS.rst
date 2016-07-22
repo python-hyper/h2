@@ -58,3 +58,17 @@ In chronological order:
 - Gil Gonçalves (@LuRsT)
 
   - Added code forbidding non-RFC 7540 pseudo-headers.
+
+- Louis Taylor (@kragniz)
+
+  - Cleaned up the README
+
+- Berker Peksag (@berkerpeksag)
+
+  - Improved the docstring for ``StreamIDTooLowError``.
+
+- Adrian Lewis (@aidylewis)
+
+  - Fixed the broken Twisted HEAD request example.
+  - Added verification logic for ensuring that responses to HEAD requests have
+    no body.
