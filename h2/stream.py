@@ -728,12 +728,12 @@ class H2Stream(object):
         # Convert headers to two-tuples.
         # FIXME: The fallback for dictionary headers is to be removed in 3.0.
         try:
+            headers = headers.items()
             warnings.warn(
                 "Implicit conversion of dictionaries to two-tuples for "
                 "headers is deprecated and will be removed in 3.0.",
                 DeprecationWarning
             )
-            headers = headers.items()
         except AttributeError:
             headers = headers
 
