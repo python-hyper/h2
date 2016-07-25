@@ -19,6 +19,13 @@ Connection
    :members:
 
 
+Configuration
+-------------
+
+.. autoclass:: h2.config.H2Configuration
+   :members:
+
+
 .. _h2-events-api:
 
 Events
