@@ -18,9 +18,9 @@ class H2Configuration(object):
     This object has very little behaviour of its own: it mostly just ensures
     that configuration is self-consistent.
     """
-    def __init__(self):
-        self._client_side = True
-        self._header_encoding = 'utf-8'
+    def __init__(self, client_side=True, header_encoding='utf-8'):
+        self._client_side = client_side
+        self._header_encoding = header_encoding
 
     @property
     def client_side(self):
