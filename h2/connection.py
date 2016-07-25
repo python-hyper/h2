@@ -288,7 +288,6 @@ class H2Connection(object):
         self.highest_outbound_stream_id = 0
         self.encoder = Encoder()
         self.decoder = Decoder()
-        self.client_side = client_side
 
         # Objects that store settings, including defaults.
         #
@@ -321,15 +320,13 @@ class H2Connection(object):
         #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
 
-        #: Controls whether the headers emitted by this object in events are
-        #: transparently decoded to ``unicode`` strings, and what encoding is
-        #: used to do that decoding. For historical reason, this defaults to
-        #: ``'utf-8'``. To prevent the decoding of headers (that is, to force
-        #: them to be returned as bytestrings), this can be set to ``False`` or
-        #: the empty string.
+        #: The configuration for this HTTP/2 connection object.
         #:
-        #: .. versionadded:: 2.3.0
-        self.header_encoding = header_encoding
+        #: .. versionadded:: 2.5.0
+        self.config = H2Configuration(
+            client_side=client_side,
+            header_encoding=header_encoding,
+        )
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -337,12 +334,6 @@ class H2Connection(object):
         # A private variable to store a sequence of received header frames
         # until completion.
         self._header_frames = []
-
-        # Our configuration object.
-        self._config = H2Configuration(
-            client_side=client_side,
-            header_encoding=header_encoding,
-        )
 
         # Data that needs to be sent.
         self._data_to_send = b''
@@ -408,6 +399,50 @@ class H2Connection(object):
         """
         inbound_numbers = int(not self.client_side)
         return self._open_streams(inbound_numbers)
+
+    @property
+    def header_encoding(self):
+        """
+        Controls whether the headers emitted by this object in events are
+        transparently decoded to ``unicode`` strings, and what encoding is used
+        to do that decoding. For historical reason, this defaults to
+        ``'utf-8'``. To prevent the decoding of headers (that is, to force them
+        to be returned as bytestrings), this can be set to ``False`` or the
+        empty string.
+
+        .. versionadded:: 2.3.0
+
+        .. deprecated:: 2.5.0
+           Use :data:`config <H2Connection.config>` instead.
+        """
+        return self.config.header_encoding
+
+    @header_encoding.setter
+    def header_encoding(self, value):
+        """
+        Setter for header encoding config value.
+        """
+        self.config.header_encoding = value
+
+    @property
+    def client_side(self):
+        """
+        Whether this object is to be used on the client side of a connection,
+        or on the server side. Affects the logic used by the state machine, the
+        default settings values, the allowable stream IDs, and several other
+        properties. Defaults to ``True``.
+
+        .. deprecated:: 2.5.0
+           Use :data:`config <H2Connection.config>` instead.
+        """
+        return self.config.client_side
+
+    @client_side.setter
+    def client_side(self, value):
+        """
+        Setter for the client_side config value.
+        """
+        self.config.client_side = value
 
     def _begin_new_stream(self, stream_id, allowed_ids):
         """
