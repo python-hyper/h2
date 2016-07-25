@@ -437,13 +437,6 @@ class H2Connection(object):
         """
         return self.config.client_side
 
-    @client_side.setter
-    def client_side(self, value):
-        """
-        Setter for the client_side config value.
-        """
-        self.config.client_side = value
-
     def _begin_new_stream(self, stream_id, allowed_ids):
         """
         Initiate a new stream.
