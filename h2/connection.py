@@ -18,6 +18,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
+from .config import H2Configuration
 from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
@@ -336,6 +337,12 @@ class H2Connection(object):
         # A private variable to store a sequence of received header frames
         # until completion.
         self._header_frames = []
+
+        # Our configuration object.
+        self._config = H2Configuration(
+            client_side=client_side,
+            header_encoding=header_encoding,
+        )
 
         # Data that needs to be sent.
         self._data_to_send = b''
