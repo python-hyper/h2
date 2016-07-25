@@ -66,6 +66,18 @@ class TestBasicClient(object):
         assert not events
         assert c.data_to_send() == expected_data
 
+    def test_deprecated_properties(self):
+        """
+        We can access the deprecated properties.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False, header_encoding=False
+        )
+        c = h2.connection.H2Connection(config=config)
+
+        assert c.client_side is False
+        assert c.header_encoding is False
+
     def test_sending_headers(self):
         """
         Single headers frames are correctly encoded.
