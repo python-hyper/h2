@@ -6,6 +6,7 @@ h2/connection
 An implementation of a HTTP/2 connection.
 """
 import base64
+import warnings
 
 from enum import Enum, IntEnum
 
@@ -341,13 +342,12 @@ class H2Connection(object):
         #: The configuration for this HTTP/2 connection object.
         #:
         #: .. versionadded:: 2.5.0
-        if config is None:
+        self.config = config
+        if self.config is None:
             self.config = H2Configuration(
                 client_side=client_side,
                 header_encoding=header_encoding,
             )
-        else:
-            self.config = config
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
