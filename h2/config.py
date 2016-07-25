@@ -9,7 +9,7 @@ Objects for controlling the configuration of the HTTP/2 stack.
 
 class H2Configuration(object):
     """
-    An object that controlls the way a single HTTP/2 connection behaves.
+    An object that controls the way a single HTTP/2 connection behaves.
 
     This object allows the users to customize behaviour. In particular, it
     allows users to enable or disable optional features, or to otherwise handle
