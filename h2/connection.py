@@ -6,7 +6,6 @@ h2/connection
 An implementation of a HTTP/2 connection.
 """
 import base64
-import warnings
 
 from enum import Enum, IntEnum
 
