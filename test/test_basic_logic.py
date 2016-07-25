@@ -11,6 +11,7 @@ import sys
 import hyperframe
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -142,7 +143,8 @@ class TestBasicClient(object):
         When receiving a response, the ResponseReceived event fires with bytes
         headers if the encoding is set appropriately.
         """
-        c = h2.connection.H2Connection(header_encoding=False)
+        config = h2.config.H2Configuration(header_encoding=False)
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
@@ -165,7 +167,8 @@ class TestBasicClient(object):
         headers if the encoding is set appropriately, but if this changes then
         the change reflects it.
         """
-        c = h2.connection.H2Connection(header_encoding=False)
+        config = h2.config.H2Configuration(header_encoding=False)
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
