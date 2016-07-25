@@ -159,6 +159,43 @@ class TestBasicClient(object):
         assert event.stream_id == 1
         assert event.headers == self.bytes_example_response_headers
 
+    def test_receiving_a_response_change_encoding(self, frame_factory):
+        """
+        When receiving a response, the ResponseReceived event fires with bytes
+        headers if the encoding is set appropriately, but if this changes then
+        the change reflects it.
+        """
+        c = h2.connection.H2Connection(header_encoding=False)
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.bytes_example_response_headers
+
+        c.send_headers(3, self.example_request_headers, end_stream=True)
+        c.header_encoding = 'utf-8'
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers,
+            stream_id=3,
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 3
+        assert event.headers == self.example_response_headers
+
     def test_end_stream_without_data(self, frame_factory):
         """
         Ending a stream without data emits a zero-length DATA frame with
