@@ -253,10 +253,17 @@ class H2Connection(object):
     .. versionchanged:: 2.3.0
        Added the ``header_encoding`` keyword argument.
 
+    .. versionchanged:: 2.5.0
+       Added the ``config`` keyword argument. Deprecated the ``client_side``
+       and ``header_encoding`` parameters.
+
     :param client_side: Whether this object is to be used on the client side of
         a connection, or on the server side. Affects the logic used by the
         state machine, the default settings values, the allowable stream IDs,
         and several other properties. Defaults to ``True``.
+
+        .. deprecated:: 2.5.0
+
     :type client_side: ``bool``
 
     :param header_encoding: Controls whether the headers emitted by this object
@@ -265,7 +272,18 @@ class H2Connection(object):
         defaults to ``'utf-8'``. To prevent the decoding of headers (that is,
         to force them to be returned as bytestrings), this can be set to
         ``False`` or the empty string.
+
+        .. deprecated:: 2.5.0
+
     :type header_encoding: ``str`` or ``False``
+
+    :param config: The configuration for the HTTP/2 connection. If provided,
+        supersedes the deprecated ``client_side`` and ``header_encoding``
+        values.
+
+        .. versionadded:: 2.5.0
+
+    :type config: :class:`H2Configuration <h2.config.H2Configuration>`
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
@@ -281,7 +299,7 @@ class H2Connection(object):
     # The largest acceptable window increment.
     MAX_WINDOW_INCREMENT = 2**31 - 1
 
-    def __init__(self, client_side=True, header_encoding='utf-8'):
+    def __init__(self, client_side=True, header_encoding='utf-8', config=None):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_inbound_stream_id = 0
@@ -323,10 +341,13 @@ class H2Connection(object):
         #: The configuration for this HTTP/2 connection object.
         #:
         #: .. versionadded:: 2.5.0
-        self.config = H2Configuration(
-            client_side=client_side,
-            header_encoding=header_encoding,
-        )
+        if config is None:
+            self.config = H2Configuration(
+                client_side=client_side,
+                header_encoding=header_encoding,
+            )
+        else:
+            self.config = config
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
