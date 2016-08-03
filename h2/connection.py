@@ -18,6 +18,7 @@ from hyperframe.frame import (
 from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
+from .config import H2Configuration
 from .errors import PROTOCOL_ERROR, REFUSED_STREAM
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
@@ -252,10 +253,17 @@ class H2Connection(object):
     .. versionchanged:: 2.3.0
        Added the ``header_encoding`` keyword argument.
 
+    .. versionchanged:: 2.5.0
+       Added the ``config`` keyword argument. Deprecated the ``client_side``
+       and ``header_encoding`` parameters.
+
     :param client_side: Whether this object is to be used on the client side of
         a connection, or on the server side. Affects the logic used by the
         state machine, the default settings values, the allowable stream IDs,
         and several other properties. Defaults to ``True``.
+
+        .. deprecated:: 2.5.0
+
     :type client_side: ``bool``
 
     :param header_encoding: Controls whether the headers emitted by this object
@@ -264,7 +272,18 @@ class H2Connection(object):
         defaults to ``'utf-8'``. To prevent the decoding of headers (that is,
         to force them to be returned as bytestrings), this can be set to
         ``False`` or the empty string.
+
+        .. deprecated:: 2.5.0
+
     :type header_encoding: ``str`` or ``False``
+
+    :param config: The configuration for the HTTP/2 connection. If provided,
+        supersedes the deprecated ``client_side`` and ``header_encoding``
+        values.
+
+        .. versionadded:: 2.5.0
+
+    :type config: :class:`H2Configuration <h2.config.H2Configuration>`
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
@@ -280,14 +299,13 @@ class H2Connection(object):
     # The largest acceptable window increment.
     MAX_WINDOW_INCREMENT = 2**31 - 1
 
-    def __init__(self, client_side=True, header_encoding='utf-8'):
+    def __init__(self, client_side=True, header_encoding='utf-8', config=None):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_inbound_stream_id = 0
         self.highest_outbound_stream_id = 0
         self.encoder = Encoder()
         self.decoder = Decoder()
-        self.client_side = client_side
 
         # Objects that store settings, including defaults.
         #
@@ -320,15 +338,15 @@ class H2Connection(object):
         #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
 
-        #: Controls whether the headers emitted by this object in events are
-        #: transparently decoded to ``unicode`` strings, and what encoding is
-        #: used to do that decoding. For historical reason, this defaults to
-        #: ``'utf-8'``. To prevent the decoding of headers (that is, to force
-        #: them to be returned as bytestrings), this can be set to ``False`` or
-        #: the empty string.
+        #: The configuration for this HTTP/2 connection object.
         #:
-        #: .. versionadded:: 2.3.0
-        self.header_encoding = header_encoding
+        #: .. versionadded:: 2.5.0
+        self.config = config
+        if self.config is None:
+            self.config = H2Configuration(
+                client_side=client_side,
+                header_encoding=header_encoding,
+            )
 
         # Buffer for incoming data.
         self.incoming_buffer = FrameBuffer(server=not client_side)
@@ -391,7 +409,7 @@ class H2Connection(object):
         """
         The current number of open outbound streams.
         """
-        outbound_numbers = int(self.client_side)
+        outbound_numbers = int(self.config.client_side)
         return self._open_streams(outbound_numbers)
 
     @property
@@ -399,8 +417,45 @@ class H2Connection(object):
         """
         The current number of open inbound streams.
         """
-        inbound_numbers = int(not self.client_side)
+        inbound_numbers = int(not self.config.client_side)
         return self._open_streams(inbound_numbers)
+
+    @property
+    def header_encoding(self):
+        """
+        Controls whether the headers emitted by this object in events are
+        transparently decoded to ``unicode`` strings, and what encoding is used
+        to do that decoding. For historical reason, this defaults to
+        ``'utf-8'``. To prevent the decoding of headers (that is, to force them
+        to be returned as bytestrings), this can be set to ``False`` or the
+        empty string.
+
+        .. versionadded:: 2.3.0
+
+        .. deprecated:: 2.5.0
+           Use :data:`config <H2Connection.config>` instead.
+        """
+        return self.config.header_encoding
+
+    @header_encoding.setter
+    def header_encoding(self, value):
+        """
+        Setter for header encoding config value.
+        """
+        self.config.header_encoding = value
+
+    @property
+    def client_side(self):
+        """
+        Whether this object is to be used on the client side of a connection,
+        or on the server side. Affects the logic used by the state machine, the
+        default settings values, the allowable stream IDs, and several other
+        properties. Defaults to ``True``.
+
+        .. deprecated:: 2.5.0
+           Use :data:`config <H2Connection.config>` instead.
+        """
+        return self.config.client_side
 
     def _begin_new_stream(self, stream_id, allowed_ids):
         """
@@ -449,7 +504,7 @@ class H2Connection(object):
         Must be called for both clients and servers.
         """
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
-        if self.client_side:
+        if self.config.client_side:
             preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
         else:
             preamble = b''
@@ -495,7 +550,7 @@ class H2Connection(object):
         """
         frame_data = None
 
-        if self.client_side:
+        if self.config.client_side:
             f = SettingsFrame(0)
             for setting, value in self.local_settings.items():
                 f.settings[setting] = value
@@ -509,14 +564,14 @@ class H2Connection(object):
         self.initiate_connection()
 
         connection_input = (
-            ConnectionInputs.SEND_HEADERS if self.client_side
+            ConnectionInputs.SEND_HEADERS if self.config.client_side
             else ConnectionInputs.RECV_HEADERS
         )
         self.state_machine.process_input(connection_input)
 
         # Set up stream 1.
         self._begin_new_stream(stream_id=1, allowed_ids=AllowedStreamIDs.ODD)
-        self.streams[1].upgrade(self.client_side)
+        self.streams[1].upgrade(self.config.client_side)
         return frame_data
 
     def _get_or_create_stream(self, stream_id, allowed_ids):
@@ -581,7 +636,7 @@ class H2Connection(object):
         # No streams have been opened yet, so return the lowest allowed stream
         # ID.
         if not self.highest_outbound_stream_id:
-            return 1 if self.client_side else 2
+            return 1 if self.config.client_side else 2
 
         next_stream_id = self.highest_outbound_stream_id + 2
         if next_stream_id > self.HIGHEST_ALLOWED_STREAM_ID:
@@ -702,7 +757,7 @@ class H2Connection(object):
 
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = self._get_or_create_stream(
-            stream_id, AllowedStreamIDs(self.client_side)
+            stream_id, AllowedStreamIDs(self.config.client_side)
         )
         frames = stream.send_headers(
             headers, self.encoder, end_stream
@@ -716,7 +771,7 @@ class H2Connection(object):
         )
 
         if priority_present:
-            if not self.client_side:
+            if not self.config.client_side:
                 raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
 
             headers_frame = frames[0]
@@ -1111,7 +1166,7 @@ class H2Connection(object):
             of the new exclusively-dependent stream. Defaults to ``False``.
         :type exclusive: ``bool``
         """
-        if not self.client_side:
+        if not self.config.client_side:
             raise RFC1122Error("Servers SHOULD NOT prioritize streams.")
 
         self.state_machine.process_input(
@@ -1391,12 +1446,12 @@ class H2Connection(object):
             ConnectionInputs.RECV_HEADERS
         )
         stream = self._get_or_create_stream(
-            frame.stream_id, AllowedStreamIDs(not self.client_side)
+            frame.stream_id, AllowedStreamIDs(not self.config.client_side)
         )
         frames, stream_events = stream.receive_headers(
             headers,
             'END_STREAM' in frame.flags,
-            self.header_encoding
+            self.config.header_encoding
         )
 
         if 'PRIORITY' in frame.flags:
@@ -1450,7 +1505,7 @@ class H2Connection(object):
         frames, stream_events = stream.receive_push_promise_in_band(
             frame.promised_stream_id,
             pushed_headers,
-            self.header_encoding,
+            self.config.header_encoding,
         )
 
         new_stream = self._begin_new_stream(
@@ -1692,7 +1747,7 @@ class H2Connection(object):
                 return frames, events
 
             # If we're a server, we want to ignore this (RFC 7838 says so).
-            if not self.client_side:
+            if not self.config.client_side:
                 return frames, events
 
             event = AlternativeServiceAvailable()
@@ -1722,7 +1777,7 @@ class H2Connection(object):
         Returns ``True`` if the stream ID corresponds to an outbound stream
         (one initiated by this peer), returns ``False`` otherwise.
         """
-        return (stream_id % 2 == int(self.client_side))
+        return (stream_id % 2 == int(self.config.client_side))
 
 
 def _add_frame_priority(frame, weight=None, depends_on=None, exclusive=None):

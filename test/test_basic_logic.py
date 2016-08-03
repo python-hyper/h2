@@ -11,6 +11,7 @@ import sys
 import hyperframe
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -64,6 +65,18 @@ class TestBasicClient(object):
         events = c.initiate_connection()
         assert not events
         assert c.data_to_send() == expected_data
+
+    def test_deprecated_properties(self):
+        """
+        We can access the deprecated properties.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False, header_encoding=False
+        )
+        c = h2.connection.H2Connection(config=config)
+
+        assert c.client_side is False
+        assert c.header_encoding is False
 
     def test_sending_headers(self):
         """
@@ -142,7 +155,8 @@ class TestBasicClient(object):
         When receiving a response, the ResponseReceived event fires with bytes
         headers if the encoding is set appropriately.
         """
-        c = h2.connection.H2Connection(header_encoding=False)
+        config = h2.config.H2Configuration(header_encoding=False)
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
@@ -158,6 +172,44 @@ class TestBasicClient(object):
         assert isinstance(event, h2.events.ResponseReceived)
         assert event.stream_id == 1
         assert event.headers == self.bytes_example_response_headers
+
+    def test_receiving_a_response_change_encoding(self, frame_factory):
+        """
+        When receiving a response, the ResponseReceived event fires with bytes
+        headers if the encoding is set appropriately, but if this changes then
+        the change reflects it.
+        """
+        config = h2.config.H2Configuration(header_encoding=False)
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 1
+        assert event.headers == self.bytes_example_response_headers
+
+        c.send_headers(3, self.example_request_headers, end_stream=True)
+        c.header_encoding = 'utf-8'
+        f = frame_factory.build_headers_frame(
+            self.example_response_headers,
+            stream_id=3,
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 3
+        assert event.headers == self.example_response_headers
 
     def test_end_stream_without_data(self, frame_factory):
         """
