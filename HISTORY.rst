@@ -4,6 +4,13 @@ Release History
 2.5.0dev0
 ---------
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added a new ``H2Configuration`` object that allows rich configuration of
+  a ``H2Connection``. This object supersedes the prior keyword arguments to the
+  ``H2Connection`` object, which are now deprecated and will be removed in 3.0.
+
 Bugfixes
 ~~~~~~~~
 
