@@ -1,4 +1,5 @@
 pytest==2.9.2
 pytest-cov==2.3.0
+coverage==4.2
 pytest-xdist==1.14
 hypothesis==3.4.2
