@@ -140,6 +140,10 @@ Protocol Errors
    :show-inheritance:
    :members:
 
+.. autoclass:: h2.exceptions.DenialOfServiceError
+   :show-inheritance:
+   :members:
+
 
 HTTP/2 Error Codes
 ------------------
