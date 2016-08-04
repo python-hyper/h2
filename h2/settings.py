@@ -44,6 +44,8 @@ except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
 #: the sender is prepared to accept, in octets.  The value is based on the
 #: uncompressed size of header fields, including the length of the name and
 #: value in octets plus an overhead of 32 octets for each header field.
+#:
+#: .. versionadded:: 2.5.0
 try:  # Platform-specific: Hyperframe < 4.0.0
     MAX_HEADER_LIST_SIZE = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
 except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
@@ -80,6 +82,9 @@ class Settings(collections.MutableMapping):
 
     .. versionchanged:: 2.2.0
        Added the ``initial_values`` parameter.
+
+    .. versionchanged:: 2.5.0
+       Added the ``max_header_list_size`` property.
 
     :param client: (optional) Whether these settings should be defaulted for a
         client implementation or a server implementation. Defaults to ``True``.
@@ -199,6 +204,8 @@ class Settings(collections.MutableMapping):
         The current value of the :data:`MAX_HEADER_LIST_SIZE
         <h2.settings.MAX_HEADER_LIST_SIZE>` setting. If not set, returns
         ``None``, which means unlimited.
+
+        .. versionadded:: 2.5.0
         """
         return self.get(MAX_HEADER_LIST_SIZE, None)
 
