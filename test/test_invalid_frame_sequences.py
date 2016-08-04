@@ -388,6 +388,32 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    def test_invalid_push_promise_data_protocol_error(self, frame_factory):
+        """
+        If an invalid header block is received on a PUSH_PROMISE, we raise a
+        ProtocolError.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers
+        )
+        f.data = b'\x00\x00\x00\x00'
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0,
+            error_code=h2.errors.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
     def test_cannot_receive_push_on_pushed_stream(self, frame_factory):
         """
         If a PUSH_PROMISE frame is received with the parent stream ID being a

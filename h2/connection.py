@@ -1500,11 +1500,15 @@ class H2Connection(object):
 
         try:
             pushed_headers = self.decoder.decode(frame.data, raw=True)
-        except (HPACKError, IndexError, TypeError, UnicodeDecodeError,
-                OversizedHeaderListError) as e:
-            # We should only need HPACKError and OversizedHeaderListError here,
-            # but versions of HPACK older than 2.1.0 throw all three others as
-            # well. For maximum compatibility, catch all of them.
+        except OversizedHeaderListError as e:
+            # This is a symptom of a HPACK bomb attack: the user has
+            # disregarded our requirements on how large a header block we'll
+            # accept.
+            raise DenialOfServiceError("Oversized header block: %s" % e)
+        except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
+            # We should only need HPACKError here, but versions of HPACK older
+            # than 2.1.0 throw all three others as well. For maximum
+            # compatibility, catch all of them.
             raise ProtocolError("Error decoding header block: %s" % e)
 
         events = self.state_machine.process_input(
