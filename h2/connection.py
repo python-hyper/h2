@@ -33,7 +33,7 @@ from .exceptions import (
 from .frame_buffer import FrameBuffer
 from .settings import (
     Settings, HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_FRAME_SIZE,
-    MAX_CONCURRENT_STREAMS
+    MAX_CONCURRENT_STREAMS, MAX_HEADER_LIST_SIZE
 )
 from .stream import H2Stream
 from .utilities import guard_increment_window
@@ -299,6 +299,9 @@ class H2Connection(object):
     # The largest acceptable window increment.
     MAX_WINDOW_INCREMENT = 2**31 - 1
 
+    # The initial default value of SETTINGS_MAX_HEADER_LIST_SIZE.
+    DEFAULT_MAX_HEADER_LIST_SIZE = 2**16
+
     def __init__(self, client_side=True, header_encoding='utf-8', config=None):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
@@ -306,6 +309,10 @@ class H2Connection(object):
         self.highest_outbound_stream_id = 0
         self.encoder = Encoder()
         self.decoder = Decoder()
+
+        # This won't always actually do anything: for versions of HPACK older
+        # than 2.3.0 it does nothing. However, we have to try!
+        self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
 
         # Objects that store settings, including defaults.
         #
@@ -315,9 +322,17 @@ class H2Connection(object):
         # they will be used. 100 should be suitable for the average
         # application. This default obviously does not apply to the remote
         # peer's settings: the remote peer controls them!
+        #
+        # We also set MAX_HEADER_LIST_SIZE to a reasonable value. This is to
+        # advertise our defence against CVE-2016-6581. However, not all
+        # versions of HPACK will let us do it. That's ok: we should at least
+        # suggest that we're not vulnerable.
         self.local_settings = Settings(
             client=client_side,
-            initial_values={MAX_CONCURRENT_STREAMS: 100}
+            initial_values={
+                MAX_CONCURRENT_STREAMS: 100,
+                MAX_HEADER_LIST_SIZE: self.DEFAULT_MAX_HEADER_LIST_SIZE,
+            }
         )
         self.remote_settings = Settings(client=not client_side)
 
@@ -1769,6 +1784,10 @@ class H2Connection(object):
                 setting.original_value,
                 setting.new_value,
             )
+
+        if MAX_HEADER_LIST_SIZE in changes:
+            setting = changes[MAX_HEADER_LIST_SIZE]
+            self.decoder.max_header_list_size = setting
 
         return changes
 
