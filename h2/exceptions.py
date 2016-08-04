@@ -170,3 +170,17 @@ class RFC1122Error(H2Error):
     # shazow says I'm going to regret naming the exception this way. If that
     # turns out to be true, TELL HIM NOTHING.
     pass
+
+
+class DenialOfServiceError(ProtocolError):
+    """
+    Emitted when the remote peer exhibits a behaviour that is likely to be an
+    attempt to perform a Denial of Service attack on the implementation. This
+    is a form of ProtocolError that carries a different error code, and allows
+    more easy detection of this kind of behaviour.
+
+    .. versionadded:: 2.5.0
+    """
+    #: The error code that corresponds to this kind of
+    #: :class:`ProtocolError <h2.exceptions.ProtocolError>`
+    error_code = h2.errors.ENHANCE_YOUR_CALM

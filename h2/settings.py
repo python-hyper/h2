@@ -33,12 +33,31 @@ MAX_CONCURRENT_STREAMS = SettingsFrame.MAX_CONCURRENT_STREAMS
 #: control.
 INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
 
-#: Indicates the size of the largest frame payload that the sender is willing
-#: to receive, in octets.
 try:  # Platform-specific: Hyperframe < 4.0.0
+    #: Indicates the size of the largest frame payload that the sender is
+    #: willing to receive, in octets.
     MAX_FRAME_SIZE = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
 except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
+    #: Indicates the size of the largest frame payload that the sender is
+    #: willing to receive, in octets.
     MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
+
+try:  # Platform-specific: Hyperframe < 4.0.0
+    #: This advisory setting informs a peer of the maximum size of header list
+    #: that the sender is prepared to accept, in octets.  The value is based on
+    #: the uncompressed size of header fields, including the length of the name
+    #: and value in octets plus an overhead of 32 octets for each header field.
+    #:
+    #: .. versionadded:: 2.5.0
+    MAX_HEADER_LIST_SIZE = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
+except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
+    #: This advisory setting informs a peer of the maximum size of header list
+    #: that the sender is prepared to accept, in octets.  The value is based on
+    #: the uncompressed size of header fields, including the length of the name
+    #: and value in octets plus an overhead of 32 octets for each header field.
+    #:
+    #: .. versionadded:: 2.5.0
+    MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
 
 
 #: A value structure for storing changed settings.
@@ -71,6 +90,9 @@ class Settings(collections.MutableMapping):
 
     .. versionchanged:: 2.2.0
        Added the ``initial_values`` parameter.
+
+    .. versionchanged:: 2.5.0
+       Added the ``max_header_list_size`` property.
 
     :param client: (optional) Whether these settings should be defaulted for a
         client implementation or a server implementation. Defaults to ``True``.
@@ -184,6 +206,21 @@ class Settings(collections.MutableMapping):
     def max_concurrent_streams(self, value):
         self[MAX_CONCURRENT_STREAMS] = value
 
+    @property
+    def max_header_list_size(self):
+        """
+        The current value of the :data:`MAX_HEADER_LIST_SIZE
+        <h2.settings.MAX_HEADER_LIST_SIZE>` setting. If not set, returns
+        ``None``, which means unlimited.
+
+        .. versionadded:: 2.5.0
+        """
+        return self.get(MAX_HEADER_LIST_SIZE, None)
+
+    @max_header_list_size.setter
+    def max_header_list_size(self, value):
+        self[MAX_HEADER_LIST_SIZE] = value
+
     # Implement the MutableMapping API.
     def __getitem__(self, key):
         val = self._settings[key][0]
@@ -234,6 +271,9 @@ def _validate_setting(setting, value):
             return FLOW_CONTROL_ERROR
     elif setting == MAX_FRAME_SIZE:
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
+            return PROTOCOL_ERROR
+    elif setting == MAX_HEADER_LIST_SIZE:
+        if not value > 0:
             return PROTOCOL_ERROR
 
     return 0
