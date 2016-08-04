@@ -1812,7 +1812,7 @@ class H2Connection(object):
 
         if MAX_HEADER_LIST_SIZE in changes:
             setting = changes[MAX_HEADER_LIST_SIZE]
-            self.decoder.max_header_list_size = setting
+            self.decoder.max_header_list_size = setting.new_value
 
         return changes
 
