@@ -1458,18 +1458,7 @@ class H2Connection(object):
         # Let's decode the headers. We handle headers as bytes internally up
         # until we hang them off the event, at which point we may optionally
         # convert them to unicode.
-        try:
-            headers = self.decoder.decode(frame.data, raw=True)
-        except OversizedHeaderListError as e:
-            # This is a symptom of a HPACK bomb attack: the user has
-            # disregarded our requirements on how large a header block we'll
-            # accept.
-            raise DenialOfServiceError("Oversized header block: %s" % e)
-        except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
-            # We should only need HPACKError here, but versions of HPACK older
-            # than 2.1.0 throw all three others as well. For maximum
-            # compatibility, catch all of them.
-            raise ProtocolError("Error decoding header block: %s" % e)
+        headers = _decode_headers(self.decoder, frame.data)
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_HEADERS
@@ -1498,18 +1487,7 @@ class H2Connection(object):
         if not self.local_settings.enable_push:
             raise ProtocolError("Received pushed stream")
 
-        try:
-            pushed_headers = self.decoder.decode(frame.data, raw=True)
-        except OversizedHeaderListError as e:
-            # This is a symptom of a HPACK bomb attack: the user has
-            # disregarded our requirements on how large a header block we'll
-            # accept.
-            raise DenialOfServiceError("Oversized header block: %s" % e)
-        except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
-            # We should only need HPACKError here, but versions of HPACK older
-            # than 2.1.0 throw all three others as well. For maximum
-            # compatibility, catch all of them.
-            raise ProtocolError("Error decoding header block: %s" % e)
+        pushed_headers = _decode_headers(self.decoder, frame.data)
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
@@ -1861,3 +1839,25 @@ def _add_frame_priority(frame, weight=None, depends_on=None, exclusive=None):
     frame.exclusive = exclusive
 
     return frame
+
+
+def _decode_headers(decoder, encoded_header_block):
+    """
+    Decode a HPACK-encoded header block, translating HPACK exceptions into
+    sensible hyper-h2 errors.
+
+    This only ever returns bytestring headers: hyper-h2 may emit them as
+    unicode later, but internally it processes them as bytestrings only.
+    """
+    try:
+        return decoder.decode(encoded_header_block, raw=True)
+    except OversizedHeaderListError as e:
+        # This is a symptom of a HPACK bomb attack: the user has
+        # disregarded our requirements on how large a header block we'll
+        # accept.
+        raise DenialOfServiceError("Oversized header block: %s" % e)
+    except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
+        # We should only need HPACKError here, but versions of HPACK older
+        # than 2.1.0 throw all three others as well. For maximum
+        # compatibility, catch all of them.
+        raise ProtocolError("Error decoding header block: %s" % e)
