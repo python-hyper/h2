@@ -14,6 +14,8 @@ import h2.events
 import h2.exceptions
 import h2.utilities
 
+import hyperframe.frame
+
 from hypothesis import given
 from hypothesis.strategies import binary, lists, tuples
 
@@ -148,3 +150,133 @@ class TestFilter(object):
         )
         assert headers == h2.utilities.validate_headers(
             headers, hdr_validation_flags)
+
+
+class TestOversizedHeaders(object):
+    """
+    Tests that oversized header blocks are correctly rejected. This replicates
+    the "HPACK Bomb" attack, and confirms that we're resistent against it.
+    """
+    request_header_block = [
+        (b':method', b'GET'),
+        (b':authority', b'example.com'),
+        (b':scheme', b'https'),
+        (b':path', b'/'),
+    ]
+
+    response_header_block = [
+        (b':status', b'200'),
+    ]
+
+    # The first header block contains a single header that fills the header
+    # table. To do that, we'll give it a single-character header name and a
+    # 4063 byte header value. This will make it exactly the size of the header
+    # table. It must come last, so that it evicts all other headers.
+    # This block must be appended to either a request or response block.
+    first_header_block = [
+        (b'a', b'a' * 4063),
+    ]
+
+    # The second header "block" is actually a custom HEADERS frame body that
+    # simply repeatedly refers to the first entry for 16kB. Each byte has the
+    # high bit set (0x80), and then uses the remaining 7 bits to encode the
+    # number 62 (0x3e), leading to a repeat of the byte 0xbe.
+    second_header_block = b'\xbe' * 2**14
+
+    def test_hpack_bomb_request(self, frame_factory):
+        """
+        A HPACK bomb request causes the connection to be torn down with the
+        error code ENHANCE_YOUR_CALM.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            self.request_header_block + self.first_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Build the attack payload.
+        attack_frame = hyperframe.frame.HeadersFrame(stream_id=3)
+        attack_frame.data = self.second_header_block
+        attack_frame.flags.add('END_HEADERS')
+        data = attack_frame.serialize()
+
+        with pytest.raises(h2.exceptions.DenialOfServiceError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.ENHANCE_YOUR_CALM
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_hpack_bomb_response(self, frame_factory):
+        """
+        A HPACK bomb response causes the connection to be torn down with the
+        error code ENHANCE_YOUR_CALM.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1, headers=self.request_header_block
+        )
+        c.send_headers(
+            stream_id=3, headers=self.request_header_block
+        )
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            self.response_header_block + self.first_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Build the attack payload.
+        attack_frame = hyperframe.frame.HeadersFrame(stream_id=3)
+        attack_frame.data = self.second_header_block
+        attack_frame.flags.add('END_HEADERS')
+        data = attack_frame.serialize()
+
+        with pytest.raises(h2.exceptions.DenialOfServiceError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0, error_code=h2.errors.ENHANCE_YOUR_CALM
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_hpack_bomb_push(self, frame_factory):
+        """
+        A HPACK bomb push causes the connection to be torn down with the
+        error code ENHANCE_YOUR_CALM.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1, headers=self.request_header_block
+        )
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(
+            self.response_header_block + self.first_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Build the attack payload. We need to shrink it by four bytes because
+        # the promised_stream_id consumes four bytes of body.
+        attack_frame = hyperframe.frame.PushPromiseFrame(stream_id=3)
+        attack_frame.promised_stream_id = 2
+        attack_frame.data = self.second_header_block[:-4]
+        attack_frame.flags.add('END_HEADERS')
+        data = attack_frame.serialize()
+
+        with pytest.raises(h2.exceptions.DenialOfServiceError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0, error_code=h2.errors.ENHANCE_YOUR_CALM
+        )
+        assert c.data_to_send() == expected_frame.serialize()
