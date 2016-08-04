@@ -1493,7 +1493,14 @@ class H2Connection(object):
         if not self.local_settings.enable_push:
             raise ProtocolError("Received pushed stream")
 
-        pushed_headers = self.decoder.decode(frame.data, raw=True)
+        try:
+            pushed_headers = self.decoder.decode(frame.data, raw=True)
+        except (HPACKError, IndexError, TypeError, UnicodeDecodeError,
+                OversizedHeaderListError) as e:
+            # We should only need HPACKError and OversizedHeaderListError here,
+            # but versions of HPACK older than 2.1.0 throw all three others as
+            # well. For maximum compatibility, catch all of them.
+            raise ProtocolError("Error decoding header block: %s" % e)
 
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_PUSH_PROMISE
