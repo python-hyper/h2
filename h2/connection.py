@@ -38,6 +38,14 @@ from .settings import (
 from .stream import H2Stream
 from .utilities import guard_increment_window
 
+try:
+    from hpack.exceptions import OversizedHeaderListError
+except ImportError:  # Platform-specific: HPACK < 2.3.0
+    # If the exception doesn't exist, it cannot possibly be thrown. Define a
+    # placeholder name, but don't otherwise worry about it.
+    class OversizedHeaderListError(Exception):
+        pass
+
 
 class ConnectionState(Enum):
     IDLE = 0
@@ -1451,10 +1459,11 @@ class H2Connection(object):
         # convert them to unicode.
         try:
             headers = self.decoder.decode(frame.data, raw=True)
-        except (HPACKError, IndexError, TypeError, UnicodeDecodeError) as e:
-            # We should only need HPACKError here, but versions of HPACK
-            # older than 2.1.0 throw all three others as well. For maximum
-            # compatibility, catch all of them.
+        except (HPACKError, IndexError, TypeError, UnicodeDecodeError,
+                OversizedHeaderListError) as e:
+            # We should only need HPACKError and OversizedHeaderListError here,
+            # but versions of HPACK older than 2.1.0 throw all three others as
+            # well. For maximum compatibility, catch all of them.
             raise ProtocolError("Error decoding header block: %s" % e)
 
         events = self.state_machine.process_input(
