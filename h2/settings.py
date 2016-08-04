@@ -40,6 +40,15 @@ try:  # Platform-specific: Hyperframe < 4.0.0
 except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
     MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
 
+#: This advisory setting informs a peer of the maximum size of header list that
+#: the sender is prepared to accept, in octets.  The value is based on the
+#: uncompressed size of header fields, including the length of the name and
+#: value in octets plus an overhead of 32 octets for each header field.
+try:  # Platform-specific: Hyperframe < 4.0.0
+    MAX_HEADER_LIST_SIZE = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
+except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
+    MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
+
 
 #: A value structure for storing changed settings.
 ChangedSetting = collections.namedtuple(
@@ -184,6 +193,19 @@ class Settings(collections.MutableMapping):
     def max_concurrent_streams(self, value):
         self[MAX_CONCURRENT_STREAMS] = value
 
+    @property
+    def max_header_list_size(self):
+        """
+        The current value of the :data:`MAX_HEADER_LIST_SIZE
+        <h2.settings.MAX_HEADER_LIST_SIZE>` setting. If not set, returns
+        ``None``, which means unlimited.
+        """
+        return self.get(MAX_HEADER_LIST_SIZE, None)
+
+    @max_header_list_size.setter
+    def max_header_list_size(self, value):
+        self[MAX_HEADER_LIST_SIZE] = value
+
     # Implement the MutableMapping API.
     def __getitem__(self, key):
         val = self._settings[key][0]
@@ -234,6 +256,9 @@ def _validate_setting(setting, value):
             return FLOW_CONTROL_ERROR
     elif setting == MAX_FRAME_SIZE:
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
+            return PROTOCOL_ERROR
+    elif setting == MAX_HEADER_LIST_SIZE:
+        if not value > 0:
             return PROTOCOL_ERROR
 
     return 0
