@@ -51,6 +51,7 @@ class TestSettings(object):
             h2.settings.HEADER_TABLE_SIZE: 8080,
             h2.settings.MAX_FRAME_SIZE: 16388,
             h2.settings.MAX_CONCURRENT_STREAMS: 100,
+            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
         }
         s = h2.settings.Settings(client=client, initial_values=overrides)
 
@@ -59,6 +60,7 @@ class TestSettings(object):
         assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
         assert s[h2.settings.MAX_FRAME_SIZE] == 16388
         assert s[h2.settings.MAX_CONCURRENT_STREAMS] == 100
+        assert s[h2.settings.MAX_HEADER_LIST_SIZE] == 2**16
 
     @pytest.mark.parametrize(
         'setting,value',
@@ -69,6 +71,7 @@ class TestSettings(object):
             (h2.settings.INITIAL_WINDOW_SIZE, 2**34),
             (h2.settings.MAX_FRAME_SIZE, 1),
             (h2.settings.MAX_FRAME_SIZE, 2**30),
+            (h2.settings.MAX_HEADER_LIST_SIZE, -1),
         ]
     )
     def test_cannot_set_invalid_initial_values(self, setting, value):
@@ -218,6 +221,7 @@ class TestSettings(object):
         assert s.initial_window_size == s[h2.settings.INITIAL_WINDOW_SIZE]
         assert s.max_frame_size == s[h2.settings.MAX_FRAME_SIZE]
         assert s.max_concurrent_streams == 2**32 + 1  # A sensible default.
+        assert s.max_header_list_size is None
 
     def test_settings_setters(self):
         """
@@ -230,6 +234,7 @@ class TestSettings(object):
         s.initial_window_size = 2
         s.max_frame_size = 16385
         s.max_concurrent_streams = 4
+        s.max_header_list_size = 2**16
 
         s.acknowledge()
         assert s[h2.settings.HEADER_TABLE_SIZE] == 0
@@ -237,6 +242,7 @@ class TestSettings(object):
         assert s[h2.settings.INITIAL_WINDOW_SIZE] == 2
         assert s[h2.settings.MAX_FRAME_SIZE] == 16385
         assert s[h2.settings.MAX_CONCURRENT_STREAMS] == 4
+        assert s[h2.settings.MAX_HEADER_LIST_SIZE] == 2**16
 
     @given(integers())
     def test_cannot_set_invalid_values_for_enable_push(self, val):
@@ -312,3 +318,31 @@ class TestSettings(object):
             s.acknowledge()
             assert e.value.error_code == h2.errors.PROTOCOL_ERROR
             assert s[h2.settings.MAX_FRAME_SIZE] == 16384
+
+    @given(integers())
+    def test_cannot_set_invalid_values_for_max_header_list_size(self, val):
+        """
+        SETTINGS_MAX_HEADER_LIST_SIZE only allows positive values.
+        """
+        s = h2.settings.Settings()
+
+        if val > 0:
+            s.max_header_list_size = val
+            s.acknowledge()
+            assert s.max_header_list_size == val
+        else:
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s.max_header_list_size = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert s.max_header_list_size is None
+
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+                s[h2.settings.MAX_HEADER_LIST_SIZE] = val
+
+            s.acknowledge()
+            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+
+            with pytest.raises(KeyError):
+                s[h2.settings.MAX_HEADER_LIST_SIZE]
