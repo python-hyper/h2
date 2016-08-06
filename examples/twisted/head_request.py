@@ -18,7 +18,7 @@ from twisted.internet.ssl import optionsForClientTLS
 from hyperframe.frame import SettingsFrame
 from h2.connection import H2Connection
 from h2.events import (
-    ResponseReceived, DataReceived, RemoteSettingsChanged, StreamEnded,
+    ResponseReceived, DataReceived, StreamEnded,
     StreamReset, SettingsAcknowledged,
 )
 
