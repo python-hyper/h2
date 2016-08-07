@@ -1030,6 +1030,7 @@ class H2Stream(object):
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
         headers = _lowercase_header_names(headers)
+        headers = _strip_surrounding_whitespace(headers)
         headers = secure_headers(headers)
         encoded_headers = encoder.encode(headers)
 
@@ -1109,6 +1110,20 @@ def _lowercase_header_names(headers):
             yield header.__class__(header[0].lower(), header[1])
         else:
             yield (header[0].lower(), header[1])
+
+
+def _strip_surrounding_whitespace(headers):
+    """
+    Given an iterable of header two-tuples, strip both leading and trailing
+    whitespace from header both header names and header values. This generator
+    produces tuples that preserve the original type of the header tuple for
+    tuple and any ``HeaderTuple``.
+    """
+    for header in headers:
+        if isinstance(header, HeaderTuple):
+            yield header.__class__(header[0].strip(), header[1].strip())
+        else:
+            yield (header[0].strip(), header[1].strip())
 
 
 def _decode_headers(headers, encoding):
