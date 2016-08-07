@@ -218,4 +218,4 @@ version 3.0 of hyper-h2.
 
 
 .. _RFC 7540: https://tools.ietf.org/html/rfc7540
-.. _an implementation: http://python-hyper/priority/
+.. _an implementation: https://github.com/python-hyper/priority
