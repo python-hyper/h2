@@ -45,6 +45,10 @@ class TestInvalidFrameSequences(object):
         base_request_headers + [('upgrade', 'super-protocol/1.1')],
         base_request_headers + [('te', 'chunked')],
         base_request_headers + [('host', 'notexample.com')],
+        base_request_headers + [(' name', 'name with leading space')],
+        base_request_headers + [('name ', 'name with trailing space')],
+        base_request_headers + [('name', ' value with leading space')],
+        base_request_headers + [('name', 'value with trailing space ')],
         [header for header in base_request_headers
          if header[0] != ':authority'],
     ]

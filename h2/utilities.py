@@ -186,6 +186,9 @@ def validate_headers(headers, hdr_validation_flags):
     headers = _reject_uppercase_header_fields(
         headers, hdr_validation_flags
     )
+    headers = _reject_surrounding_whitespace(
+        headers, hdr_validation_flags
+    )
     headers = _reject_te(
         headers, hdr_validation_flags
     )
@@ -211,6 +214,22 @@ def _reject_uppercase_header_fields(headers, hdr_validation_flags):
         if UPPER_RE.search(header[0]):
             raise ProtocolError(
                 "Received uppercase header name %s." % header[0])
+        yield header
+
+
+def _reject_surrounding_whitespace(headers, hdr_validation_flags):
+    """
+    Raises a ProtocolError if any header name or value is surrounded by
+    whitespace characters.
+    """
+    for header in headers:
+        if header[0].strip() != header[0]:
+            raise ProtocolError(
+                "Received header name surrounded by whitespace %s" % header[0])
+        if header[1].strip() != header[1]:
+            raise ProtocolError(
+                "Received header value surrounded by whitespace %s" % header[1]
+            )
         yield header
 
 
