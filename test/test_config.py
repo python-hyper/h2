@@ -24,8 +24,8 @@ class TestH2Config(object):
 
     boolean_config_options = [
         'client_side',
-        'validate_outbound_headers',
-        'normalize_outbound_headers',
+        'validate_sent_headers',
+        'normalize_sent_headers',
         'validate_inbound_headers'
     ]
 

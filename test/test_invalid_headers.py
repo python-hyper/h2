@@ -69,6 +69,27 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_inbound_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False,
+            validate_inbound_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(headers)
+        data = f.serialize()
+
+        events = c.receive_data(data)
+        assert len(events) == 1
+        request_event = events[0]
+        assert request_event.headers == headers
+
     def test_transfer_encoding_trailers_is_valid(self, frame_factory):
         """
         Transfer-Encoding trailers is allowed by the filter.
@@ -119,6 +140,22 @@ class TestSendingInvalidFrameSequences(object):
         c.clear_outbound_data_buffer()
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(1, headers)
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_sent_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            validate_sent_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
 
 
 class TestFilter(object):

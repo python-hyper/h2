@@ -32,19 +32,19 @@ class H2Configuration(object):
         ``False`` or the empty string.
     :type header_encoding: ``str``, ``False``, or ``None``
 
-    :param validate_outbound_headers: Controls whether the headers emitted
+    :param validate_sent_headers: Controls whether the headers emitted
         by this object are validated against the rules in RFC 7540.
         Disabling this setting will cause outbound header validation to
         be skipped, and allow the object to emit headers that may be illegal
         according to RFC 7540. Defaults to ``True``.
-    :type validate_outbound_headers: ``bool``
+    :type validate_sent_headers: ``bool``
 
-    :param normalize_outbound_headers: Controls whether the headers emitted
+    :param normalize_sent_headers: Controls whether the headers emitted
         by this object are normalized before sending.  Disabling this setting
         will cause outbound header normalization to be skipped, and allow
         the object to emit headers that may be illegal according to
         RFC 7540. Defaults to ``True``.
-    :type normalize_outbound_headers: ``bool``
+    :type normalize_sent_headers: ``bool``
 
     :param validate_inbound_headers: Controls whether the headers received
         by this object are validated against the rules in RFC 7540.
@@ -56,13 +56,13 @@ class H2Configuration(object):
     def __init__(self,
                  client_side=True,
                  header_encoding='utf-8',
-                 validate_outbound_headers=True,
-                 normalize_outbound_headers=True,
+                 validate_sent_headers=True,
+                 normalize_sent_headers=True,
                  validate_inbound_headers=True):
         self._client_side = client_side
         self._header_encoding = header_encoding
-        self._validate_outbound_headers = validate_outbound_headers
-        self._normalize_outbound_headers = normalize_outbound_headers
+        self._validate_sent_headers = validate_sent_headers
+        self._normalize_sent_headers = normalize_sent_headers
         self._validate_inbound_headers = validate_inbound_headers
 
     @property
@@ -108,42 +108,42 @@ class H2Configuration(object):
         self._header_encoding = value
 
     @property
-    def validate_outbound_headers(self):
+    def validate_sent_headers(self):
         """
         Whether the headers emitted by this object are validated against
         the rules in RFC 7540. Disabling this setting will cause outbound
         header validation to be skipped, and allow the object to emit headers
         that may be illegal according to RFC 7540. Defaults to ``True``.
         """
-        return self._validate_outbound_headers
+        return self._validate_sent_headers
 
-    @validate_outbound_headers.setter
-    def validate_outbound_headers(self, value):
+    @validate_sent_headers.setter
+    def validate_sent_headers(self, value):
         """
         Enforces validation of outbound headers.
         """
         if not isinstance(value, bool):
-            raise ValueError("validate_outbound_headers must be a bool")
-        self._validate_outbound_headers = value
+            raise ValueError("validate_sent_headers must be a bool")
+        self._validate_sent_headers = value
 
     @property
-    def normalize_outbound_headers(self):
+    def normalize_sent_headers(self):
         """
         Whether the headers emitted by this object are normalized before
         sending.  Disabling this setting will cause outbound header
         normalization to be skipped, and allow the object to emit headers
         that may be illegal according to RFC 7540. Defaults to ``True``.
         """
-        return self._normalize_outbound_headers
+        return self._normalize_sent_headers
 
-    @normalize_outbound_headers.setter
-    def normalize_outbound_headers(self, value):
+    @normalize_sent_headers.setter
+    def normalize_sent_headers(self, value):
         """
         Enforces normalization of outbound headers.
         """
         if not isinstance(value, bool):
-            raise ValueError("normalize_outbound_headers must be a bool")
-        self._normalize_outbound_headers = value
+            raise ValueError("normalize_sent_headers must be a bool")
+        self._normalize_sent_headers = value
 
     @property
     def validate_inbound_headers(self):

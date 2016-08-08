@@ -512,6 +512,7 @@ class H2Connection(object):
             self.remote_settings.initial_window_size
         )
         s.inbound_flow_control_window = self.local_settings.initial_window_size
+        s.config = self.config
 
         self.streams[stream_id] = s
 

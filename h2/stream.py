@@ -14,6 +14,7 @@ from hyperframe.frame import (
     RstStreamFrame, PushPromiseFrame, AltSvcFrame
 )
 
+from .config import H2Configuration
 from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
@@ -690,6 +691,9 @@ class H2Stream(object):
         # The authority we believe this stream belongs to.
         self._authority = None
 
+        # The configuration for this stream.
+        self.config = H2Configuration()
+
     @property
     def open(self):
         """
@@ -926,11 +930,12 @@ class H2Stream(object):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
 
-        hdr_validation_flags = HeaderValidationFlags(
-            is_client=self.state_machine.client,
-            is_trailer=isinstance(events[0], TrailersReceived)
-        )
-        headers = validate_headers(headers, hdr_validation_flags)
+        if self.config.validate_inbound_headers:
+            hdr_validation_flags = HeaderValidationFlags(
+                is_client=self.state_machine.client,
+                is_trailer=isinstance(events[0], TrailersReceived)
+            )
+            headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
             headers = list(_decode_headers(headers, header_encoding))
@@ -1053,8 +1058,10 @@ class H2Stream(object):
         """
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
-        headers = normalize_sent_headers(headers, hdr_validation_flags)
-        headers = validate_sent_headers(headers, hdr_validation_flags)
+        if self.config.normalize_sent_headers:
+            headers = normalize_sent_headers(headers, hdr_validation_flags)
+        if self.config.validate_sent_headers:
+            headers = validate_sent_headers(headers, hdr_validation_flags)
 
         encoded_headers = encoder.encode(headers)
 
