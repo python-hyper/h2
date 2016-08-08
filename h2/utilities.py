@@ -225,10 +225,10 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
     for header in headers:
         if header[0].strip() != header[0]:
             raise ProtocolError(
-                "Received header name surrounded by whitespace %s" % header[0])
+                "Received header name surrounded by whitespace %r" % header[0])
         if header[1].strip() != header[1]:
             raise ProtocolError(
-                "Received header value surrounded by whitespace %s" % header[1]
+                "Received header value surrounded by whitespace %r" % header[1]
             )
         yield header
 
