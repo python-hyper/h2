@@ -1115,7 +1115,7 @@ def _lowercase_header_names(headers):
 def _strip_surrounding_whitespace(headers):
     """
     Given an iterable of header two-tuples, strip both leading and trailing
-    whitespace from header both header names and header values. This generator
+    whitespace from both header names and header values. This generator
     produces tuples that preserve the original type of the header tuple for
     tuple and any ``HeaderTuple``.
     """
