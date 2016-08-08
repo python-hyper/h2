@@ -323,6 +323,16 @@ class H2Connection(object):
         # than 2.3.0 it does nothing. However, we have to try!
         self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
 
+        #: The configuration for this HTTP/2 connection object.
+        #:
+        #: .. versionadded:: 2.5.0
+        self.config = config
+        if self.config is None:
+            self.config = H2Configuration(
+                client_side=client_side,
+                header_encoding=header_encoding,
+            )
+
         # Objects that store settings, including defaults.
         #
         # We set the MAX_CONCURRENT_STREAMS value to 100 because its default is
@@ -337,13 +347,13 @@ class H2Connection(object):
         # versions of HPACK will let us do it. That's ok: we should at least
         # suggest that we're not vulnerable.
         self.local_settings = Settings(
-            client=client_side,
+            client=self.config.client_side,
             initial_values={
                 MAX_CONCURRENT_STREAMS: 100,
                 MAX_HEADER_LIST_SIZE: self.DEFAULT_MAX_HEADER_LIST_SIZE,
             }
         )
-        self.remote_settings = Settings(client=not client_side)
+        self.remote_settings = Settings(client=not self.config.client_side)
 
         # The curent value of the connection flow control windows on the
         # connection.
@@ -362,18 +372,8 @@ class H2Connection(object):
         #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
 
-        #: The configuration for this HTTP/2 connection object.
-        #:
-        #: .. versionadded:: 2.5.0
-        self.config = config
-        if self.config is None:
-            self.config = H2Configuration(
-                client_side=client_side,
-                header_encoding=header_encoding,
-            )
-
         # Buffer for incoming data.
-        self.incoming_buffer = FrameBuffer(server=not client_side)
+        self.incoming_buffer = FrameBuffer(server=not self.config.client_side)
 
         # A private variable to store a sequence of received header frames
         # until completion.
