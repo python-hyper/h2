@@ -157,6 +157,29 @@ class TestSendingInvalidFrameSequences(object):
         c.clear_outbound_data_buffer()
         c.send_headers(1, headers)
 
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skip_normalization(self, frame_factory, headers):
+        """
+        If we have ``normalize_sent_headers`` disabled, then all of these
+        invalid header blocks are sent through unmodified.
+        """
+        config = h2.config.H2Configuration(
+            validate_sent_headers=False,
+            normalize_sent_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        f = frame_factory.build_headers_frame(
+            headers,
+            stream_id=1,
+        )
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+        assert c.data_to_send() == f.serialize()
+
 
 class TestFilter(object):
     """
