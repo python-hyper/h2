@@ -14,7 +14,6 @@ from hyperframe.frame import (
     RstStreamFrame, PushPromiseFrame, AltSvcFrame
 )
 
-from .config import H2Configuration
 from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
@@ -27,7 +26,7 @@ from .exceptions import (
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    validate_headers, validate_sent_headers, normalize_sent_headers,
+    validate_headers, validate_outbound_headers, normalize_outbound_headers,
     HeaderValidationFlags, extract_method_header
 )
 
@@ -672,7 +671,7 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
-    def __init__(self, stream_id):
+    def __init__(self, stream_id, config):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
@@ -692,7 +691,7 @@ class H2Stream(object):
         self._authority = None
 
         # The configuration for this stream.
-        self.config = H2Configuration()
+        self.config = config
 
     @property
     def open(self):
@@ -769,7 +768,8 @@ class H2Stream(object):
         hf = HeadersFrame(self.stream_id)
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         frames = self._build_headers_frames(
-            headers, encoder, hf, hdr_validation_flags)
+            headers, encoder, hf, hdr_validation_flags
+        )
 
         if end_stream:
             # Not a bug: the END_STREAM flag is valid on the initial HEADERS
@@ -807,7 +807,8 @@ class H2Stream(object):
         ppf.promised_stream_id = related_stream_id
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         frames = self._build_headers_frames(
-            headers, encoder, ppf, hdr_validation_flags)
+            headers, encoder, ppf, hdr_validation_flags
+        )
 
         return frames
 
@@ -931,10 +932,7 @@ class H2Stream(object):
                 raise ProtocolError("Trailers must have END_STREAM set")
 
         if self.config.validate_inbound_headers:
-            hdr_validation_flags = HeaderValidationFlags(
-                is_client=self.state_machine.client,
-                is_trailer=isinstance(events[0], TrailersReceived)
-            )
+            hdr_validation_flags = self._build_hdr_validation_flags(events)
             headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
@@ -1039,8 +1037,16 @@ class H2Stream(object):
         and validating header blocks.
         """
         try:
-            is_trailer = isinstance(events[0], _TrailersSent)
+            is_trailer = isinstance(
+                events[0], (_TrailersSent, TrailersReceived)
+            )
         except IndexError:
+            # Some state changes don't emit an internal event (for example,
+            # sending a push promise).  We *always* emit an event for trailers,
+            # so the absence of an event means this definitely isn't a trailer.
+            #
+            # TODO: Find any places where we don't emit anything, and emit
+            # an internal event, so we can do away with this branch.
             is_trailer = False
 
         return HeaderValidationFlags(
@@ -1058,10 +1064,14 @@ class H2Stream(object):
         """
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
-        if self.config.normalize_sent_headers:
-            headers = normalize_sent_headers(headers, hdr_validation_flags)
-        if self.config.validate_sent_headers:
-            headers = validate_sent_headers(headers, hdr_validation_flags)
+        if self.config.normalize_outbound_headers:
+            headers = normalize_outbound_headers(
+                headers, hdr_validation_flags
+            )
+        if self.config.validate_outbound_headers:
+            headers = validate_outbound_headers(
+                headers, hdr_validation_flags
+            )
 
         encoded_headers = encoder.encode(headers)
 

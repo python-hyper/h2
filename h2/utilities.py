@@ -317,14 +317,14 @@ def _validate_host_authority_header(headers):
     # an :authority header nor a Host header.
     if not authority_present and not host_present:
         raise ProtocolError(
-            "Request header block must have an :authority or Host header."
+            "Request header block does not have an :authority or Host header."
         )
 
     # If we receive both headers, they should definitely match.
     if authority_present and host_present:
         if authority_header_val != host_header_val:
             raise ProtocolError(
-                "Request header block must have matching :authority and "
+                "Request header block has mismatched :authority and "
                 "Host headers: %r / %r"
                 % (authority_header_val, host_header_val)
             )
@@ -373,7 +373,7 @@ def _check_sent_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
-def normalize_sent_headers(headers, hdr_validation_flags):
+def normalize_outbound_headers(headers, hdr_validation_flags):
     """
     Normalizes a header sequence that we are about to send.
 
@@ -386,7 +386,7 @@ def normalize_sent_headers(headers, hdr_validation_flags):
     return headers
 
 
-def validate_sent_headers(headers, hdr_validation_flags):
+def validate_outbound_headers(headers, hdr_validation_flags):
     """
     Validates and normalizes a header sequence that we are about to send.
 

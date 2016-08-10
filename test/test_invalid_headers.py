@@ -144,11 +144,11 @@ class TestSendingInvalidFrameSequences(object):
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
         """
-        If we have ``validate_sent_headers`` disabled, then all of these
+        If we have ``validate_outbound_headers`` disabled, then all of these
         invalid header blocks are allowed to pass.
         """
         config = h2.config.H2Configuration(
-            validate_sent_headers=False)
+            validate_outbound_headers=False)
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -160,12 +160,12 @@ class TestSendingInvalidFrameSequences(object):
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skip_normalization(self, frame_factory, headers):
         """
-        If we have ``normalize_sent_headers`` disabled, then all of these
+        If we have ``normalize_outbound_headers`` disabled, then all of these
         invalid header blocks are sent through unmodified.
         """
         config = h2.config.H2Configuration(
-            validate_sent_headers=False,
-            normalize_sent_headers=False)
+            validate_outbound_headers=False,
+            normalize_outbound_headers=False)
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -192,7 +192,7 @@ class TestFilter(object):
     """
     validation_functions = [
         h2.utilities.validate_headers,
-        h2.utilities.validate_sent_headers
+        h2.utilities.validate_outbound_headers
     ]
 
     hdr_validation_combos = [
