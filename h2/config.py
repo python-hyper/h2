@@ -7,6 +7,23 @@ Objects for controlling the configuration of the HTTP/2 stack.
 """
 
 
+class _BooleanConfigOption(object):
+    """
+    Descriptor for handling a boolean config option.  This will block
+    attempts to set boolean config options to non-bools.
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        return getattr(instance, '_%s' % self.name)
+
+    def __set__(self, instance, value):
+        if not isinstance(value, bool):
+            raise ValueError("%s must be a bool" % self.name)
+        setattr(instance, '_%s' % self.name, value)
+
+
 class H2Configuration(object):
     """
     An object that controls the way a single HTTP/2 connection behaves.
@@ -53,36 +70,28 @@ class H2Configuration(object):
         according to RFC 7540. Defaults to ``True``.
     :type validate_inbound_headers: ``bool``
     """
+    client_side = _BooleanConfigOption('client_side')
+    validate_outbound_headers = _BooleanConfigOption(
+        'validate_outbound_headers'
+    )
+    normalize_outbound_headers = _BooleanConfigOption(
+        'normalize_outbound_headers'
+    )
+    validate_inbound_headers = _BooleanConfigOption(
+        'validate_inbound_headers'
+    )
+
     def __init__(self,
                  client_side=True,
                  header_encoding='utf-8',
                  validate_outbound_headers=True,
                  normalize_outbound_headers=True,
                  validate_inbound_headers=True):
-        self._client_side = client_side
-        self._header_encoding = header_encoding
-        self._validate_outbound_headers = validate_outbound_headers
-        self._normalize_outbound_headers = normalize_outbound_headers
-        self._validate_inbound_headers = validate_inbound_headers
-
-    @property
-    def client_side(self):
-        """
-        Whether this object is to be used on the client side of a connection,
-        or on the server side. Affects the logic used by the state machine, the
-        default settings values, the allowable stream IDs, and several other
-        properties. Defaults to ``True``.
-        """
-        return self._client_side
-
-    @client_side.setter
-    def client_side(self, value):
-        """
-        Enforces constraints on the client side of the connection.
-        """
-        if not isinstance(value, bool):
-            raise ValueError("client_side must be a bool")
-        self._client_side = value
+        self.client_side = client_side
+        self.header_encoding = header_encoding
+        self.validate_outbound_headers = validate_outbound_headers
+        self.normalize_outbound_headers = normalize_outbound_headers
+        self.validate_inbound_headers = validate_inbound_headers
 
     @property
     def header_encoding(self):
@@ -106,61 +115,3 @@ class H2Configuration(object):
         if value is True:
             raise ValueError("header_encoding cannot be True")
         self._header_encoding = value
-
-    @property
-    def validate_outbound_headers(self):
-        """
-        Whether the headers emitted by this object are validated against
-        the rules in RFC 7540. Disabling this setting will cause outbound
-        header validation to be skipped, and allow the object to emit headers
-        that may be illegal according to RFC 7540. Defaults to ``True``.
-        """
-        return self._validate_outbound_headers
-
-    @validate_outbound_headers.setter
-    def validate_outbound_headers(self, value):
-        """
-        Enforces validation of outbound headers.
-        """
-        if not isinstance(value, bool):
-            raise ValueError("validate_outbound_headers must be a bool")
-        self._validate_outbound_headers = value
-
-    @property
-    def normalize_outbound_headers(self):
-        """
-        Whether the headers emitted by this object are normalized before
-        sending.  Disabling this setting will cause outbound header
-        normalization to be skipped, and allow the object to emit headers
-        that may be illegal according to RFC 7540. Defaults to ``True``.
-        """
-        return self._normalize_outbound_headers
-
-    @normalize_outbound_headers.setter
-    def normalize_outbound_headers(self, value):
-        """
-        Enforces normalization of outbound headers.
-        """
-        if not isinstance(value, bool):
-            raise ValueError("normalize_outbound_headers must be a bool")
-        self._normalize_outbound_headers = value
-
-    @property
-    def validate_inbound_headers(self):
-        """
-        Whether the headers received by this object are validated against
-        the rules in RFC 7540. Disabling this setting will cause inbound
-        header validation to be skipped, and allow the object to receive
-        headers that may be illegal according to RFC 7540.
-        Defaults to ``True``.
-        """
-        return self._validate_inbound_headers
-
-    @validate_inbound_headers.setter
-    def validate_inbound_headers(self, value):
-        """
-        Enforces validation of inbound headers.
-        """
-        if not isinstance(value, bool):
-            raise ValueError("validate_inbound_headers must be a bool")
-        self._validate_inbound_headers = value
