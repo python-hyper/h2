@@ -31,10 +31,39 @@ class H2Configuration(object):
         to force them to be returned as bytestrings), this can be set to
         ``False`` or the empty string.
     :type header_encoding: ``str``, ``False``, or ``None``
+
+    :param validate_outbound_headers: Controls whether the headers emitted
+        by this object are validated against the rules in RFC 7540.
+        Disabling this setting will cause outbound header validation to
+        be skipped, and allow the object to emit headers that may be illegal
+        according to RFC 7540. Defaults to ``True``.
+    :type validate_outbound_headers: ``bool``
+
+    :param normalize_outbound_headers: Controls whether the headers emitted
+        by this object are normalized before sending.  Disabling this setting
+        will cause outbound header normalization to be skipped, and allow
+        the object to emit headers that may be illegal according to
+        RFC 7540. Defaults to ``True``.
+    :type normalize_outbound_headers: ``bool``
+
+    :param validate_inbound_headers: Controls whether the headers received
+        by this object are validated against the rules in RFC 7540.
+        Disabling this setting will cause inbound header validation to
+        be skipped, and allow the object to receive headers that may be illegal
+        according to RFC 7540. Defaults to ``True``.
+    :type validate_inbound_headers: ``bool``
     """
-    def __init__(self, client_side=True, header_encoding='utf-8'):
+    def __init__(self,
+                 client_side=True,
+                 header_encoding='utf-8',
+                 validate_outbound_headers=True,
+                 normalize_outbound_headers=True,
+                 validate_inbound_headers=True):
         self._client_side = client_side
         self._header_encoding = header_encoding
+        self._validate_outbound_headers = validate_outbound_headers
+        self._normalize_outbound_headers = normalize_outbound_headers
+        self._validate_inbound_headers = validate_inbound_headers
 
     @property
     def client_side(self):
@@ -77,3 +106,61 @@ class H2Configuration(object):
         if value is True:
             raise ValueError("header_encoding cannot be True")
         self._header_encoding = value
+
+    @property
+    def validate_outbound_headers(self):
+        """
+        Whether the headers emitted by this object are validated against
+        the rules in RFC 7540. Disabling this setting will cause outbound
+        header validation to be skipped, and allow the object to emit headers
+        that may be illegal according to RFC 7540. Defaults to ``True``.
+        """
+        return self._validate_outbound_headers
+
+    @validate_outbound_headers.setter
+    def validate_outbound_headers(self, value):
+        """
+        Enforces validation of outbound headers.
+        """
+        if not isinstance(value, bool):
+            raise ValueError("validate_outbound_headers must be a bool")
+        self._validate_outbound_headers = value
+
+    @property
+    def normalize_outbound_headers(self):
+        """
+        Whether the headers emitted by this object are normalized before
+        sending.  Disabling this setting will cause outbound header
+        normalization to be skipped, and allow the object to emit headers
+        that may be illegal according to RFC 7540. Defaults to ``True``.
+        """
+        return self._normalize_outbound_headers
+
+    @normalize_outbound_headers.setter
+    def normalize_outbound_headers(self, value):
+        """
+        Enforces normalization of outbound headers.
+        """
+        if not isinstance(value, bool):
+            raise ValueError("normalize_outbound_headers must be a bool")
+        self._normalize_outbound_headers = value
+
+    @property
+    def validate_inbound_headers(self):
+        """
+        Whether the headers received by this object are validated against
+        the rules in RFC 7540. Disabling this setting will cause inbound
+        header validation to be skipped, and allow the object to receive
+        headers that may be illegal according to RFC 7540.
+        Defaults to ``True``.
+        """
+        return self._validate_inbound_headers
+
+    @validate_inbound_headers.setter
+    def validate_inbound_headers(self, value):
+        """
+        Enforces validation of inbound headers.
+        """
+        if not isinstance(value, bool):
+            raise ValueError("validate_inbound_headers must be a bool")
+        self._validate_inbound_headers = value

@@ -69,6 +69,27 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_inbound_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False,
+            validate_inbound_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(headers)
+        data = f.serialize()
+
+        events = c.receive_data(data)
+        assert len(events) == 1
+        request_event = events[0]
+        assert request_event.headers == headers
+
     def test_transfer_encoding_trailers_is_valid(self, frame_factory):
         """
         Transfer-Encoding trailers is allowed by the filter.
@@ -89,6 +110,77 @@ class TestInvalidFrameSequences(object):
         assert request_event.headers == headers
 
 
+class TestSendingInvalidFrameSequences(object):
+    """
+    Trying to send invalid header sequences cause ProtocolErrors to
+    be thrown.
+    """
+    base_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+        ('user-agent', 'someua/0.0.1'),
+    ]
+    invalid_header_blocks = [
+        base_request_headers + [('host', 'notexample.com')],
+        [header for header in base_request_headers
+         if header[0] != ':authority'],
+    ]
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event(self, frame_factory, headers):
+        """
+        Test sending invalid headers raise a ProtocolError.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then try to send headers.
+        c.clear_outbound_data_buffer()
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(1, headers)
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_outbound_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            validate_outbound_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_headers_event_skip_normalization(self, frame_factory, headers):
+        """
+        If we have ``normalize_outbound_headers`` disabled, then all of these
+        invalid header blocks are sent through unmodified.
+        """
+        config = h2.config.H2Configuration(
+            validate_outbound_headers=False,
+            normalize_outbound_headers=False)
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        f = frame_factory.build_headers_frame(
+            headers,
+            stream_id=1,
+        )
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+        assert c.data_to_send() == f.serialize()
+
+
 class TestFilter(object):
     """
     Test the filter function directly.
@@ -98,42 +190,49 @@ class TestFilter(object):
     HTTP/2 and so may never hit the function, but it's worth validating that it
     behaves as expected anyway.
     """
-    true_false_combinations = [
-        (True, True),
-        (True, False),
-        (False, True),
-        (False, False),
+    validation_functions = [
+        h2.utilities.validate_headers,
+        h2.utilities.validate_outbound_headers
     ]
 
-    @pytest.mark.parametrize('is_client,is_trailer', true_false_combinations)
+    hdr_validation_combos = [
+        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
+        for is_client, is_trailer in [
+            (True, True),
+            (True, False),
+            (False, True),
+            (False, False)
+        ]
+    ]
+
+    @pytest.mark.parametrize('validation_function', validation_functions)
+    @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
     @given(headers=HEADERS_STRATEGY)
-    def test_range_of_acceptable_outputs(self, headers, is_client, is_trailer):
+    def test_range_of_acceptable_outputs(self,
+                                         headers,
+                                         validation_function,
+                                         hdr_validation_flags):
         """
-        validate_headers either returns the data unchanged or throws a
-        ProtocolError.
+        The header validation functions either return the data unchanged
+        or throw a ProtocolError.
         """
-        hdr_validation_flags = h2.utilities.HeaderValidationFlags(
-            is_client=is_client,
-            is_trailer=is_trailer,
-        )
         try:
-            assert headers == h2.utilities.validate_headers(
-                headers, hdr_validation_flags)
+            assert headers == list(validation_function(
+                headers, hdr_validation_flags))
         except h2.exceptions.ProtocolError:
             assert True
 
-    @pytest.mark.parametrize('is_client,is_trailer', true_false_combinations)
-    def test_invalid_pseudo_headers(self, is_client, is_trailer):
+    @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
+    def test_invalid_pseudo_headers(self, hdr_validation_flags):
         headers = [(b':custom', b'value')]
-        hdr_validation_flags = h2.utilities.HeaderValidationFlags(
-            is_client=is_client,
-            is_trailer=is_trailer
-        )
         with pytest.raises(h2.exceptions.ProtocolError):
             h2.utilities.validate_headers(headers, hdr_validation_flags)
 
-    @pytest.mark.parametrize('is_client,is_trailer', true_false_combinations)
-    def test_matching_authority_host_headers(self, is_client, is_trailer):
+    @pytest.mark.parametrize('validation_function', validation_functions)
+    @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
+    def test_matching_authority_host_headers(self,
+                                             validation_function,
+                                             hdr_validation_flags):
         """
         If a header block has :authority and Host headers and they match,
         the headers should pass through unchanged.
@@ -145,10 +244,6 @@ class TestFilter(object):
             (b':method', b'GET'),
             (b'host', b'example.com'),
         ]
-        hdr_validation_flags = h2.utilities.HeaderValidationFlags(
-            is_client=is_client,
-            is_trailer=is_trailer
-        )
         assert headers == h2.utilities.validate_headers(
             headers, hdr_validation_flags)
 
