@@ -18,13 +18,13 @@ UPPER_RE = re.compile(b"[A-Z]")
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
-CONNECTION_HEADERS = {
-    b'connection',
-    b'proxy-connection',
-    b'keep-alive',
-    b'transfer-encoding',
-    b'upgrade',
-}
+CONNECTION_HEADERS = frozenset([
+    b'connection', u'upgrade',
+    b'proxy-connection', u'transfer-encoding',
+    b'keep-alive', u'keep-alive',
+    b'transfer-encoding', u'proxy-connection',
+    b'upgrade', u'connection',
+])
 
 
 _ALLOWED_PSEUDO_HEADER_FIELDS = {
@@ -77,7 +77,7 @@ def _secure_headers(headers, hdr_validation_flags):
 
 def extract_method_header(headers):
     """
-    Extracts the request method from the headers list
+    Extracts the request method from the headers list.
     """
     for k, v in headers:
         if k in (b':method', u':method'):
@@ -253,8 +253,8 @@ def _reject_te(headers, hdr_validation_flags):
     its value is anything other than "trailers".
     """
     for header in headers:
-        if header[0] == b'te':
-            if header[1].lower().strip() != b'trailers':
+        if header[0] in (b'te', u'te'):
+            if header[1].lower().strip() not in (b'trailers', u'trailers'):
                 raise ProtocolError(
                     "Invalid value for Transfer-Encoding header: %s" %
                     header[1]
@@ -440,6 +440,8 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
+    headers = _reject_te(headers, hdr_validation_flags)
+    headers = _reject_connection_header(headers, hdr_validation_flags)
     headers = _check_sent_host_authority_header(headers, hdr_validation_flags)
 
     return headers
