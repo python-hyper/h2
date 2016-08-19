@@ -291,7 +291,7 @@ def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
 def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
-    header block or if a pseudo-header field arrives in a block after an
+    header block or if a pseudo-header field appears in a block after an
     ordinary header field.
     """
     seen_pseudo_header_fields = set()

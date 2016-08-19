@@ -40,6 +40,10 @@ Bugfixes
   or trailing whitespace.
 - Correctly strip leading/trailing whitespace from header field names and
   values.
+- Correctly refuse to send header blocks with a TE header whose value is not
+  ``trailers``, with connection-specific headers, with duplicate pseudo-header
+  fields, or with pseudo-header fields that appear after an ordinary header
+  field.
 
 2.4.0 (2016-07-01)
 ------------------
