@@ -27,13 +27,13 @@ CONNECTION_HEADERS = frozenset([
 ])
 
 
-_ALLOWED_PSEUDO_HEADER_FIELDS = {
-    b':method',
-    b':scheme',
-    b':authority',
-    b':path',
-    b':status',
-}
+_ALLOWED_PSEUDO_HEADER_FIELDS = frozenset([
+    b':method', u':method',
+    b':scheme', u':scheme',
+    b':authority', u':authority',
+    b':path', u':path',
+    b':status', u':status',
+])
 
 
 _SECURE_HEADERS = frozenset([
@@ -277,6 +277,17 @@ def _reject_connection_header(headers, hdr_validation_flags):
         yield header
 
 
+def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
+    """
+    Given a string that might be a bytestring or a Unicode string,
+    return True if it starts with the appropriate prefix.
+    """
+    if isinstance(test_string, bytes):
+        return test_string.startswith(bytes_prefix)
+    else:
+        return test_string.startswith(unicode_prefix)
+
+
 def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
@@ -287,7 +298,7 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     seen_regular_header = False
 
     for header in headers:
-        if header[0].startswith(b':'):
+        if _custom_startswith(header[0], b':', u':'):
             if header[0] in seen_pseudo_header_fields:
                 raise ProtocolError(
                     "Received duplicate pseudo-header field %s" % header[0]
@@ -440,8 +451,17 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
-    headers = _reject_te(headers, hdr_validation_flags)
-    headers = _reject_connection_header(headers, hdr_validation_flags)
-    headers = _check_sent_host_authority_header(headers, hdr_validation_flags)
+    headers = _reject_te(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_connection_header(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_pseudo_header_fields(
+        headers, hdr_validation_flags
+    )
+    headers = _check_sent_host_authority_header(
+        headers, hdr_validation_flags
+    )
 
     return headers

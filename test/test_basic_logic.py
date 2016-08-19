@@ -439,8 +439,16 @@ class TestBasicClient(object):
         """
         Sending headers using dict is deprecated but still valid.
         """
+        # One of the steps in the outbound header validation logic checks
+        # that we don't send a pseudo-header after we've sent a regular
+        # header.  We can't guarantee that if you send headers as a dict,
+        # because dicts are unordered.
+        config = h2.config.H2Configuration(
+            validate_outbound_headers=False
+        )
+
         test_headers = {':authority': 'example.com', 'key': 'value'}
-        c = h2.connection.H2Connection()
+        c = h2.connection.H2Connection(config=config)
 
         pytest.deprecated_call(c.send_headers, 1, test_headers)
 
