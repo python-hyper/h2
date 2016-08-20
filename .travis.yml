@@ -16,6 +16,6 @@ install:
   - "pip install sphinx"
 before_script:
   - "flake8 --max-complexity 10 h2 test"
-  - "sphinx-build -nW -b html -d docs/_build/doctrees docs docs/_build/html"
+  - "sphinx-build -nW -b html -d docs/build/doctrees docs/source docs/build/html"
 script:
   - ./.travis/run.sh
