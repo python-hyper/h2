@@ -219,3 +219,78 @@ version 3.0 of hyper-h2.
 
 .. _RFC 7540: https://tools.ietf.org/html/rfc7540
 .. _an implementation: http://python-hyper.org/projects/priority/en/latest/
+
+Flow Control
+------------
+
+HTTP/2 defines a complex flow control system that uses a sliding window of
+data on both a per-stream and per-connection basis. Essentially, each
+implementation allows its peer to send a specific amount of data at any time
+(the "flow control window") before it must stop. Each stream has a separate
+window, and the connection as a whole has a window. Each window can be opened
+by an implementation by sending a ``WINDOW_UPDATE`` frame, either on a specific
+stream (causing the window for that stream to be opened), or on stream ``0``,
+which causes the window for the entire connection to be opened.
+
+In HTTP/2, only data in ``DATA`` frames is flow controlled. All other frames
+are exempt from flow control. Each ``DATA`` frame consumes both stream and
+connection flow control window bytes. This means that the maximum amount of
+data that can be sent on any one stream before a ``WINDOW_UPDATE`` frame is
+received is the *lower* of the stream and connection windows. The maximum
+amount of data that can be sent on *all* streams before a ``WINDOW_UPDATE``
+frame is received is the size of the connection flow control window.
+
+Working With Flow Control
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The amount of flow control window a ``DATA`` frame consumes is the sum of both
+its contained application data *and* the amount of padding used. hyper-h2 shows
+this to the user in a :class:`DataReceived <h2.events.DataReceived>` event by
+using the :data:`flow_controlled_length
+<h2.events.DataReceived.flow_controlled_length>` field. When working with flow
+control in hyper-h2, users *must* use this field: simply using
+``len(datareceived.data)`` can eventually lead to deadlock.
+
+When data has been received and given to the user in a :class:`DataReceived
+<h2.events.DataReceived>`, it is the responsibility of the user to re-open the
+flow control window when the user is ready for more data. hyper-h2 does not do
+this automatically to avoid flooding the user with data: if we did, the remote
+peer could send unbounded amounts of data that the user would need to buffer
+before processing.
+
+To re-open the flow control window, then, the user must call
+:meth:`increment_flow_control_window
+<h2.connection.H2Connection.increment_flow_control_window>` with the
+:data:`flow_controlled_length <h2.events.DataReceived.flow_controlled_length>`
+of the received data. hyper-h2 requires that you manage both the connection
+and the stream flow control windows separately, so you may need to increment
+both the stream the data was received on and stream ``0``.
+
+When sending data, a HTTP/2 implementation must not send more than flow control
+window available for that stream. As noted above, the maximum amount of data
+that can be sent on the stream is the minimum of the stream and the connection
+flow control windows. You can find out how much data you can send on a given
+stream by using the :meth:`local_flow_control_window
+<h2.connection.H2Connection.local_flow_control_window>` method, which will do
+all of these calculations for you. If you attempt to send more than this amount
+of data on a stream, hyper-h2 will throw a :class:`ProtocolError
+<h2.exceptions.ProtocolError>` and refuse to send the data.
+
+In hyper-h2, receiving a ``WINDOW_UPDATE`` frame causes a :class:`WindowUpdated
+<h2.events.WindowUpdated>` event to fire. This will notify you that there is
+potentially more room in a flow control window. Note that, just because an
+increment of a given size was received *does not* mean that that much more data
+can be sent: remember that both the connection and stream flow control windows
+constrain how much data can be sent.
+
+As a result, when a :class:`WindowUpdated <h2.events.WindowUpdated>` event
+fires with a non-zero stream ID, and the user has more data to send on that
+stream, the user should call :meth:`local_flow_control_window
+<h2.connection.H2Connection.local_flow_control_window>` to check if there
+really is more room to send data on that stream.
+
+When a :class:`WindowUpdated <h2.events.WindowUpdated>` event fires with a
+stream ID of ``0``, that may have unblocked *all* streams that are currently
+blocked. The user should use :meth:`local_flow_control_window
+<h2.connection.H2Connection.local_flow_control_window>` to check all blocked
+streams to see if more data is available.
