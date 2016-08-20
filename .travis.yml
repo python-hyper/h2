@@ -13,6 +13,9 @@ install:
   - "pip install ."
   - "pip install -r test_requirements.txt"
   - "pip install flake8"
-before_script: "flake8 --max-complexity 10 h2 test"
+  - "pip install sphinx"
+before_script:
+  - "flake8 --max-complexity 10 h2 test"
+  - "sphinx-build -nW -b html -d _build/doctrees . _build/html"
 script:
   - ./.travis/run.sh
