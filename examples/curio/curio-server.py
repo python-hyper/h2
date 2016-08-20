@@ -195,7 +195,7 @@ if __name__ == '__main__':
     kernel = Kernel(with_monitor=True)
     print("Try GETting:")
     print("    On OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
-    print("/usr/local/Cellar/curl/7.50.1/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
+    print("/usr/local/opt/curl/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
     print("Or open a browser to: https://localhost:5000/")
     print("   (Accept all the warnings)")
     kernel.run(h2_server((host, 5000),
