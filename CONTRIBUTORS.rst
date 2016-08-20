@@ -74,6 +74,14 @@ In chronological order:
   - Added verification logic for ensuring that responses to HEAD requests have
     no body.
 
+- Lorenzo (@Mec-iS)
+
+  - Changed documentation to stop using dictionaries for header blocks.
+
+- Kracekumar Ramaraj (@kracekumar)
+
+  - Cleaned up Twisted example.
+
 - @mlvnd
 
   - Cleaned up curio example.
