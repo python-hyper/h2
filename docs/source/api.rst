@@ -81,7 +81,6 @@ Exceptions
 ----------
 
 .. autoclass:: h2.exceptions.H2Error
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.NoSuchStreamError
