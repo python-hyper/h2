@@ -172,3 +172,5 @@ Known Settings
 .. autodata:: h2.settings.INITIAL_WINDOW_SIZE
 
 .. autodata:: h2.settings.MAX_FRAME_SIZE
+
+.. autodata:: h2.settings.MAX_HEADER_LIST_SIZE
