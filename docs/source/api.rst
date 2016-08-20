@@ -124,7 +124,6 @@ Protocol Errors
    :members:
 
 .. autoclass:: h2.exceptions.InvalidSettingsValueError
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.NoAvailableStreamIDError
@@ -136,7 +135,6 @@ Protocol Errors
    :members:
 
 .. autoclass:: h2.exceptions.UnsupportedFrameError
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.DenialOfServiceError
