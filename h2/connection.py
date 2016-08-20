@@ -457,7 +457,7 @@ class H2Connection(object):
         .. versionadded:: 2.3.0
 
         .. deprecated:: 2.5.0
-           Use :data:`config <H2Connection.config>` instead.
+           Use :data:`config <h2.connection.H2Connection.config>` instead.
         """
         return self.config.header_encoding
 
@@ -477,7 +477,7 @@ class H2Connection(object):
         properties. Defaults to ``True``.
 
         .. deprecated:: 2.5.0
-           Use :data:`config <H2Connection.config>` instead.
+           Use :data:`config <h2.connection.H2Connection.config>` instead.
         """
         return self.config.client_side
 
@@ -717,7 +717,7 @@ class H2Connection(object):
         this, any one of ``priority_weight``, ``priority_depends_on``, or
         ``priority_exclusive`` must be set to a value that is not ``None``. For
         more information on the priority fields, see :meth:`prioritize
-        <H2Connection.prioritize>`.
+        <h2.connection.H2Connection.prioritize>`.
 
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
@@ -750,22 +750,24 @@ class H2Connection(object):
         :type end_stream: ``bool``
 
         :param priority_weight: Sets the priority weight of the stream. See
-            :meth:`prioritize <H2Connection.prioritize>` for more about how
-            this field works. Defaults to ``None``, which means that no
-            priority information will be sent.
+            :meth:`prioritize <h2.connection.H2Connection.prioritize>` for more
+            about how this field works. Defaults to ``None``, which means that
+            no priority information will be sent.
         :type priority_weight: ``int`` or ``None``
 
         :param priority_depends_on: Sets which stream this one depends on for
-            priority purposes. See :meth:`prioritize <H2Connection.prioritize>`
-            for more about how this field works. Defaults to ``None``, which
-            means that no priority information will be sent.
+            priority purposes. See :meth:`prioritize
+            <h2.connection.H2Connection.prioritize>` for more about how this
+            field works. Defaults to ``None``, which means that no priority
+            information will be sent.
         :type priority_depends_on: ``int`` or ``None``
 
         :param priority_exclusive: Sets whether this stream exclusively depends
             on the stream given in ``priority_depends_on`` for priority
-            purposes. See :meth:`prioritize <H2Connection.prioritize>` for more
-            about how this field workds. Defaults to ``None``, which means that
-            no priority information will be sent.
+            purposes. See :meth:`prioritize
+            <h2.connection.H2Connection.prioritize>` for more about how this
+            field workds. Defaults to ``None``, which means that no priority
+            information will be sent.
         :type priority_depends_on: ``bool`` or ``None``
 
         :returns: Nothing

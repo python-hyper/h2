@@ -188,7 +188,7 @@ Now go ahead and stop the server running by hitting Ctrl+C in the first shell.
 You should see a ``KeyboardInterrupt`` error take the process down.
 
 What's the program above doing? Well, first it creates a
-:class:`socket <python:socket.socket>` object. This socket is then *bound* to
+:func:`socket <python:socket.socket>` object. This socket is then *bound* to
 a specific address: ``('0.0.0.0', 8080)``. This is a special address: it means
 that this socket should be listening for any traffic to TCP port 8080. Don't
 worry about the call to ``setsockopt``: it just makes sure you can run this
@@ -438,7 +438,7 @@ signaled the request. Let's define it.
         conn.send_headers(
             stream_id=stream_id,
             headers=[
-                (':status', '200'), 
+                (':status', '200'),
                 ('server', 'basic-h2-server/1.0')
             ],
         )
@@ -534,7 +534,7 @@ With these changes, your ``h2server.py`` file should look like this:
         conn.send_headers(
             stream_id=stream_id,
             headers=[
-                (':status', '200'), 
+                (':status', '200'),
                 ('server', 'basic-h2-server/1.0')
             ],
         )
