@@ -157,12 +157,20 @@ class TestGetNextAvailableStreamID(object):
 class TestExtractHeader(object):
 
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+            (u':authority', u'example.com'),
+            (u':path', u'/'),
+            (u':scheme', u'https'),
+            (u':method', u'GET'),
+    ]
+    example_headers_with_bytes = [
+            (b':authority', b'example.com'),
+            (b':path', b'/'),
+            (b':scheme', b'https'),
+            (b':method', b'GET'),
     ]
 
-    def test_extract_header_method(self):
-        assert extract_method_header(self.example_request_headers) \
-                 == b'GET'
+    @pytest.mark.parametrize(
+        'headers', [example_request_headers, example_headers_with_bytes]
+    )
+    def test_extract_header_method(self, headers):
+        assert extract_method_header(headers) == b'GET'
