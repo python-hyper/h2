@@ -19,7 +19,7 @@ from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
 from .config import H2Configuration
-from .errors import PROTOCOL_ERROR, REFUSED_STREAM
+from .errors import ErrorCodes
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
@@ -1380,7 +1380,7 @@ class H2Connection(object):
             for frame in self.incoming_buffer:
                 events.extend(self._receive_frame(frame))
         except InvalidPaddingError:
-            self._terminate_connection(PROTOCOL_ERROR)
+            self._terminate_connection(ErrorCodes.PROTOCOL_ERROR)
             raise ProtocolError("Received frame with invalid padding.")
         except ProtocolError as e:
             # For whatever reason, receiving the frame caused a protocol error.
@@ -1510,7 +1510,7 @@ class H2Connection(object):
             # remote peer now believes exists.
             if frame.stream_id in self._reset_streams:
                 f = RstStreamFrame(frame.promised_stream_id)
-                f.error_code = REFUSED_STREAM
+                f.error_code = ErrorCodes.REFUSED_STREAM
                 return [f], events
 
             raise ProtocolError("Attempted to push on closed stream.")
