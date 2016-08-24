@@ -15,6 +15,10 @@ API Changes (Backward-Compatible)
   decompressed header list. This is a subclass of ``ProtocolError``.
 - Added support for setting and managing ``SETTINGS_MAX_HEADER_LIST_SIZE``.
   This setting is now defaulted to 64kB.
+- Added ``h2.errors.ErrorCodes``, an enum that is used to store all the HTTP/2
+  error codes. This allows us to use a better printed representation of the
+  error code in most places that it is used.
+- Deprecated the other fields in ``h2.errors``. These will be removed in 3.0.0.
 
 Bugfixes
 ~~~~~~~~
