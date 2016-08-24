@@ -991,7 +991,8 @@ class H2Connection(object):
         :param stream_id: The ID of the stream to reset.
         :type stream_id: ``int``
         :param error_code: (optional) The error code to use to reset the
-            stream. Defaults to :data:`NO_ERROR <h2.errors.NO_ERROR>`.
+            stream. Defaults to :data:`ErrorCodes.NO_ERROR
+            <h2.errors.ErrorCodes.NO_ERROR>`.
         :type error_code: ``int``
         :returns: Nothing
         """

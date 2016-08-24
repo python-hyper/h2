@@ -11,7 +11,7 @@ import collections
 
 from hyperframe.frame import SettingsFrame
 
-from h2.errors import PROTOCOL_ERROR, FLOW_CONTROL_ERROR
+from h2.errors import ErrorCodes
 from h2.exceptions import InvalidSettingsValueError
 
 
@@ -261,15 +261,15 @@ def _validate_setting(setting, value):
     """
     if setting == ENABLE_PUSH:
         if value not in (0, 1):
-            return PROTOCOL_ERROR
+            return ErrorCodes.PROTOCOL_ERROR
     elif setting == INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647:  # 2^31 - 1
-            return FLOW_CONTROL_ERROR
+            return ErrorCodes.FLOW_CONTROL_ERROR
     elif setting == MAX_FRAME_SIZE:
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
-            return PROTOCOL_ERROR
+            return ErrorCodes.PROTOCOL_ERROR
     elif setting == MAX_HEADER_LIST_SIZE:
         if not value > 0:
-            return PROTOCOL_ERROR
+            return ErrorCodes.PROTOCOL_ERROR
 
     return 0

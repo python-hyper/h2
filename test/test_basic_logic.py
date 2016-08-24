@@ -350,7 +350,7 @@ class TestBasicClient(object):
             c.receive_data(f3.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            0, h2.errors.PROTOCOL_ERROR
+            0, h2.errors.ErrorCodes.PROTOCOL_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -588,7 +588,7 @@ class TestBasicClient(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=0, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=0, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -886,7 +886,7 @@ class TestBasicServer(object):
         assert not events
         assert c.data_to_send() == expected_data
 
-    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    @pytest.mark.parametrize("error_code", h2.errors.ErrorCodes)
     def test_close_connection_with_error_code(self, frame_factory, error_code):
         """
         Closing the connection with an error code emits a GOAWAY frame with
@@ -976,7 +976,7 @@ class TestBasicServer(object):
         assert not events
         assert c.data_to_send() == expected_data
 
-    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    @pytest.mark.parametrize("error_code", h2.errors.ErrorCodes)
     def test_reset_stream_with_error_code(self, frame_factory, error_code):
         """
         Resetting a stream with an error code emits a RST_STREAM frame with
@@ -1240,7 +1240,7 @@ class TestBasicServer(object):
             c.receive_data(data_frame.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.FRAME_SIZE_ERROR
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.FRAME_SIZE_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -1272,7 +1272,7 @@ class TestBasicServer(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -1322,7 +1322,7 @@ class TestBasicServer(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 

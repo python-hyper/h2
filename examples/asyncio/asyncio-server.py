@@ -22,7 +22,7 @@ from typing import List, Tuple
 
 from h2.connection import H2Connection
 from h2.events import DataReceived, RequestReceived, StreamEnded
-from h2.errors import PROTOCOL_ERROR
+from h2.errors import ErrorCodes
 
 
 RequestData = collections.namedtuple('RequestData', ['headers', 'data'])
@@ -111,7 +111,9 @@ class H2Protocol(asyncio.Protocol):
         try:
             stream_data = self.stream_data[stream_id]
         except KeyError:
-            self.conn.reset_stream(stream_id, error_code=PROTOCOL_ERROR)
+            self.conn.reset_stream(
+                stream_id, error_code=ErrorCodes.PROTOCOL_ERROR
+            )
         else:
             stream_data.data.write(data)
 

@@ -231,7 +231,7 @@ class TestEventReprs(object):
         """
         e = h2.events.StreamReset()
         e.stream_id = 919
-        e.error_code = h2.errors.ENHANCE_YOUR_CALM
+        e.error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
         e.remote_reset = False
 
         assert repr(e) == (
@@ -296,7 +296,7 @@ class TestEventReprs(object):
         ConnectionTerminated has a useful debug representation.
         """
         e = h2.events.ConnectionTerminated()
-        e.error_code = h2.errors.INADEQUATE_SECURITY
+        e.error_code = h2.errors.ErrorCodes.INADEQUATE_SECURITY
         e.last_stream_id = 33
         e.additional_data = additional_data
 

@@ -114,7 +114,7 @@ class TestPriority(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=3,
-            error_code=h2.errors.PROTOCOL_ERROR,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
