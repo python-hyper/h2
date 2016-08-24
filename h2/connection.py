@@ -19,7 +19,7 @@ from hpack.hpack import Encoder, Decoder
 from hpack.exceptions import HPACKError
 
 from .config import H2Configuration
-from .errors import ErrorCodes
+from .errors import ErrorCodes, _error_code_from_int
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
@@ -1714,7 +1714,7 @@ class H2Connection(object):
 
         # Fire an appropriate ConnectionTerminated event.
         new_event = ConnectionTerminated()
-        new_event.error_code = frame.error_code
+        new_event.error_code = _error_code_from_int(frame.error_code)
         new_event.last_stream_id = frame.last_stream_id
         new_event.additional_data = (frame.additional_data
                                      if frame.additional_data else None)
