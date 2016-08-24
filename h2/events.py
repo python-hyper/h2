@@ -359,7 +359,8 @@ class StreamReset(object):
         #: The Stream ID of the stream that was reset.
         self.stream_id = None
 
-        #: The error code given.
+        #: The error code given. Either one of :class:`ErrorCodes
+        #: <h2.errors.ErrorCodes>` or ``int``
         self.error_code = None
 
         #: Whether the remote peer sent a RST_STREAM or we did.
