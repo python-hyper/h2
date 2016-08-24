@@ -5,7 +5,7 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
-  - pypy
+  - "pypy-5.3.1"
 
 sudo: false
 install:
@@ -13,13 +13,7 @@ install:
   - "pip install ."
   - "pip install -r test_requirements.txt"
   - "pip install flake8"
-before_script: "flake8 --max-complexity 10 h2 test"
+before_script:
+  - "flake8 --max-complexity 10 h2 test"
 script:
-  - >
-      if [[ $TRAVIS_PYTHON_VERSION == pypy ]]; then
-        py.test test/
-      else
-        coverage run -m py.test test/
-        coverage combine
-        coverage report
-      fi
+  - ./.travis/run.sh
