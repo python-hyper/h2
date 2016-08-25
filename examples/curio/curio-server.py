@@ -12,7 +12,7 @@ import mimetypes
 import os
 import sys
 
-from curio import Kernel, Event, new_task, socket, ssl
+from curio import Kernel, Event, spawn, socket, ssl
 
 import h2.connection
 import h2.events
@@ -54,7 +54,7 @@ async def h2_server(address, root, certfile, keyfile):
         while True:
             client, _ = await sock.accept()
             server = H2Server(client, root)
-            await new_task(server.run())
+            await spawn(server.run())
 
 
 class H2Server:
@@ -86,7 +86,7 @@ class H2Server:
             events = self.conn.receive_data(data)
             for event in events:
                 if isinstance(event, h2.events.RequestReceived):
-                    await new_task(
+                    await spawn(
                         self.request_received(event.headers, event.stream_id)
                     )
                 elif isinstance(event, h2.events.DataReceived):
@@ -193,13 +193,12 @@ class H2Server:
 if __name__ == '__main__':
     host = sys.argv[2] if len(sys.argv) > 2 else "localhost"
     kernel = Kernel(with_monitor=True)
-    kernel.add_task(h2_server((host, 5000),
-                              sys.argv[1],
-                              "{}.crt.pem".format(host),
-                              "{}.key".format(host)))
     print("Try GETting:")
     print("    On OSX after 'brew install curl --with-c-ares --with-libidn --with-nghttp2 --with-openssl':")
-    print("/usr/local/Cellar/curl/7.47.1/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
+    print("/usr/local/opt/curl/bin/curl --tlsv1.2 --http2 -k https://localhost:5000/bundle.js")
     print("Or open a browser to: https://localhost:5000/")
     print("   (Accept all the warnings)")
-    kernel.run()
+    kernel.run(h2_server((host, 5000),
+                         sys.argv[1],
+                         "{}.crt.pem".format(host),
+                         "{}.key".format(host)))

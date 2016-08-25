@@ -323,6 +323,16 @@ class H2Connection(object):
         # than 2.3.0 it does nothing. However, we have to try!
         self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
 
+        #: The configuration for this HTTP/2 connection object.
+        #:
+        #: .. versionadded:: 2.5.0
+        self.config = config
+        if self.config is None:
+            self.config = H2Configuration(
+                client_side=client_side,
+                header_encoding=header_encoding,
+            )
+
         # Objects that store settings, including defaults.
         #
         # We set the MAX_CONCURRENT_STREAMS value to 100 because its default is
@@ -337,13 +347,13 @@ class H2Connection(object):
         # versions of HPACK will let us do it. That's ok: we should at least
         # suggest that we're not vulnerable.
         self.local_settings = Settings(
-            client=client_side,
+            client=self.config.client_side,
             initial_values={
                 MAX_CONCURRENT_STREAMS: 100,
                 MAX_HEADER_LIST_SIZE: self.DEFAULT_MAX_HEADER_LIST_SIZE,
             }
         )
-        self.remote_settings = Settings(client=not client_side)
+        self.remote_settings = Settings(client=not self.config.client_side)
 
         # The curent value of the connection flow control windows on the
         # connection.
@@ -362,18 +372,8 @@ class H2Connection(object):
         #: bytes.
         self.max_inbound_frame_size = self.local_settings.max_frame_size
 
-        #: The configuration for this HTTP/2 connection object.
-        #:
-        #: .. versionadded:: 2.5.0
-        self.config = config
-        if self.config is None:
-            self.config = H2Configuration(
-                client_side=client_side,
-                header_encoding=header_encoding,
-            )
-
         # Buffer for incoming data.
-        self.incoming_buffer = FrameBuffer(server=not client_side)
+        self.incoming_buffer = FrameBuffer(server=not self.config.client_side)
 
         # A private variable to store a sequence of received header frames
         # until completion.
@@ -457,7 +457,7 @@ class H2Connection(object):
         .. versionadded:: 2.3.0
 
         .. deprecated:: 2.5.0
-           Use :data:`config <H2Connection.config>` instead.
+           Use :data:`config <h2.connection.H2Connection.config>` instead.
         """
         return self.config.header_encoding
 
@@ -477,7 +477,7 @@ class H2Connection(object):
         properties. Defaults to ``True``.
 
         .. deprecated:: 2.5.0
-           Use :data:`config <H2Connection.config>` instead.
+           Use :data:`config <h2.connection.H2Connection.config>` instead.
         """
         return self.config.client_side
 
@@ -505,7 +505,7 @@ class H2Connection(object):
                 "Invalid stream ID for peer."
             )
 
-        s = H2Stream(stream_id)
+        s = H2Stream(stream_id, config=self.config)
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
         s.outbound_flow_control_window = (
@@ -717,7 +717,7 @@ class H2Connection(object):
         this, any one of ``priority_weight``, ``priority_depends_on``, or
         ``priority_exclusive`` must be set to a value that is not ``None``. For
         more information on the priority fields, see :meth:`prioritize
-        <H2Connection.prioritize>`.
+        <h2.connection.H2Connection.prioritize>`.
 
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
@@ -750,22 +750,24 @@ class H2Connection(object):
         :type end_stream: ``bool``
 
         :param priority_weight: Sets the priority weight of the stream. See
-            :meth:`prioritize <H2Connection.prioritize>` for more about how
-            this field works. Defaults to ``None``, which means that no
-            priority information will be sent.
+            :meth:`prioritize <h2.connection.H2Connection.prioritize>` for more
+            about how this field works. Defaults to ``None``, which means that
+            no priority information will be sent.
         :type priority_weight: ``int`` or ``None``
 
         :param priority_depends_on: Sets which stream this one depends on for
-            priority purposes. See :meth:`prioritize <H2Connection.prioritize>`
-            for more about how this field works. Defaults to ``None``, which
-            means that no priority information will be sent.
+            priority purposes. See :meth:`prioritize
+            <h2.connection.H2Connection.prioritize>` for more about how this
+            field works. Defaults to ``None``, which means that no priority
+            information will be sent.
         :type priority_depends_on: ``int`` or ``None``
 
         :param priority_exclusive: Sets whether this stream exclusively depends
             on the stream given in ``priority_depends_on`` for priority
-            purposes. See :meth:`prioritize <H2Connection.prioritize>` for more
-            about how this field workds. Defaults to ``None``, which means that
-            no priority information will be sent.
+            purposes. See :meth:`prioritize
+            <h2.connection.H2Connection.prioritize>` for more about how this
+            field workds. Defaults to ``None``, which means that no priority
+            information will be sent.
         :type priority_depends_on: ``bool`` or ``None``
 
         :returns: Nothing

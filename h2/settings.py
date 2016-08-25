@@ -33,30 +33,26 @@ MAX_CONCURRENT_STREAMS = SettingsFrame.MAX_CONCURRENT_STREAMS
 #: control.
 INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
 
+#: Indicates the size of the largest frame payload that the sender is willing
+#: to receive, in octets.
+MAX_FRAME_SIZE = None
+
+#: This advisory setting informs a peer of the maximum size of header list that
+#: the sender is prepared to accept, in octets.  The value is based on the
+#: uncompressed size of header fields, including the length of the name and
+#: value in octets plus an overhead of 32 octets for each header field.
+#:
+#: .. versionadded:: 2.5.0
+MAX_HEADER_LIST_SIZE = None
+
 try:  # Platform-specific: Hyperframe < 4.0.0
-    #: Indicates the size of the largest frame payload that the sender is
-    #: willing to receive, in octets.
     MAX_FRAME_SIZE = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
 except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-    #: Indicates the size of the largest frame payload that the sender is
-    #: willing to receive, in octets.
     MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
 
 try:  # Platform-specific: Hyperframe < 4.0.0
-    #: This advisory setting informs a peer of the maximum size of header list
-    #: that the sender is prepared to accept, in octets.  The value is based on
-    #: the uncompressed size of header fields, including the length of the name
-    #: and value in octets plus an overhead of 32 octets for each header field.
-    #:
-    #: .. versionadded:: 2.5.0
     MAX_HEADER_LIST_SIZE = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
 except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-    #: This advisory setting informs a peer of the maximum size of header list
-    #: that the sender is prepared to accept, in octets.  The value is based on
-    #: the uncompressed size of header fields, including the length of the name
-    #: and value in octets plus an overhead of 32 octets for each header field.
-    #:
-    #: .. versionadded:: 2.5.0
     MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
 
 

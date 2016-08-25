@@ -22,24 +22,35 @@ class TestH2Config(object):
         assert config.client_side
         assert config.header_encoding == 'utf-8'
 
-    @pytest.mark.parametrize('client_side', [None, 'False', 1])
-    def test_client_side_must_be_bool(self, client_side):
+    boolean_config_options = [
+        'client_side',
+        'validate_outbound_headers',
+        'normalize_outbound_headers',
+        'validate_inbound_headers'
+    ]
+
+    @pytest.mark.parametrize('option_name', boolean_config_options)
+    @pytest.mark.parametrize('value', [None, 'False', 1])
+    def test_boolean_config_options_reject_non_bools(self, option_name, value):
         """
-        The value of the ``client_side`` setting must be a boolean.
+        The boolean config options raise an error if you try to set a value
+        that isn't a boolean.
         """
         config = h2.config.H2Configuration()
 
         with pytest.raises(ValueError):
-            config.client_side = client_side
+            setattr(config, option_name, value)
 
-    @pytest.mark.parametrize('client_side', [True, False])
-    def test_client_side_is_reflected(self, client_side):
+    @pytest.mark.parametrize('option_name', boolean_config_options)
+    @pytest.mark.parametrize('value', [True, False])
+    def test_boolean_config_option_is_reflected(self, option_name, value):
         """
-        The value of ``client_side``, when set, is reflected in the value.
+        The value of the boolean config options, when set, is reflected
+        in the value.
         """
         config = h2.config.H2Configuration()
-        config.client_side = client_side
-        assert config.client_side == client_side
+        setattr(config, option_name, value)
+        assert getattr(config, option_name) == value
 
     @pytest.mark.parametrize('header_encoding', [True, 1, object()])
     def test_header_encoding_must_be_false_str_none(self, header_encoding):

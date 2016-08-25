@@ -18,15 +18,16 @@ from .errors import STREAM_CLOSED
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    InformationalResponseReceived, AlternativeServiceAvailable
+    InformationalResponseReceived, AlternativeServiceAvailable,
+    _HeadersSent, _TrailersSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
-    secure_headers, validate_headers, HeaderValidationFlags,
-    extract_method_header
+    validate_headers, validate_outbound_headers, normalize_outbound_headers,
+    HeaderValidationFlags, extract_method_header
 )
 
 
@@ -132,7 +133,9 @@ class H2StreamStateMachine(object):
         """
         self.client = True
         self.headers_sent = True
-        return []
+        event = _HeadersSent()
+
+        return [event]
 
     def response_sent(self, previous_state):
         """
@@ -143,11 +146,13 @@ class H2StreamStateMachine(object):
             if self.client is True or self.client is None:
                 raise ProtocolError("Client cannot send responses.")
             self.headers_sent = True
+            event = _HeadersSent()
         else:
             assert not self.trailers_sent
             self.trailers_sent = True
+            event = _TrailersSent()
 
-        return []
+        return [event]
 
     def request_received(self, previous_state):
         """
@@ -321,7 +326,8 @@ class H2StreamStateMachine(object):
         if self.headers_sent:
             raise ProtocolError("Information response after final response")
 
-        return []
+        event = _HeadersSent()
+        return [event]
 
     def recv_informational_response(self, previous_state):
         """
@@ -665,7 +671,7 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
-    def __init__(self, stream_id):
+    def __init__(self, stream_id, config):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
@@ -683,6 +689,9 @@ class H2Stream(object):
 
         # The authority we believe this stream belongs to.
         self._authority = None
+
+        # The configuration for this stream.
+        self.config = config
 
     @property
     def open(self):
@@ -754,12 +763,13 @@ class H2Stream(object):
 
             input_ = StreamInputs.SEND_INFORMATIONAL_HEADERS
 
-        # This does not trigger any events.
         events = self.state_machine.process_input(input_)
-        assert not events
 
         hf = HeadersFrame(self.stream_id)
-        frames = self._build_headers_frames(headers, encoder, hf)
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+        frames = self._build_headers_frames(
+            headers, encoder, hf, hdr_validation_flags
+        )
 
         if end_stream:
             # Not a bug: the END_STREAM flag is valid on the initial HEADERS
@@ -795,7 +805,10 @@ class H2Stream(object):
 
         ppf = PushPromiseFrame(self.stream_id)
         ppf.promised_stream_id = related_stream_id
-        frames = self._build_headers_frames(headers, encoder, ppf)
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+        frames = self._build_headers_frames(
+            headers, encoder, ppf, hdr_validation_flags
+        )
 
         return frames
 
@@ -918,11 +931,9 @@ class H2Stream(object):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
 
-        conn_state = HeaderValidationFlags(
-            is_client=self.state_machine.client,
-            is_trailer=isinstance(events[0], TrailersReceived)
-        )
-        headers = validate_headers(headers, conn_state)
+        if self.config.validate_inbound_headers:
+            hdr_validation_flags = self._build_hdr_validation_flags(events)
+            headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
             headers = list(_decode_headers(headers, header_encoding))
@@ -1020,18 +1031,48 @@ class H2Stream(object):
 
         return [], events
 
+    def _build_hdr_validation_flags(self, events):
+        """
+        Constructs a set of header validation flags for use when normalizing
+        and validating header blocks.
+        """
+        try:
+            is_trailer = isinstance(
+                events[0], (_TrailersSent, TrailersReceived)
+            )
+        except IndexError:
+            # Some state changes don't emit an internal event (for example,
+            # sending a push promise).  We *always* emit an event for trailers,
+            # so the absence of an event means this definitely isn't a trailer.
+            #
+            # TODO: Find any places where we don't emit anything, and emit
+            # an internal event, so we can do away with this branch.
+            is_trailer = False
+
+        return HeaderValidationFlags(
+            is_client=self.state_machine.client,
+            is_trailer=is_trailer
+        )
+
     def _build_headers_frames(self,
                               headers,
                               encoder,
-                              first_frame):
+                              first_frame,
+                              hdr_validation_flags):
         """
         Helper method to build headers or push promise frames.
         """
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
-        headers = _lowercase_header_names(headers)
-        headers = _strip_surrounding_whitespace(headers)
-        headers = secure_headers(headers)
+        if self.config.normalize_outbound_headers:
+            headers = normalize_outbound_headers(
+                headers, hdr_validation_flags
+            )
+        if self.config.validate_outbound_headers:
+            headers = validate_outbound_headers(
+                headers, hdr_validation_flags
+            )
+
         encoded_headers = encoder.encode(headers)
 
         # Slice into blocks of max_outbound_frame_size. Be careful with this:
@@ -1097,33 +1138,6 @@ class H2Stream(object):
 
             if end_stream and expected != actual:
                 raise InvalidBodyLengthError(expected, actual)
-
-
-def _lowercase_header_names(headers):
-    """
-    Given an iterable of header two-tuples, rebuilds that iterable with the
-    header names lowercased. This generator produces tuples that preserve the
-    original type of the header tuple for tuple and any ``HeaderTuple``.
-    """
-    for header in headers:
-        if isinstance(header, HeaderTuple):
-            yield header.__class__(header[0].lower(), header[1])
-        else:
-            yield (header[0].lower(), header[1])
-
-
-def _strip_surrounding_whitespace(headers):
-    """
-    Given an iterable of header two-tuples, strip both leading and trailing
-    whitespace from both header names and header values. This generator
-    produces tuples that preserve the original type of the header tuple for
-    tuple and any ``HeaderTuple``.
-    """
-    for header in headers:
-        if isinstance(header, HeaderTuple):
-            yield header.__class__(header[0].strip(), header[1].strip())
-        else:
-            yield (header[0].strip(), header[1].strip())
 
 
 def _decode_headers(headers, encoding):

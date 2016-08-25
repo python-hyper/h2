@@ -81,7 +81,6 @@ Exceptions
 ----------
 
 .. autoclass:: h2.exceptions.H2Error
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.NoSuchStreamError
@@ -125,7 +124,6 @@ Protocol Errors
    :members:
 
 .. autoclass:: h2.exceptions.InvalidSettingsValueError
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.NoAvailableStreamIDError
@@ -137,7 +135,6 @@ Protocol Errors
    :members:
 
 .. autoclass:: h2.exceptions.UnsupportedFrameError
-   :show-inheritance:
    :members:
 
 .. autoclass:: h2.exceptions.DenialOfServiceError
@@ -175,3 +172,5 @@ Known Settings
 .. autodata:: h2.settings.INITIAL_WINDOW_SIZE
 
 .. autodata:: h2.settings.MAX_FRAME_SIZE
+
+.. autodata:: h2.settings.MAX_HEADER_LIST_SIZE
