@@ -8,6 +8,7 @@ Utility functions that do not belong in a separate module.
 import collections
 import re
 from string import whitespace
+import sys
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
@@ -41,9 +42,10 @@ _SECURE_HEADERS = frozenset([
     b'proxy-authorization', u'proxy-authorization',
 ])
 
-_WHITESPACE_CHARS = frozenset(whitespace)
-_WHITESPACE_CODE_POINTS = frozenset(map(ord, whitespace))
-_ALL_WHITESPACE = _WHITESPACE_CHARS.union(_WHITESPACE_CODE_POINTS)
+if sys.version_info[0] == 3:
+    _WHITESPACE = frozenset(map(ord, whitespace))
+else:
+    _WHITESPACE = frozenset(whitespace)
 
 
 def _secure_headers(headers, hdr_validation_flags):
@@ -229,12 +231,12 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
     whitespace characters.
     """
     for header in headers:
-        if header[0] and ((header[0][0] in _ALL_WHITESPACE) or
-                          (header[0][-1] in _ALL_WHITESPACE)):
+        if header[0] and ((header[0][0] in _WHITESPACE) or
+                          (header[0][-1] in _WHITESPACE)):
             raise ProtocolError(
                 "Received header name surrounded by whitespace %r" % header[0])
-        if header[1] and ((header[1][0] in _ALL_WHITESPACE) or
-                          (header[1][-1] in _ALL_WHITESPACE)):
+        if header[1] and ((header[1][0] in _WHITESPACE) or
+                          (header[1][-1] in _WHITESPACE)):
             raise ProtocolError(
                 "Received header value surrounded by whitespace %r" % header[1]
             )
