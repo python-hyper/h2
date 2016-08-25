@@ -7,6 +7,7 @@ Utility functions that do not belong in a separate module.
 """
 import collections
 import re
+from string import whitespace
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
@@ -224,10 +225,12 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
     whitespace characters.
     """
     for header in headers:
-        if header[0].strip() != header[0]:
+        if header[0] and (
+                (header[0][0] in whitespace) or (header[0][-1] in whitespace)):
             raise ProtocolError(
                 "Received header name surrounded by whitespace %r" % header[0])
-        if header[1].strip() != header[1]:
+        if header[1] and (
+                (header[1][0] in whitespace) or (header[1][-1] in whitespace)):
             raise ProtocolError(
                 "Received header value surrounded by whitespace %r" % header[1]
             )
