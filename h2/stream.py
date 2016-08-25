@@ -14,7 +14,7 @@ from hyperframe.frame import (
     RstStreamFrame, PushPromiseFrame, AltSvcFrame
 )
 
-from .errors import STREAM_CLOSED
+from .errors import ErrorCodes, _error_code_from_int
 from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
@@ -282,7 +282,7 @@ class H2StreamStateMachine(object):
         if previous_state != StreamState.CLOSED:
             event = StreamReset()
             event.stream_id = self.stream_id
-            event.error_code = STREAM_CLOSED
+            event.error_code = ErrorCodes.STREAM_CLOSED
             event.remote_reset = False
             events.append(event)
 
@@ -1027,7 +1027,7 @@ class H2Stream(object):
 
         if events:
             # We don't fire an event if this stream is already closed.
-            events[0].error_code = frame.error_code
+            events[0].error_code = _error_code_from_int(frame.error_code)
 
         return [], events
 

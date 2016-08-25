@@ -239,7 +239,7 @@ class TestServerUpgrade(object):
 
         expected_frame = frame_factory.build_rst_stream_frame(
             stream_id=1,
-            error_code=h2.errors.STREAM_CLOSED,
+            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -260,6 +260,6 @@ class TestServerUpgrade(object):
 
         expected_frame = frame_factory.build_rst_stream_frame(
             stream_id=1,
-            error_code=h2.errors.STREAM_CLOSED,
+            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         assert c.data_to_send() == expected_frame.serialize()
