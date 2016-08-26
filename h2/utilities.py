@@ -42,9 +42,9 @@ _SECURE_HEADERS = frozenset([
     b'proxy-authorization', u'proxy-authorization',
 ])
 
-if sys.version_info[0] == 2:
+if sys.version_info[0] == 2:  # pragma: no cover
     _WHITESPACE = frozenset(whitespace)
-else:
+else:  # pragma: no cover
     _WHITESPACE = frozenset(map(ord, whitespace))
 
 
