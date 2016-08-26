@@ -42,10 +42,10 @@ _SECURE_HEADERS = frozenset([
     b'proxy-authorization', u'proxy-authorization',
 ])
 
-if sys.version_info[0] == 3:
-    _WHITESPACE = frozenset(map(ord, whitespace))
-else:
+if sys.version_info[0] == 2:
     _WHITESPACE = frozenset(whitespace)
+else:
+    _WHITESPACE = frozenset(map(ord, whitespace))
 
 
 def _secure_headers(headers, hdr_validation_flags):
