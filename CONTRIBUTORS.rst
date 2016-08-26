@@ -85,3 +85,7 @@ In chronological order:
 - @mlvnd
 
   - Cleaned up curio example.
+
+- Tom Offermann (@toffer)
+
+  - Added Tornado example.
