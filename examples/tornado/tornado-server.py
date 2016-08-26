@@ -1,5 +1,11 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+tornado-server.py
+~~~~~~~~~~~~~~~~~
 
+A fully-functional HTTP/2 server written for Tornado.
+"""
 import collections
 import json
 import ssl
