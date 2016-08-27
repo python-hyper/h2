@@ -42,9 +42,9 @@ _SECURE_HEADERS = frozenset([
     b'proxy-authorization', u'proxy-authorization',
 ])
 
-if sys.version_info[0] == 2:  # pragma: no cover
+if sys.version_info[0] == 2:  # Python 2.X
     _WHITESPACE = frozenset(whitespace)
-else:  # pragma: no cover
+else:  # Python 3.3+
     _WHITESPACE = frozenset(map(ord, whitespace))
 
 
