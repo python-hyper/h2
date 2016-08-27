@@ -231,12 +231,14 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
     whitespace characters.
     """
     for header in headers:
-        if header[0] and ((header[0][0] in _WHITESPACE) or
-                          (header[0][-1] in _WHITESPACE)):
+        if not header[0]:
+            raise ProtocolError("Receieved empty header name")
+        if header[0][0] in _WHITESPACE or header[0][-1] in _WHITESPACE:
             raise ProtocolError(
                 "Received header name surrounded by whitespace %r" % header[0])
-        if header[1] and ((header[1][0] in _WHITESPACE) or
-                          (header[1][-1] in _WHITESPACE)):
+        if not header[1]:
+            raise ProtocolError("Receieved empty header value")
+        if header[1][0] in _WHITESPACE or header[1][-1] in _WHITESPACE:
             raise ProtocolError(
                 "Received header value surrounded by whitespace %r" % header[1]
             )
