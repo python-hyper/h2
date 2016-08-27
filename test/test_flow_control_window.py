@@ -359,7 +359,7 @@ class TestFlowControl(object):
         # Verify we tear down appropriately.
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=1,
-            error_code=h2.errors.FLOW_CONTROL_ERROR,
+            error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -458,7 +458,7 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=0,
-            error_code=h2.errors.PROTOCOL_ERROR,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -482,7 +482,7 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=0,
-            error_code=h2.errors.FLOW_CONTROL_ERROR,
+            error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -507,7 +507,7 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=0,
-            error_code=h2.errors.FLOW_CONTROL_ERROR,
+            error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -575,7 +575,7 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=0,
-            error_code=h2.errors.FLOW_CONTROL_ERROR,
+            error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 

@@ -256,14 +256,14 @@ class TestSettings(object):
             s.enable_push = val
 
         s.acknowledge()
-        assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+        assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
         assert s.enable_push == 1
 
         with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
             s[h2.settings.ENABLE_PUSH] = val
 
         s.acknowledge()
-        assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+        assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
         assert s[h2.settings.ENABLE_PUSH] == 1
 
     @given(integers())
@@ -283,14 +283,18 @@ class TestSettings(object):
                 s.initial_window_size = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.FLOW_CONTROL_ERROR
+            assert (
+                e.value.error_code == h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
+            )
             assert s.initial_window_size == 65535
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
                 s[h2.settings.INITIAL_WINDOW_SIZE] = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.FLOW_CONTROL_ERROR
+            assert (
+                e.value.error_code == h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
+            )
             assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
 
     @given(integers())
@@ -309,14 +313,14 @@ class TestSettings(object):
                 s.max_frame_size = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
             assert s.max_frame_size == 16384
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
                 s[h2.settings.MAX_FRAME_SIZE] = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
             assert s[h2.settings.MAX_FRAME_SIZE] == 16384
 
     @given(integers())
@@ -335,14 +339,14 @@ class TestSettings(object):
                 s.max_header_list_size = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
             assert s.max_header_list_size is None
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
                 s[h2.settings.MAX_HEADER_LIST_SIZE] = val
 
             s.acknowledge()
-            assert e.value.error_code == h2.errors.PROTOCOL_ERROR
+            assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
 
             with pytest.raises(KeyError):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]

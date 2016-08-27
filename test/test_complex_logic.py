@@ -550,7 +550,7 @@ class TestContinuationFramesPushPromise(object):
 
         f = frame_factory.build_goaway_frame(
             last_stream_id=0,
-            error_code=h2.errors.PROTOCOL_ERROR,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == f.serialize()
 

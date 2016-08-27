@@ -19,7 +19,7 @@ class ProtocolError(H2Error):
     An action was attempted in violation of the HTTP/2 protocol.
     """
     #: The error code corresponds to this kind of Protocol Error.
-    error_code = h2.errors.PROTOCOL_ERROR
+    error_code = h2.errors.ErrorCodes.PROTOCOL_ERROR
 
 
 class FrameTooLargeError(ProtocolError):
@@ -27,7 +27,7 @@ class FrameTooLargeError(ProtocolError):
     The frame that we tried to send or that we received was too large.
     """
     #: This error code that corresponds to this kind of Protocol Error.
-    error_code = h2.errors.FRAME_SIZE_ERROR
+    error_code = h2.errors.ErrorCodes.FRAME_SIZE_ERROR
 
 
 class FrameDataMissingError(ProtocolError):
@@ -37,7 +37,7 @@ class FrameDataMissingError(ProtocolError):
     .. versionadded:: 2.0.0
     """
     #: The error code that corresponds to this kind of Protocol Error
-    error_code = h2.errors.FRAME_SIZE_ERROR
+    error_code = h2.errors.ErrorCodes.FRAME_SIZE_ERROR
 
 
 class TooManyStreamsError(ProtocolError):
@@ -54,7 +54,7 @@ class FlowControlError(ProtocolError):
     """
     #: The error code that corresponds to this kind of
     #: :class:`ProtocolError <h2.exceptions.ProtocolError>`
-    error_code = h2.errors.FLOW_CONTROL_ERROR
+    error_code = h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
 
 
 class StreamIDTooLowError(ProtocolError):
@@ -110,7 +110,7 @@ class StreamClosedError(NoSuchStreamError):
         self.stream_id = stream_id
 
         #: The relevant HTTP/2 error code.
-        self.error_code = h2.errors.STREAM_CLOSED
+        self.error_code = h2.errors.ErrorCodes.STREAM_CLOSED
 
         # Any events that internal code may need to fire. Not relevant to
         # external users that may receive a StreamClosedError.
@@ -183,4 +183,4 @@ class DenialOfServiceError(ProtocolError):
     """
     #: The error code that corresponds to this kind of
     #: :class:`ProtocolError <h2.exceptions.ProtocolError>`
-    error_code = h2.errors.ENHANCE_YOUR_CALM
+    error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM

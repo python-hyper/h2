@@ -231,11 +231,12 @@ class TestEventReprs(object):
         """
         e = h2.events.StreamReset()
         e.stream_id = 919
-        e.error_code = h2.errors.ENHANCE_YOUR_CALM
+        e.error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
         e.remote_reset = False
 
         assert repr(e) == (
-            "<StreamReset stream_id:919, error_code:11, remote_reset:False>"
+            "<StreamReset stream_id:919, "
+            "error_code:ErrorCodes.ENHANCE_YOUR_CALM, remote_reset:False>"
         )
 
     def test_pushedstreamreceived_repr(self):
@@ -295,13 +296,13 @@ class TestEventReprs(object):
         ConnectionTerminated has a useful debug representation.
         """
         e = h2.events.ConnectionTerminated()
-        e.error_code = h2.errors.INADEQUATE_SECURITY
+        e.error_code = h2.errors.ErrorCodes.INADEQUATE_SECURITY
         e.last_stream_id = 33
         e.additional_data = additional_data
 
         assert repr(e) == (
-            "<ConnectionTerminated error_code:12, last_stream_id:33, "
-            "additional_data:%s>" % data_repr
+            "<ConnectionTerminated error_code:ErrorCodes.INADEQUATE_SECURITY, "
+            "last_stream_id:33, additional_data:%s>" % data_repr
         )
 
     def test_alternativeserviceavailable_repr(self):

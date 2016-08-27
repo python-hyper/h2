@@ -118,6 +118,6 @@ class TestStreamReset(object):
 
         f = frame_factory.build_rst_stream_frame(
             stream_id=2,
-            error_code=h2.errors.REFUSED_STREAM,
+            error_code=h2.errors.ErrorCodes.REFUSED_STREAM,
         )
         assert c.data_to_send() == f.serialize()

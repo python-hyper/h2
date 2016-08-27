@@ -72,7 +72,7 @@ class TestClosedStreams(object):
         events = c.receive_data(data_frame.serialize())
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED
         )
         assert not events
         assert c.data_to_send() == rst_frame.serialize()
@@ -118,7 +118,7 @@ class TestClosedStreams(object):
 
         f = frame_factory.build_goaway_frame(
             last_stream_id=3,
-            error_code=h2.errors.PROTOCOL_ERROR,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == f.serialize()
 

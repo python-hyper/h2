@@ -350,7 +350,7 @@ class TestBasicClient(object):
             c.receive_data(f3.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            0, h2.errors.PROTOCOL_ERROR
+            0, h2.errors.ErrorCodes.PROTOCOL_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -455,7 +455,7 @@ class TestBasicClient(object):
 
         f = frame_factory.build_rst_stream_frame(
             stream_id=1,
-            error_code=5
+            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         events = c.receive_data(f.serialize())
 
@@ -464,7 +464,31 @@ class TestBasicClient(object):
 
         assert isinstance(event, h2.events.StreamReset)
         assert event.stream_id == 1
-        assert event.error_code == 5
+        assert event.error_code is h2.errors.ErrorCodes.STREAM_CLOSED
+        assert isinstance(event.error_code, h2.errors.ErrorCodes)
+        assert event.remote_reset
+
+    def test_handle_stream_reset_with_unknown_erorr_code(self, frame_factory):
+        """
+        Streams being remotely reset with unknown error codes behave exactly as
+        they do with known error codes, but the error code on the event is an
+        int, instead of being an ErrorCodes.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_rst_stream_frame(stream_id=1, error_code=0xFA)
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.StreamReset)
+        assert event.stream_id == 1
+        assert event.error_code == 250
+        assert not isinstance(event.error_code, h2.errors.ErrorCodes)
         assert event.remote_reset
 
     def test_can_consume_partial_data_from_connection(self):
@@ -588,7 +612,7 @@ class TestBasicClient(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=0, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=0, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -886,7 +910,7 @@ class TestBasicServer(object):
         assert not events
         assert c.data_to_send() == expected_data
 
-    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    @pytest.mark.parametrize("error_code", h2.errors.ErrorCodes)
     def test_close_connection_with_error_code(self, frame_factory, error_code):
         """
         Closing the connection with an error code emits a GOAWAY frame with
@@ -976,7 +1000,7 @@ class TestBasicServer(object):
         assert not events
         assert c.data_to_send() == expected_data
 
-    @pytest.mark.parametrize("error_code", h2.errors.H2_ERRORS)
+    @pytest.mark.parametrize("error_code", h2.errors.ErrorCodes)
     def test_reset_stream_with_error_code(self, frame_factory, error_code):
         """
         Resetting a stream with an error code emits a RST_STREAM frame with
@@ -1240,7 +1264,7 @@ class TestBasicServer(object):
             c.receive_data(data_frame.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.FRAME_SIZE_ERROR
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.FRAME_SIZE_ERROR
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -1272,7 +1296,7 @@ class TestBasicServer(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -1322,7 +1346,7 @@ class TestBasicServer(object):
             c.receive_data(f.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=1, error_code=h2.errors.PROTOCOL_ERROR,
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
@@ -1410,14 +1434,17 @@ class TestBasicServer(object):
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
-        f = frame_factory.build_goaway_frame(last_stream_id=5, error_code=4)
+        f = frame_factory.build_goaway_frame(
+            last_stream_id=5, error_code=h2.errors.ErrorCodes.SETTINGS_TIMEOUT
+        )
         events = c.receive_data(f.serialize())
 
         assert len(events) == 1
         event = events[0]
 
         assert isinstance(event, h2.events.ConnectionTerminated)
-        assert event.error_code == 4
+        assert event.error_code == h2.errors.ErrorCodes.SETTINGS_TIMEOUT
+        assert isinstance(event.error_code, h2.errors.ErrorCodes)
         assert event.last_stream_id == 5
         assert event.additional_data is None
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
@@ -1461,3 +1488,30 @@ class TestBasicServer(object):
 
         assert isinstance(event, h2.events.ConnectionTerminated)
         assert event.additional_data == additional_data
+
+    def test_receiving_goaway_frame_with_unknown_error(self, frame_factory):
+        """
+        Receiving a GOAWAY frame with an unknown error code behaves exactly the
+        same as receiving one we know about, but the code is reported as an
+        integer instead of as an ErrorCodes.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_goaway_frame(
+            last_stream_id=5, error_code=0xFA
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ConnectionTerminated)
+        assert event.error_code == 250
+        assert not isinstance(event.error_code, h2.errors.ErrorCodes)
+        assert event.last_stream_id == 5
+        assert event.additional_data is None
+        assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
+
+        assert not c.data_to_send()
