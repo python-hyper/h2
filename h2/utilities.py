@@ -254,7 +254,7 @@ def _reject_te(headers, hdr_validation_flags):
     """
     for header in headers:
         if header[0] in (b'te', u'te'):
-            if header[1].lower().strip() not in (b'trailers', u'trailers'):
+            if header[1].lower() not in (b'trailers', u'trailers'):
                 raise ProtocolError(
                     "Invalid value for Transfer-Encoding header: %s" %
                     header[1]
