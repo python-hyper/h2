@@ -230,6 +230,11 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
     Raises a ProtocolError if any header name or value is surrounded by
     whitespace characters.
     """
+    # For compatibility with RFC 7230 header fields, we need to allow the field
+    # value to be an empty string. This is ludicrous, but technically allowed.
+    # The field name may not be empty, though, so we can safely assume that it
+    # must have at least one character in it and throw exceptions if it
+    # doesn't.
     for header in headers:
         if header[0][0] in _WHITESPACE or header[0][-1] in _WHITESPACE:
             raise ProtocolError(
