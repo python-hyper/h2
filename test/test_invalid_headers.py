@@ -20,7 +20,7 @@ import hyperframe.frame
 from hypothesis import given
 from hypothesis.strategies import binary, lists, tuples
 
-HEADERS_STRATEGY = lists(tuples(binary(), binary()))
+HEADERS_STRATEGY = lists(tuples(binary(min_size=1), binary()))
 
 
 class TestInvalidFrameSequences(object):
