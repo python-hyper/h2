@@ -7,6 +7,8 @@ Utility functions that do not belong in a separate module.
 """
 import collections
 import re
+from string import whitespace
+import sys
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
@@ -39,6 +41,11 @@ _SECURE_HEADERS = frozenset([
     b'authorization', u'authorization',
     b'proxy-authorization', u'proxy-authorization',
 ])
+
+if sys.version_info[0] == 2:  # Python 2.X
+    _WHITESPACE = frozenset(whitespace)
+else:  # Python 3.3+
+    _WHITESPACE = frozenset(map(ord, whitespace))
 
 
 def _secure_headers(headers, hdr_validation_flags):
@@ -187,6 +194,9 @@ def validate_headers(headers, hdr_validation_flags):
     headers = _reject_uppercase_header_fields(
         headers, hdr_validation_flags
     )
+    headers = _reject_surrounding_whitespace(
+        headers, hdr_validation_flags
+    )
     headers = _reject_te(
         headers, hdr_validation_flags
     )
@@ -212,6 +222,28 @@ def _reject_uppercase_header_fields(headers, hdr_validation_flags):
         if UPPER_RE.search(header[0]):
             raise ProtocolError(
                 "Received uppercase header name %s." % header[0])
+        yield header
+
+
+def _reject_surrounding_whitespace(headers, hdr_validation_flags):
+    """
+    Raises a ProtocolError if any header name or value is surrounded by
+    whitespace characters.
+    """
+    # For compatibility with RFC 7230 header fields, we need to allow the field
+    # value to be an empty string. This is ludicrous, but technically allowed.
+    # The field name may not be empty, though, so we can safely assume that it
+    # must have at least one character in it and throw exceptions if it
+    # doesn't.
+    for header in headers:
+        if header[0][0] in _WHITESPACE or header[0][-1] in _WHITESPACE:
+            raise ProtocolError(
+                "Received header name surrounded by whitespace %r" % header[0])
+        if header[1] and ((header[1][0] in _WHITESPACE) or
+           (header[1][-1] in _WHITESPACE)):
+            raise ProtocolError(
+                "Received header value surrounded by whitespace %r" % header[1]
+            )
         yield header
 
 
@@ -358,6 +390,20 @@ def _lowercase_header_names(headers, hdr_validation_flags):
             yield (header[0].lower(), header[1])
 
 
+def _strip_surrounding_whitespace(headers, hdr_validation_flags):
+    """
+    Given an iterable of header two-tuples, strip both leading and trailing
+    whitespace from both header names and header values. This generator
+    produces tuples that preserve the original type of the header tuple for
+    tuple and any ``HeaderTuple``.
+    """
+    for header in headers:
+        if isinstance(header, HeaderTuple):
+            yield header.__class__(header[0].strip(), header[1].strip())
+        else:
+            yield (header[0].strip(), header[1].strip())
+
+
 def _check_sent_host_authority_header(headers, hdr_validation_flags):
     """
     Raises an InvalidHeaderBlockError if we try to send a header block
@@ -381,6 +427,7 @@ def normalize_outbound_headers(headers, hdr_validation_flags):
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
     headers = _lowercase_header_names(headers, hdr_validation_flags)
+    headers = _strip_surrounding_whitespace(headers, hdr_validation_flags)
     headers = _secure_headers(headers, hdr_validation_flags)
 
     return headers

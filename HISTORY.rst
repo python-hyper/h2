@@ -36,6 +36,10 @@ Bugfixes
 - Correctly refuse to send header blocks that contain neither :authority nor
   Host headers, or header blocks which contain mismatched :authority and Host
   headers, per RFC 7540 Section 8.1.2.3.
+- Hyper-h2 will now reject header field names and values that contain leading
+  or trailing whitespace.
+- Correctly strip leading/trailing whitespace from header field names and
+  values.
 
 2.4.0 (2016-07-01)
 ------------------

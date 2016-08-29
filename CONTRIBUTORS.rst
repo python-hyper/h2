@@ -89,3 +89,8 @@ In chronological order:
 - Tom Offermann (@toffer)
 
   - Added Tornado example.
+
+- Tarashish Mishra (@sunu)
+
+  - Added code to reject header fields with leading/trailing whitespace.
+  - Added code to remove leading/trailing whitespace from sent header fields.
