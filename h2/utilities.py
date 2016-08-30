@@ -18,22 +18,22 @@ UPPER_RE = re.compile(b"[A-Z]")
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
-CONNECTION_HEADERS = {
-    b'connection',
-    b'proxy-connection',
-    b'keep-alive',
-    b'transfer-encoding',
-    b'upgrade',
-}
+CONNECTION_HEADERS = frozenset([
+    b'connection', u'upgrade',
+    b'proxy-connection', u'transfer-encoding',
+    b'keep-alive', u'keep-alive',
+    b'transfer-encoding', u'proxy-connection',
+    b'upgrade', u'connection',
+])
 
 
-_ALLOWED_PSEUDO_HEADER_FIELDS = {
-    b':method',
-    b':scheme',
-    b':authority',
-    b':path',
-    b':status',
-}
+_ALLOWED_PSEUDO_HEADER_FIELDS = frozenset([
+    b':method', u':method',
+    b':scheme', u':scheme',
+    b':authority', u':authority',
+    b':path', u':path',
+    b':status', u':status',
+])
 
 
 _SECURE_HEADERS = frozenset([
@@ -77,7 +77,7 @@ def _secure_headers(headers, hdr_validation_flags):
 
 def extract_method_header(headers):
     """
-    Extracts the request method from the headers list
+    Extracts the request method from the headers list.
     """
     for k, v in headers:
         if k in (b':method', u':method'):
@@ -253,8 +253,8 @@ def _reject_te(headers, hdr_validation_flags):
     its value is anything other than "trailers".
     """
     for header in headers:
-        if header[0] == b'te':
-            if header[1].lower().strip() != b'trailers':
+        if header[0] in (b'te', u'te'):
+            if header[1].lower() not in (b'trailers', u'trailers'):
                 raise ProtocolError(
                     "Invalid value for Transfer-Encoding header: %s" %
                     header[1]
@@ -277,17 +277,28 @@ def _reject_connection_header(headers, hdr_validation_flags):
         yield header
 
 
+def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
+    """
+    Given a string that might be a bytestring or a Unicode string,
+    return True if it starts with the appropriate prefix.
+    """
+    if isinstance(test_string, bytes):
+        return test_string.startswith(bytes_prefix)
+    else:
+        return test_string.startswith(unicode_prefix)
+
+
 def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
-    header block or if a pseudo-header field arrives in a block after an
+    header block or if a pseudo-header field appears in a block after an
     ordinary header field.
     """
     seen_pseudo_header_fields = set()
     seen_regular_header = False
 
     for header in headers:
-        if header[0].startswith(b':'):
+        if _custom_startswith(header[0], b':', u':'):
             if header[0] in seen_pseudo_header_fields:
                 raise ProtocolError(
                     "Received duplicate pseudo-header field %s" % header[0]
@@ -440,6 +451,17 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
-    headers = _check_sent_host_authority_header(headers, hdr_validation_flags)
+    headers = _reject_te(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_connection_header(
+        headers, hdr_validation_flags
+    )
+    headers = _reject_pseudo_header_fields(
+        headers, hdr_validation_flags
+    )
+    headers = _check_sent_host_authority_header(
+        headers, hdr_validation_flags
+    )
 
     return headers

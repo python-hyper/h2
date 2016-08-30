@@ -127,6 +127,14 @@ class TestSendingInvalidFrameSequences(object):
         ('user-agent', 'someua/0.0.1'),
     ]
     invalid_header_blocks = [
+        base_request_headers + [(':late', 'pseudo-header')],
+        [(':path', 'duplicate-pseudo-header')] + base_request_headers,
+        base_request_headers + [('connection', 'close')],
+        base_request_headers + [('proxy-connection', 'close')],
+        base_request_headers + [('keep-alive', 'close')],
+        base_request_headers + [('transfer-encoding', 'gzip')],
+        base_request_headers + [('upgrade', 'super-protocol/1.1')],
+        base_request_headers + [('te', 'chunked')],
         base_request_headers + [('host', 'notexample.com')],
         [header for header in base_request_headers
          if header[0] != ':authority'],

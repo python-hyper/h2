@@ -40,6 +40,18 @@ Bugfixes
   or trailing whitespace.
 - Correctly strip leading/trailing whitespace from header field names and
   values.
+- Correctly refuse to send header blocks with a TE header whose value is not
+  ``trailers``, per RFC 7540 Section 8.1.2.2.
+- Correctly refuse to send header blocks with connection-specific headers,
+  per RFC 7540 Section 8.1.2.2.
+- Correctly refuse to send header blocks that contain duplicate pseudo-header
+  fields, or with pseudo-header fields that appear after ordinary header fields,
+  per RFC 7540 Section 8.1.2.1.
+
+  This may cause passing a dictionary as the header block to ``send_headers``
+  to throw a ``ProtocolError``, because dictionaries are unordered and so they
+  may trip this check.  Passing dictionaries here is deprecated, and callers
+  should change to using a sequence of 2-tuples as their header blocks.
 
 2.4.0 (2016-07-01)
 ------------------
