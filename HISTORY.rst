@@ -44,10 +44,6 @@ Bugfixes
   ``trailers``, per RFC 7540 Section 8.1.2.2.
 - Correctly refuse to send header blocks with connection-specific headers,
   per RFC 7540 Section 8.1.2.2.
-
-Bugfixes (Breaking)
-~~~~~~~~~~~~~~~~~~~
-
 - Correctly refuse to send header blocks that contain duplicate pseudo-header
   fields, or with pseudo-header fields that appear after ordinary header fields,
   per RFC 7540 Section 8.1.2.1.
