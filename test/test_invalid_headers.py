@@ -113,6 +113,37 @@ class TestInvalidFrameSequences(object):
         request_event = events[0]
         assert request_event.headers == headers
 
+    def test_pseudo_headers_rejected_in_trailer(self, frame_factory):
+        """
+        Ensure we reject pseudo headers included in trailers
+        """
+        trailers = [(':path', '/'), ('extra', 'value')]
+
+        c = h2.connection.H2Connection(client_side=False)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        header_frame = frame_factory.build_headers_frame(
+            self.base_request_headers
+        )
+        trailer_frame = frame_factory.build_headers_frame(
+            trailers, flags=["END_STREAM"]
+        )
+        head = header_frame.serialize()
+        trailer = trailer_frame.serialize()
+
+        c.receive_data(head)
+        # Raise exception if pseudo header in trailer
+        with pytest.raises(h2.exceptions.ProtocolError) as e:
+            c.receive_data(trailer)
+        assert "pseudo-header in trailer" in str(e)
+
+        # Test appropriate response frame is generated
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
 
 class TestSendingInvalidFrameSequences(object):
     """
@@ -217,6 +248,14 @@ class TestFilter(object):
         ]
     ]
 
+    hdr_validation_no_trailers = [
+        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
+        for is_client, is_trailer in [
+            (True, False),
+            (False, False)
+        ]
+    ]
+
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
     @given(headers=HEADERS_STRATEGY)
@@ -241,7 +280,9 @@ class TestFilter(object):
             h2.utilities.validate_headers(headers, hdr_validation_flags)
 
     @pytest.mark.parametrize('validation_function', validation_functions)
-    @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_no_trailers
+    )
     def test_matching_authority_host_headers(self,
                                              validation_function,
                                              hdr_validation_flags):

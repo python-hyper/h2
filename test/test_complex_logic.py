@@ -90,9 +90,9 @@ class TestComplexClient(object):
             assert c.open_outbound_streams == expected_outbound_streams
 
             # Pushed streams can only be closed remotely.
-            f = frame_factory.build_headers_frame(
+            f = frame_factory.build_data_frame(
                 stream_id=stream_id+1,
-                headers=self.example_response_headers,
+                data=b'the content',
                 flags=['END_STREAM'],
             )
             c.receive_data(f.serialize())
