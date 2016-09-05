@@ -322,6 +322,13 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
 
         yield header
 
+    # Pseudo-header fields MUST NOT appear in trailers - RFC 7540 § 8.1.2.1
+    if hdr_validation_flags.is_trailer and seen_pseudo_header_fields:
+        raise ProtocolError(
+            "Received pseudo-header in trailer %s" %
+            seen_pseudo_header_fields
+        )
+
 
 def _validate_host_authority_header(headers):
     """
