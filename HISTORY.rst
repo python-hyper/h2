@@ -52,6 +52,11 @@ Bugfixes
   to throw a ``ProtocolError``, because dictionaries are unordered and so they
   may trip this check.  Passing dictionaries here is deprecated, and callers
   should change to using a sequence of 2-tuples as their header blocks.
+- Correctly reject trailers that contain HTTP/2 pseudo-header fields, per RFC
+  7540 Section 8.1.2.1.
+- Correctly refuse to send trailers that contain HTTP/2 pseudo-header fields,
+  per RFC 7540 Section 8.1.2.1.
+
 
 2.4.0 (2016-07-01)
 ------------------
