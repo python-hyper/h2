@@ -94,3 +94,7 @@ In chronological order:
 
   - Added code to reject header fields with leading/trailing whitespace.
   - Added code to remove leading/trailing whitespace from sent header fields.
+
+- Nate Prewitt (@nateprewitt)
+
+  - Added code to validate that trailers do not contain pseudo-header fields.
