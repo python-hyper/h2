@@ -6,6 +6,8 @@ test_invalid_headers.py
 This module contains tests that use invalid header blocks, and validates that
 they fail appropriately.
 """
+import itertools
+
 import pytest
 
 import h2.connection
@@ -239,20 +241,29 @@ class TestFilter(object):
     ]
 
     hdr_validation_combos = [
-        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
-        for is_client, is_trailer in [
-            (True, True),
-            (True, False),
-            (False, True),
-            (False, False)
-        ]
+        h2.utilities.HeaderValidationFlags(
+            is_client, is_trailer, is_response_header)
+        for is_client, is_trailer, is_response_header in (
+            itertools.product([True, False], repeat=3))
     ]
 
     hdr_validation_no_trailers = [
-        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
-        for is_client, is_trailer in [
-            (True, False),
-            (False, False)
+        h2.utilities.HeaderValidationFlags(
+            is_client, is_trailer, is_response_header)
+        for is_client, is_trailer, is_response_header in [
+            (True, False, False),
+            (False, False, False),
+        ]
+    ]
+
+    hdr_validation_response_headers = [
+        h2.utilities.HeaderValidationFlags(
+            is_client, is_trailer, is_response_header)
+        for is_client, is_trailer, is_response_header in [
+            (True, False, True),
+            (False, True, True),
+            (True, True, True),
+            (False, False, True)
         ]
     ]
 
@@ -299,6 +310,13 @@ class TestFilter(object):
         ]
         assert headers == h2.utilities.validate_headers(
             headers, hdr_validation_flags)
+
+    @pytest.mark.parametrize('hdr_validation_flags',
+                             hdr_validation_response_headers)
+    def test_response_header_without_status(self, hdr_validation_flags):
+        headers = [(b'content-length', b'42')]
+        with pytest.raises(h2.exceptions.ProtocolError):
+            h2.utilities.validate_headers(headers, hdr_validation_flags)
 
 
 class TestOversizedHeaders(object):

@@ -171,7 +171,7 @@ def authority_from_headers(headers):
 # should be applied to a given set of headers.
 HeaderValidationFlags = collections.namedtuple(
     'HeaderValidationFlags',
-    ['is_client', 'is_trailer']
+    ['is_client', 'is_trailer', 'is_response_header']
 )
 
 
@@ -328,6 +328,13 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
             "Received pseudo-header in trailer %s" %
             seen_pseudo_header_fields
         )
+
+    # If ':status' pseudo-header is not there in a response header, reject it
+    if (hdr_validation_flags.is_response_header and
+        not any(field in seen_pseudo_header_fields
+                for field in (b':status', u':status'))):
+        raise ProtocolError(
+            "Couldn't find :status pseudo-header field in response header")
 
 
 def _validate_host_authority_header(headers):

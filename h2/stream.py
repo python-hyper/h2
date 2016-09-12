@@ -766,7 +766,8 @@ class H2Stream(object):
         events = self.state_machine.process_input(input_)
 
         hf = HeadersFrame(self.stream_id)
-        hdr_validation_flags = self._build_hdr_validation_flags(events)
+        hdr_validation_flags = self._build_hdr_validation_flags(
+            events, is_response=not self.state_machine.client)
         frames = self._build_headers_frames(
             headers, encoder, hf, hdr_validation_flags
         )
@@ -1031,7 +1032,7 @@ class H2Stream(object):
 
         return [], events
 
-    def _build_hdr_validation_flags(self, events):
+    def _build_hdr_validation_flags(self, events, is_response=False):
         """
         Constructs a set of header validation flags for use when normalizing
         and validating header blocks.
@@ -1049,9 +1050,12 @@ class H2Stream(object):
             # an internal event, so we can do away with this branch.
             is_trailer = False
 
+        is_response_header = is_response and not is_trailer
+
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
-            is_trailer=is_trailer
+            is_trailer=is_trailer,
+            is_response_header=is_response_header
         )
 
     def _build_headers_frames(self,
