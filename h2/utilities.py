@@ -330,11 +330,14 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
         )
 
     # If ':status' pseudo-header is not there in a response header, reject it
-    if (hdr_validation_flags.is_response_header and
-        not any(field in seen_pseudo_header_fields
-                for field in (b':status', u':status'))):
+    if (
+        hdr_validation_flags.is_response_header and
+        b':status' not in seen_pseudo_header_fields and
+        u':status' not in seen_pseudo_header_fields
+    ):
         raise ProtocolError(
-            "Couldn't find :status pseudo-header field in response header")
+            "Response header block does not have a :status header"
+        )
 
 
 def _validate_host_authority_header(headers):

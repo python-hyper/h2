@@ -242,14 +242,16 @@ class TestFilter(object):
 
     hdr_validation_combos = [
         h2.utilities.HeaderValidationFlags(
-            is_client, is_trailer, is_response_header)
+            is_client, is_trailer, is_response_header
+        )
         for is_client, is_trailer, is_response_header in (
             itertools.product([True, False], repeat=3))
     ]
 
     hdr_validation_no_trailers = [
         h2.utilities.HeaderValidationFlags(
-            is_client, is_trailer, is_response_header)
+            is_client, is_trailer, is_response_header
+        )
         for is_client, is_trailer, is_response_header in [
             (True, False, False),
             (False, False, False),
@@ -258,7 +260,8 @@ class TestFilter(object):
 
     hdr_validation_response_headers = [
         h2.utilities.HeaderValidationFlags(
-            is_client, is_trailer, is_response_header)
+            is_client, is_trailer, is_response_header
+        )
         for is_client, is_trailer, is_response_header in [
             (True, False, True),
             (False, True, True),

@@ -766,8 +766,7 @@ class H2Stream(object):
         events = self.state_machine.process_input(input_)
 
         hf = HeadersFrame(self.stream_id)
-        hdr_validation_flags = self._build_hdr_validation_flags(
-            events, is_response=not self.state_machine.client)
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
         frames = self._build_headers_frames(
             headers, encoder, hf, hdr_validation_flags
         )
@@ -1032,7 +1031,7 @@ class H2Stream(object):
 
         return [], events
 
-    def _build_hdr_validation_flags(self, events, is_response=False):
+    def _build_hdr_validation_flags(self, events):
         """
         Constructs a set of header validation flags for use when normalizing
         and validating header blocks.
@@ -1041,6 +1040,9 @@ class H2Stream(object):
             is_trailer = isinstance(
                 events[0], (_TrailersSent, TrailersReceived)
             )
+            is_response_header = isinstance(
+                events[0], ResponseReceived
+            ) and not self.state_machine.client
         except IndexError:
             # Some state changes don't emit an internal event (for example,
             # sending a push promise).  We *always* emit an event for trailers,
@@ -1049,8 +1051,7 @@ class H2Stream(object):
             # TODO: Find any places where we don't emit anything, and emit
             # an internal event, so we can do away with this branch.
             is_trailer = False
-
-        is_response_header = is_response and not is_trailer
+            is_response_header = False
 
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
