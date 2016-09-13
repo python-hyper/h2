@@ -245,7 +245,8 @@ class TestFilter(object):
             is_client, is_trailer, is_response_header
         )
         for is_client, is_trailer, is_response_header in (
-            itertools.product([True, False], repeat=3))
+            itertools.product([True, False], repeat=3)
+        )
     ]
 
     hdr_validation_no_trailers = [
@@ -314,8 +315,9 @@ class TestFilter(object):
         assert headers == h2.utilities.validate_headers(
             headers, hdr_validation_flags)
 
-    @pytest.mark.parametrize('hdr_validation_flags',
-                             hdr_validation_response_headers)
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_response_headers
+    )
     def test_response_header_without_status(self, hdr_validation_flags):
         headers = [(b'content-length', b'42')]
         with pytest.raises(h2.exceptions.ProtocolError):
