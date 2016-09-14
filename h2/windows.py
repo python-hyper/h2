@@ -94,9 +94,11 @@ class WindowManager(object):
                 self._bytes_processed > min(1024, self.max_window_size // 4)):
             increment = self._bytes_processed
             self._bytes_processed = 0
+            self.current_window_size += increment
             return increment
 
         if self._bytes_processed >= (self.max_window_size // 2):
             increment = self._bytes_processed
             self._bytes_processed = 0
+            self.current_window_size += increment
             return increment
