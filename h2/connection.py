@@ -1259,6 +1259,22 @@ class H2Connection(object):
             stream.inbound_flow_control_window
         )
 
+    def acknowledge_received_data(self, acknowledged_size):
+        """
+        Inform the :class:`H2Connection <h2.connection.H2Connection>` that a
+        certain number of flow-controlled bytes have been processed, and that
+        the space should be handed back to the remote peer at an opportune
+        time.
+
+        :param acknowledged_size: The total *flow-controlled size* of the data
+            that has been processed. Note that this must include the amount of
+            padding that was sent with that data.
+        :type acknowledged_size: ``int``
+        :returns: Nothing
+        :rtype: ``None``
+        """
+        pass
+
     def data_to_send(self, amt=None):
         """
         Returns some data for sending out of the internal data buffer.
