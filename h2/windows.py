@@ -14,7 +14,7 @@ does not emit too many WINDOW_UPDATE frames.
 """
 from __future__ import division
 
-import h2.exceptions
+from .exceptions import ProtocolError
 
 
 class WindowManager(object):
@@ -42,9 +42,7 @@ class WindowManager(object):
         """
         self.current_window_size -= size
         if self.current_window_size < 0:
-            raise h2.exceptions.ProtocolError(
-                "Flow control window shrunk below 0"
-            )
+            raise ProtocolError("Flow control window shrunk below 0")
 
     def process_bytes(self, size):
         """
