@@ -1266,6 +1266,8 @@ class H2Connection(object):
         the space should be handed back to the remote peer at an opportune
         time.
 
+        .. versionadded:: 2.5.0
+
         :param acknowledged_size: The total *flow-controlled size* of the data
             that has been processed. Note that this must include the amount of
             padding that was sent with that data.
