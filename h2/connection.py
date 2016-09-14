@@ -1259,7 +1259,7 @@ class H2Connection(object):
             stream.inbound_flow_control_window
         )
 
-    def acknowledge_received_data(self, acknowledged_size):
+    def acknowledge_received_data(self, acknowledged_size, stream_id):
         """
         Inform the :class:`H2Connection <h2.connection.H2Connection>` that a
         certain number of flow-controlled bytes have been processed, and that
@@ -1270,10 +1270,11 @@ class H2Connection(object):
             that has been processed. Note that this must include the amount of
             padding that was sent with that data.
         :type acknowledged_size: ``int``
+        :param stream_id: The ID of the stream on which this data was received.
+        :type stream_id: ``int``
         :returns: Nothing
         :rtype: ``None``
         """
-        pass
 
     def data_to_send(self, amt=None):
         """
