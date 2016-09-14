@@ -879,7 +879,7 @@ class H2Connection(object):
            Rejects attempts to increment the flow control window by out of
            range values with a ``ValueError``.
 
-        :param increment: The amount ot increment the flow control window by.
+        :param increment: The amount to increment the flow control window by.
         :type increment: ``int``
         :param stream_id: (optional) The ID of the stream that should have its
             flow control window opened. If not present or ``None``, the
