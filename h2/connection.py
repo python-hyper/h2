@@ -1275,6 +1275,14 @@ class H2Connection(object):
         :returns: Nothing
         :rtype: ``None``
         """
+        if not stream_id:
+            raise ValueError(
+                "Stream ID 0 is not valid for acknowledge_received_data"
+            )
+        if acknowledged_size < 0:
+            raise ValueError("Cannot acknowledge negative data")
+
+        return
 
     def data_to_send(self, amt=None):
         """
