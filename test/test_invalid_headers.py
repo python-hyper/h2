@@ -253,8 +253,11 @@ class TestFilter(object):
         filter(lambda flags: flags.is_response_header, hdr_validation_combos)
     )
 
-    hdr_validation_no_trailers = list(
-        filter(lambda flags: not flags.is_trailer, hdr_validation_combos)
+    hdr_validation_request_headers_no_trailer = list(
+        filter(
+            lambda flags: not (flags.is_trailer or flags.is_response_header),
+            hdr_validation_combos
+        )
     )
 
     @pytest.mark.parametrize('validation_function', validation_functions)
@@ -282,11 +285,11 @@ class TestFilter(object):
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize(
-        'hdr_validation_flags', hdr_validation_no_trailers
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
-    def test_matching_authority_host_headers(self,
-                                             validation_function,
-                                             hdr_validation_flags):
+    def test_matching_authority_host_headers(
+        self, validation_function, hdr_validation_flags
+    ):
         """
         If a header block has :authority and Host headers and they match,
         the headers should pass through unchanged.
@@ -299,7 +302,8 @@ class TestFilter(object):
             (b'host', b'example.com'),
         ]
         assert headers == h2.utilities.validate_headers(
-            headers, hdr_validation_flags)
+            headers, hdr_validation_flags
+        )
 
     @pytest.mark.parametrize(
         'hdr_validation_flags', hdr_validation_response_headers
