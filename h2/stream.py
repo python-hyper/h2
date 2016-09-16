@@ -1047,8 +1047,8 @@ class H2Stream(object):
             # Some state changes don't emit an internal event (for example,
             # sending a push promise).  We *always* emit an event for trailers,
             # so the absence of an event means this definitely isn't a trailer.
-            # Similarly, we also emit an event whenever reponse headers are
-            # sent or received. So absent of those events means this is not an
+            # Similarly, we also emit an event whenever response headers are
+            # sent or received. So absence of those events means this is not an
             # response header either.
             #
             # TODO: Find any places where we don't emit anything, and emit
