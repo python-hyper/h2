@@ -249,27 +249,13 @@ class TestFilter(object):
         )
     ]
 
-    hdr_validation_no_trailers = [
-        h2.utilities.HeaderValidationFlags(
-            is_client, is_trailer, is_response_header
-        )
-        for is_client, is_trailer, is_response_header in [
-            (True, False, False),
-            (False, False, False),
-        ]
-    ]
+    hdr_validation_response_headers = list(
+        filter(lambda flags: flags.is_response_header, hdr_validation_combos)
+    )
 
-    hdr_validation_response_headers = [
-        h2.utilities.HeaderValidationFlags(
-            is_client, is_trailer, is_response_header
-        )
-        for is_client, is_trailer, is_response_header in [
-            (True, False, True),
-            (False, True, True),
-            (True, True, True),
-            (False, False, True)
-        ]
-    ]
+    hdr_validation_no_trailers = list(
+        filter(lambda flags: not flags.is_trailer, hdr_validation_combos)
+    )
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)

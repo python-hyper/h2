@@ -605,7 +605,7 @@ class TestBasicClient(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers)
-        f = frame_factory.build_headers_frame(self.example_request_headers)
+        f = frame_factory.build_headers_frame(self.example_response_headers)
         c.receive_data(f.serialize())
 
         # Send in trailers.
