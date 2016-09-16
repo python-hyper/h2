@@ -287,9 +287,9 @@ class TestFilter(object):
     @pytest.mark.parametrize(
         'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
-    def test_matching_authority_host_headers(
-        self, validation_function, hdr_validation_flags
-    ):
+    def test_matching_authority_host_headers(self,
+                                             validation_function,
+                                             hdr_validation_flags):
         """
         If a header block has :authority and Host headers and they match,
         the headers should pass through unchanged.
