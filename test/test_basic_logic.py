@@ -1523,3 +1523,32 @@ class TestBasicServer(object):
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
 
         assert not c.data_to_send()
+
+    def test_receiving_push_promise_from_client_is_error(self, frame_factory):
+        """
+        If we are a server, receiving PUSH_PROMISE frames from a client
+        causes the connection to be closed.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f1 = frame_factory.build_headers_frame(
+            self.example_request_headers
+        )
+        f2 = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=self.example_request_headers,
+            flags=['END_HEADERS'],
+        )
+        c.receive_data(f1.serialize())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(f2.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            1, h2.errors.ErrorCodes.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
