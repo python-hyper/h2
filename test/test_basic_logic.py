@@ -1545,8 +1545,9 @@ class TestBasicServer(object):
         c.receive_data(f1.serialize())
         c.clear_outbound_data_buffer()
 
-        with pytest.raises(h2.exceptions.ProtocolError):
+        with pytest.raises(h2.exceptions.ProtocolError) as excinfo:
             c.receive_data(f2.serialize())
+        excinfo.match('Received pushed stream from a client')
 
         expected_frame = frame_factory.build_goaway_frame(
             1, h2.errors.ErrorCodes.PROTOCOL_ERROR
