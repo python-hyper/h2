@@ -56,6 +56,8 @@ Bugfixes
   7540 Section 8.1.2.1.
 - Correctly refuse to send trailers that contain HTTP/2 pseudo-header fields,
   per RFC 7540 Section 8.1.2.1.
+- Correctly reject a PUSH_PROMISE frame sent by a client, per RFC 7540
+  Section 8.2.
 
 
 2.4.0 (2016-07-01)
