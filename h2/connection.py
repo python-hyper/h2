@@ -1487,6 +1487,10 @@ class H2Connection(object):
         """
         Receive a push-promise frame on the connection.
         """
+        # A client cannot push - RFC 7540 § 8.2
+        if not self.config.client_side:
+            raise ProtocolError("Received pushed stream from a client")
+
         if not self.local_settings.enable_push:
             raise ProtocolError("Received pushed stream")
 
