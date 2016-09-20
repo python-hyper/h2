@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _HeadersSent, _ResponseSent, _TrailersSent
+    _HeadersSent, _ResponseSent, _RequestSent, _TrailersSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -133,7 +133,7 @@ class H2StreamStateMachine(object):
         """
         self.client = True
         self.headers_sent = True
-        event = _HeadersSent()
+        event = _RequestSent()
 
         return [event]
 
