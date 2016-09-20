@@ -330,6 +330,8 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
         )
 
     # If ':status' pseudo-header is not there in a response header, reject it
+    # Relevant RFC section: RFC 7540 § 8.1.2.4
+    # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
     seen_status_field = (
         b':status' in seen_pseudo_header_fields or
         u':status' in seen_pseudo_header_fields
