@@ -169,6 +169,11 @@ class TestSendingInvalidFrameSequences(object):
         base_request_headers + [('host', 'notexample.com')],
         [header for header in base_request_headers
          if header[0] != ':authority'],
+
+        # A CONNECT request cannot include the :scheme and :path
+        # pseudo-headers
+        [(':method', 'CONNECT')] + [header for header in base_request_headers
+                                    if header[0] != ':method'],
     ]
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)

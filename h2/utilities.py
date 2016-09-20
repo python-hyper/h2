@@ -209,6 +209,9 @@ def validate_headers(headers, hdr_validation_flags):
     headers = _check_host_authority_header(
         headers, hdr_validation_flags
     )
+    headers = _validate_headers_with_connect_method(
+        headers, hdr_validation_flags
+    )
 
     return list(headers)
 
@@ -397,6 +400,29 @@ def _check_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
+def _validate_headers_with_connect_method(headers, hdr_validation_flags):
+    """
+    Raises a ProtocolError a header block with the CONNECT method omits
+    the :scheme and :path headers fields.  This is mandated by RFC 7540 § 8.3.
+    """
+    seen_scheme_or_path = False
+    method_is_connect = False
+
+    for header in headers:
+        if header[0] in (b':scheme', u':scheme', b':path', u':path'):
+            seen_scheme_or_path = True
+        if header[0] in (b':method', u':method'):
+            if header[1] in (b'CONNECT', u'CONNECT'):
+                method_is_connect = True
+        yield header
+
+    if method_is_connect and seen_scheme_or_path:
+        raise ProtocolError(
+            "Header block uses the CONNECT method but does not omit the "
+            ":scheme and :path pseudo-headers."
+        )
+
+
 def _lowercase_header_names(headers, hdr_validation_flags):
     """
     Given an iterable of header two-tuples, rebuilds that iterable with the
@@ -470,6 +496,9 @@ def validate_outbound_headers(headers, hdr_validation_flags):
         headers, hdr_validation_flags
     )
     headers = _check_sent_host_authority_header(
+        headers, hdr_validation_flags
+    )
+    headers = _validate_headers_with_connect_method(
         headers, hdr_validation_flags
     )
 
