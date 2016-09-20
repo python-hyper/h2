@@ -56,7 +56,7 @@ class RequestReceived(object):
 
 class ResponseReceived(object):
     """
-    The ResponseReceived event is fired whenever request headers are received.
+    The ResponseReceived event is fired whenever response headers are received.
     This event carries the HTTP headers for the given response and the stream
     ID of the new stream.
 
