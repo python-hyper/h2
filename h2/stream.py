@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _HeadersSent, _TrailersSent
+    _HeadersSent, _ResponseHeadersSent, _TrailersSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -146,7 +146,7 @@ class H2StreamStateMachine(object):
             if self.client is True or self.client is None:
                 raise ProtocolError("Client cannot send responses.")
             self.headers_sent = True
-            event = _HeadersSent()
+            event = _ResponseHeadersSent()
         else:
             assert not self.trailers_sent
             self.trailers_sent = True
@@ -1040,18 +1040,26 @@ class H2Stream(object):
             is_trailer = isinstance(
                 events[0], (_TrailersSent, TrailersReceived)
             )
+            is_response_header = isinstance(
+                events[0], (_ResponseHeadersSent, ResponseReceived)
+            )
         except IndexError:
             # Some state changes don't emit an internal event (for example,
             # sending a push promise).  We *always* emit an event for trailers,
             # so the absence of an event means this definitely isn't a trailer.
+            # Similarly, we also emit an event whenever response headers are
+            # sent or received. So absence of those events means this is not an
+            # response header either.
             #
             # TODO: Find any places where we don't emit anything, and emit
             # an internal event, so we can do away with this branch.
             is_trailer = False
+            is_response_header = False
 
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
-            is_trailer=is_trailer
+            is_trailer=is_trailer,
+            is_response_header=is_response_header
         )
 
     def _build_headers_frames(self,

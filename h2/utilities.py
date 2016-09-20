@@ -171,7 +171,7 @@ def authority_from_headers(headers):
 # should be applied to a given set of headers.
 HeaderValidationFlags = collections.namedtuple(
     'HeaderValidationFlags',
-    ['is_client', 'is_trailer']
+    ['is_client', 'is_trailer', 'is_response_header']
 )
 
 
@@ -330,6 +330,19 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
             "Received pseudo-header in trailer %s" %
             seen_pseudo_header_fields
         )
+
+    # If ':status' pseudo-header is not there in a response header, reject it
+    # Relevant RFC section: RFC 7540 § 8.1.2.4
+    # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
+    if hdr_validation_flags.is_response_header:
+        seen_status_field = (
+            b':status' in seen_pseudo_header_fields or
+            u':status' in seen_pseudo_header_fields
+        )
+        if not seen_status_field:
+            raise ProtocolError(
+                "Response header block does not have a :status header"
+            )
 
 
 def _validate_host_authority_header(headers):
