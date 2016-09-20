@@ -146,9 +146,20 @@ class _HeadersSent(object):
     pass
 
 
-class _ResponseHeadersSent(_HeadersSent):
+class _ResponseSent(_HeadersSent):
     """
-    The _ResponseHeadersSent event is fired whenever response headers are sent
+    The _ResponseSent event is fired whenever response headers are sent
+    on a stream.
+
+    This is an internal event, used to determine validation steps on
+    outgoing header blocks.
+    """
+    pass
+
+
+class _RequestSent(_HeadersSent):
+    """
+    The _RequestSent event is fired whenever request headers are sent
     on a stream.
 
     This is an internal event, used to determine validation steps on

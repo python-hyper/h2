@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _HeadersSent, _ResponseHeadersSent, _TrailersSent
+    _HeadersSent, _ResponseSent, _RequestSent, _TrailersSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -133,7 +133,7 @@ class H2StreamStateMachine(object):
         """
         self.client = True
         self.headers_sent = True
-        event = _HeadersSent()
+        event = _RequestSent()
 
         return [event]
 
@@ -146,7 +146,7 @@ class H2StreamStateMachine(object):
             if self.client is True or self.client is None:
                 raise ProtocolError("Client cannot send responses.")
             self.headers_sent = True
-            event = _ResponseHeadersSent()
+            event = _ResponseSent()
         else:
             assert not self.trailers_sent
             self.trailers_sent = True
@@ -1041,7 +1041,7 @@ class H2Stream(object):
                 events[0], (_TrailersSent, TrailersReceived)
             )
             is_response_header = isinstance(
-                events[0], (_ResponseHeadersSent, ResponseReceived)
+                events[0], (_ResponseSent, ResponseReceived)
             )
         except IndexError:
             # Some state changes don't emit an internal event (for example,
