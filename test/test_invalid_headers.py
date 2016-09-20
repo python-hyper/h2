@@ -249,16 +249,15 @@ class TestFilter(object):
         )
     ]
 
-    hdr_validation_response_headers = list(
-        filter(lambda flags: flags.is_response_header, hdr_validation_combos)
-    )
+    hdr_validation_response_headers = [
+        flags for flags in hdr_validation_combos
+        if flags.is_response_header
+    ]
 
-    hdr_validation_request_headers_no_trailer = list(
-        filter(
-            lambda flags: not (flags.is_trailer or flags.is_response_header),
-            hdr_validation_combos
-        )
-    )
+    hdr_validation_request_headers_no_trailer = [
+        flags for flags in hdr_validation_combos
+        if not (flags.is_trailer or flags.is_response_header)
+    ]
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
