@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _HeadersSent, _ResponseSent, _RequestSent, _TrailersSent
+    _ResponseSent, _RequestSent, _TrailersSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -326,7 +326,7 @@ class H2StreamStateMachine(object):
         if self.headers_sent:
             raise ProtocolError("Information response after final response")
 
-        event = _HeadersSent()
+        event = _ResponseSent()
         return [event]
 
     def recv_informational_response(self, previous_state):
