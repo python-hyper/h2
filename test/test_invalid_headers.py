@@ -193,7 +193,8 @@ class TestSendingInvalidFrameSequences(object):
         invalid header blocks are allowed to pass.
         """
         config = h2.config.H2Configuration(
-            validate_outbound_headers=False)
+            validate_outbound_headers=False
+        )
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -210,7 +211,8 @@ class TestSendingInvalidFrameSequences(object):
         """
         config = h2.config.H2Configuration(
             validate_outbound_headers=False,
-            normalize_outbound_headers=False)
+            normalize_outbound_headers=False
+        )
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
