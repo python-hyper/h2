@@ -7,6 +7,9 @@ Tests of the flow control management in h2
 """
 import pytest
 
+from hypothesis import given
+from hypothesis.strategies import integers
+
 import h2.connection
 import h2.errors
 import h2.events
@@ -603,3 +606,145 @@ class TestFlowControl(object):
 
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
+
+
+class TestAutomaticFlowControl(object):
+    """
+    Tests for the automatic flow control logic.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+
+    DEFAULT_FLOW_WINDOW = 65535
+
+    def _setup_connection_and_send_headers(self, frame_factory):
+        """
+        Setup a server-side H2Connection and send a headers frame, and then
+        clear the outbound data buffer.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        headers_frame = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+        c.receive_data(headers_frame.serialize())
+        c.clear_outbound_data_buffer()
+        return c
+
+    def test_acknowledging_small_chunks_does_nothing(self, frame_factory):
+        """
+        When a small amount of data is received and acknowledged, no window
+        update is emitted.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        data_event = c.receive_data(data_frame.seriaize())[0]
+
+        c.acknowledge_received_data(
+            data_event.flow_controlled_length, stream_id=1
+        )
+
+        assert not c.data_to_send()
+
+    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    def test_acknowledging_1024_bytes_when_empty_increments(self,
+                                                            frame_factory,
+                                                            increment):
+        """
+        If the flow control window is empty and we acknowledge 1024 bytes or
+        more, we will emit a WINDOW_UPDATE frame just to move the connection
+        forward.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        first_expected = frame_factory.build_window_update_frame(
+            stream_id=1, increment=increment
+        )
+        second_expected = frame_factory.build_window_update_frame(
+            stream_id=0, increment=increment
+        )
+        expected_data = b''.join(
+            [first_expected.serialize(), second_expected.serialize()]
+        )
+        assert c.data_to_send() == expected_data
+
+    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    def test_connection_only_empty(self, frame_factory, increment):
+        """
+        If the connection flow control window is empty, but the stream flow
+        control windows aren't, and 1024 bytes or more are acknowledged by the
+        user, we increment the connection window only.
+        """
+        # Here we'll use 4 streams. Set them up.
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        for stream_id in [2, 3, 4]:
+            f = frame_factory.build_headers_frame(
+                headers=self.example_request_headers, stream_id=stream_id
+            )
+            c.receive_data(f.serialize())
+
+        # Now we send 1/4 of the connection window per stream. Annoyingly,
+        # that's an odd number, so we need to round the last frame up.
+        data_to_send = b'\x00' * (self.DEFAULT_FLOW_WINDOW // 4)
+        for stream_id in [1, 2, 3]:
+            f = frame_factory.build_data_frame(
+                data_to_send, stream_id=stream_id
+            )
+            c.receive_data(f.serialize())
+
+        data_to_send = b'\x00' * c.remote_flow_control_window(4)
+        data_frame = frame_factory.build_data_frame(data_to_send, stream_id=4)
+        c.receive_data(data_frame.serialize())
+
+        # Ok, now the actual test.
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        expected_data = frame_factory.build_window_update_frame(
+            stream_id=0, increment=increment
+        ).serialize()
+        assert c.data_to_send() == expected_data
+
+    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    def test_mixing_update_forms(self, frame_factory, increment):
+        """
+        If the user mixes ackowledging data with manually incrementing windows,
+        we still keep track of what's going on.
+        """
+        # Empty the flow control window.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        # Manually increment the connection flow control window back to fully
+        # open, but leave the stream window closed.
+        c.increment_flow_control_window(
+            stream_id=None, increment=self.DEFAULT_FLOW_WINDOW
+        )
+
+        # Now, acknowledge the receipt of that data. This should cause the
+        # stream window to be widened, but not the connection window, because
+        # it is already open.
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        # We expect to see one window update frame only, for the stream.
+        expected_data = frame_factory.build_window_update_frame(
+            stream_id=1, increment=increment
+        ).serialize()
+        assert c.data_to_send() == expected_data
