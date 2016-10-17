@@ -10,6 +10,8 @@ using sockets directly (e.g. because you're using asyncio), you should focus on
 the set up required for the SSLContext object. For other concurrency libraries
 you may need to use other setup (e.g. for Twisted you'll need to use
 IProtocolNegotiationFactory).
+
+This code requires Python 3.5 or later.
 """
 import h2.connection
 import socket
