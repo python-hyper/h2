@@ -14,6 +14,28 @@ This method is the simplest to use once the TLS connection is established. To us
 
 At this point, you're free to use all the HTTP/2 functionality provided by Hyper-h2.
 
+Server Setup Example
+~~~~~~~~~~~~~~~~~~~~
+
+This example uses the APIs as defined in Python 3.5. If you are using an older version of Python you may not have access to the APIs used here. As noted above, please consult the documentation for the :mod:`ssl module <python:ssl>` to confirm.
+
+.. literalinclude:: ../../examples/fragments/server_https_setup_fragment.py
+   :language: python
+   :linenos:
+   :encoding: utf-8
+
+
+Client Setup Example
+~~~~~~~~~~~~~~~~~~~~
+
+The client example is very similar to the server example above. The :class:`SSLContext <python:ssl.SSLContext>` object requires some minor changes, as does the :class:`H2Connection <h2.connection.H2Connection>`, but the bulk of the code is the same.
+
+.. literalinclude:: ../../examples/fragments/client_https_setup_fragment.py
+   :language: python
+   :linenos:
+   :encoding: utf-8
+
+
 .. _starting-upgrade:
 
 HTTP URLs (Upgrade)
