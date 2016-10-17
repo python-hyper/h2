@@ -38,6 +38,7 @@ from .settings import (
 )
 from .stream import H2Stream
 from .utilities import guard_increment_window
+from .windows import WindowManager
 
 try:
     from hpack.exceptions import OversizedHeaderListError
@@ -386,6 +387,11 @@ class H2Connection(object):
         # Used to ensure that we don't blow up in the face of frames that were
         # in flight when a stream was reset.
         self._reset_streams = set()
+
+        # The flow control window manager for the connection.
+        self._inbound_flow_control_window_manager = WindowManager(
+            max_window_size=self.outbound_flow_control_window
+        )
 
         # When in doubt use dict-dispatch.
         self._frame_dispatch_table = {
@@ -1579,6 +1585,8 @@ class H2Connection(object):
             self.inbound_flow_control_window -= flow_controlled_length
             raise
 
+        # TODO: Can we make this check happen in the window manager? I think we
+        # can!
         if flow_controlled_length > window_size:
             raise FlowControlError(
                 "Cannot receive %d bytes, flow control window is %d." %
@@ -1591,7 +1599,12 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
+        # TODO: Can we remove this and make it a property on the window manager
+        # instead?
         self.inbound_flow_control_window -= flow_controlled_length
+        self._inbound_flow_control_window_manager.window_consumed(
+            flow_controlled_length
+        )
         stream = self._get_stream_by_id(frame.stream_id)
         frames, stream_events = stream.receive_data(
             frame.data,

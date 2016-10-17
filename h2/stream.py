@@ -29,6 +29,7 @@ from .utilities import (
     validate_headers, validate_outbound_headers, normalize_outbound_headers,
     HeaderValidationFlags, extract_method_header
 )
+from .windows import WindowManager
 
 
 class StreamState(IntEnum):
@@ -681,6 +682,13 @@ class H2Stream(object):
         self.outbound_flow_control_window = 65535
         self.inbound_flow_control_window = 65535
 
+        # The flow control manager.
+        # TODO: This needs to intercept `inbound_flow_control_window` changes.
+        # Probably this has to involve a property.
+        self._inbound_window_manager = WindowManager(
+            self.inbound_flow_control_window
+        )
+
         # The expected content length, if any.
         self._expected_content_length = None
 
@@ -946,7 +954,9 @@ class H2Stream(object):
         Receive some data.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
+        # TODO: don't need this.
         self.inbound_flow_control_window -= flow_control_len
+        self._inbound_window_manager.window_consumed(flow_control_len)
         self._track_content_length(len(data), end_stream)
 
         if end_stream:
