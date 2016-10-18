@@ -714,7 +714,7 @@ class TestAutomaticFlowControl(object):
         # Here we'll use 4 streams. Set them up.
         c = self._setup_connection_and_send_headers(frame_factory)
 
-        for stream_id in [2, 3, 4]:
+        for stream_id in [3, 5, 7]:
             f = frame_factory.build_headers_frame(
                 headers=self.example_request_headers, stream_id=stream_id
             )
@@ -723,14 +723,14 @@ class TestAutomaticFlowControl(object):
         # Now we send 1/4 of the connection window per stream. Annoyingly,
         # that's an odd number, so we need to round the last frame up.
         data_to_send = b'\x00' * (self.DEFAULT_FLOW_WINDOW // 4)
-        for stream_id in [1, 2, 3]:
+        for stream_id in [1, 3, 5]:
             f = frame_factory.build_data_frame(
                 data_to_send, stream_id=stream_id
             )
             c.receive_data(f.serialize())
 
-        data_to_send = b'\x00' * c.remote_flow_control_window(4)
-        data_frame = frame_factory.build_data_frame(data_to_send, stream_id=4)
+        data_to_send = b'\x00' * c.remote_flow_control_window(7)
+        data_frame = frame_factory.build_data_frame(data_to_send, stream_id=7)
         c.receive_data(data_frame.serialize())
 
         # Ok, now the actual test.
