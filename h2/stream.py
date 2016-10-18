@@ -1166,6 +1166,18 @@ class H2Stream(object):
             if end_stream and expected != actual:
                 raise InvalidBodyLengthError(expected, actual)
 
+    def _inbound_flow_control_change_from_settings(self, delta):
+        """
+        We changed SETTINGS_INITIAL_WINDOW_SIZE, which means we need to
+        update the target window size for flow control. For our flow control
+        strategy, this means we need to do two things: we need to adjust the
+        current window size, but we also need to set the target maximum window
+        size to the new value.
+        """
+        new_max_size = self._inbound_window_manager.max_size + delta
+        self._inbound_window_manager.window_opened(delta)
+        self._inbound_window_manager.max_size = new_max_size
+
 
 def _decode_headers(headers, encoding):
     """

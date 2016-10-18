@@ -1395,7 +1395,7 @@ class H2Connection(object):
         delta = new_value - old_value
 
         for stream in self.streams.values():
-            stream.inbound_flow_control_window += delta
+            stream._inbound_flow_control_change_from_settings(delta)
 
     def receive_data(self, data):
         """
