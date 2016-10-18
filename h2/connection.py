@@ -518,13 +518,14 @@ class H2Connection(object):
                 "Invalid stream ID for peer."
             )
 
-        s = H2Stream(stream_id, config=self.config)
+        s = H2Stream(
+            stream_id,
+            config=self.config,
+            inbound_window_size=self.local_settings.initial_window_size,
+            outbound_window_size-self.remote_settings.initial_window_size
+        )
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
-        s.outbound_flow_control_window = (
-            self.remote_settings.initial_window_size
-        )
-        s.inbound_flow_control_window = self.local_settings.initial_window_size
 
         self.streams[stream_id] = s
 

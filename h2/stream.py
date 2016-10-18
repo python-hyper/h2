@@ -672,22 +672,21 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
-    def __init__(self, stream_id, config):
+    def __init__(self,
+                 stream_id,
+                 config,
+                 inbound_window_size,
+                 outbound_window_size):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
         self.request_method = None
 
-        # The curent value of the stream flow control windows
-        self.outbound_flow_control_window = 65535
-        self.inbound_flow_control_window = 65535
+        # The curent value of the outbound stream flow control window
+        self.outbound_flow_control_window = outbound_window_size
 
         # The flow control manager.
-        # TODO: This needs to intercept `inbound_flow_control_window` changes.
-        # Probably this has to involve a property.
-        self._inbound_window_manager = WindowManager(
-            self.inbound_flow_control_window
-        )
+        self._inbound_window_manager = WindowManager(inbound_window_size)
 
         # The expected content length, if any.
         self._expected_content_length = None
@@ -700,6 +699,16 @@ class H2Stream(object):
 
         # The configuration for this stream.
         self.config = config
+
+    @property
+    def inbound_flow_control_window(self):
+        """
+        The size of the inbound flow control window for the stream. This is
+        rarely publicly useful: instead, use :meth:`remote_flow_control_window
+        <h2.stream.H2Stream.remote_flow_control_window>`. This shortcut is
+        largely present to provide a shortcut to this data.
+        """
+        return self._inbound_window_manager.current_window_size
 
     @property
     def open(self):
