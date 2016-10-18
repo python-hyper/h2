@@ -361,9 +361,6 @@ class H2Connection(object):
         self.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
         )
-        self.inbound_flow_control_window = (
-            self.local_settings.initial_window_size
-        )
 
         #: The maximum size of a frame that can be emitted by this peer, in
         #: bytes.
@@ -390,7 +387,7 @@ class H2Connection(object):
 
         # The flow control window manager for the connection.
         self._inbound_flow_control_window_manager = WindowManager(
-            max_window_size=self.inbound_flow_control_window
+            max_window_size=self.local_settings.initial_window_size
         )
 
         # When in doubt use dict-dispatch.
@@ -486,6 +483,16 @@ class H2Connection(object):
            Use :data:`config <h2.connection.H2Connection.config>` instead.
         """
         return self.config.client_side
+
+    @property
+    def inbound_flow_control_window(self):
+        """
+        The size of the inbound flow control window for the connection. This is
+        rarely publicly useful: instead, use :meth:`remote_flow_control_window
+        <h2.connection.H2Connection.remote_flow_control_window>`. This
+        shortcut is largely present to provide a shortcut to this data.
+        """
+        return self._inbound_flow_control_window_manager.current_window_size
 
     def _begin_new_stream(self, stream_id, allowed_ids):
         """
@@ -1582,7 +1589,9 @@ class H2Connection(object):
             # If the stream doesn't exist we still want to adjust the
             # connection-level flow control window to keep parity with the
             # remote peer. If it does exist we'll adjust it later.
-            self.inbound_flow_control_window -= flow_controlled_length
+            self._inbound_flow_control_window_manager.window_consumed(
+                flow_controlled_length
+            )
             raise
 
         # TODO: Can we make this check happen in the window manager? I think we
@@ -1599,9 +1608,6 @@ class H2Connection(object):
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
-        # TODO: Can we remove this and make it a property on the window manager
-        # instead?
-        self.inbound_flow_control_window -= flow_controlled_length
         self._inbound_flow_control_window_manager.window_consumed(
             flow_controlled_length
         )
