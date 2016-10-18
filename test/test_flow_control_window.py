@@ -673,6 +673,12 @@ class TestAutomaticFlowControl(object):
         more, we will emit a WINDOW_UPDATE frame just to move the connection
         forward.
         """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
         c = self._setup_connection_and_send_headers(frame_factory)
 
         data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
@@ -699,6 +705,12 @@ class TestAutomaticFlowControl(object):
         control windows aren't, and 1024 bytes or more are acknowledged by the
         user, we increment the connection window only.
         """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
         # Here we'll use 4 streams. Set them up.
         c = self._setup_connection_and_send_headers(frame_factory)
 
@@ -735,6 +747,12 @@ class TestAutomaticFlowControl(object):
         If the user mixes ackowledging data with manually incrementing windows,
         we still keep track of what's going on.
         """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
         # Empty the flow control window.
         c = self._setup_connection_and_send_headers(frame_factory)
         data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
