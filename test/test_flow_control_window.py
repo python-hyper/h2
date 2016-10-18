@@ -624,11 +624,19 @@ class TestAutomaticFlowControl(object):
     def _setup_connection_and_send_headers(self, frame_factory):
         """
         Setup a server-side H2Connection and send a headers frame, and then
-        clear the outbound data buffer.
+        clear the outbound data buffer. Also increase the maximum frame size.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
+
+        c.update_settings(
+            {h2.settings.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
+        )
+        settings_frame = frame_factory.build_settings_frame(
+            settings={}, ack=True
+        )
+        c.receive_data(settings_frame.serialize())
         c.clear_outbound_data_buffer()
 
         headers_frame = frame_factory.build_headers_frame(
