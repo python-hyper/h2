@@ -1174,9 +1174,9 @@ class H2Stream(object):
         current window size, but we also need to set the target maximum window
         size to the new value.
         """
-        new_max_size = self._inbound_window_manager.max_size + delta
+        new_max_size = self._inbound_window_manager.max_window_size + delta
         self._inbound_window_manager.window_opened(delta)
-        self._inbound_window_manager.max_size = new_max_size
+        self._inbound_window_manager.max_window_size = new_max_size
 
 
 def _decode_headers(headers, encoding):
