@@ -17,6 +17,7 @@ Connection
 
 .. autoclass:: h2.connection.H2Connection
    :members:
+   :exclude-members: inbound_flow_control_window
 
 
 Configuration
