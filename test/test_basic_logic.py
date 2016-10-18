@@ -21,6 +21,9 @@ import h2.settings
 
 import helpers
 
+from hypothesis import given
+from hypothesis.strategies import integers
+
 
 IS_PYTHON3 = sys.version_info >= (3, 0)
 
@@ -605,7 +608,7 @@ class TestBasicClient(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers)
-        f = frame_factory.build_headers_frame(self.example_request_headers)
+        f = frame_factory.build_headers_frame(self.example_response_headers)
         c.receive_data(f.serialize())
 
         # Send in trailers.
@@ -688,6 +691,56 @@ class TestBasicClient(object):
         )
 
         assert c.data_to_send() == expected_frame.serialize()
+
+    @given(frame_size=integers(min_value=2**14, max_value=(2**24 - 1)))
+    def test_changing_max_frame_size(self, frame_factory, frame_size):
+        """
+        When the user changes the max frame size and the change is ACKed, the
+        remote peer is now bound by the new frame size.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Set up the stream.
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        headers_frame = frame_factory.build_headers_frame(
+            headers=self.example_response_headers,
+        )
+        c.receive_data(headers_frame.serialize())
+
+        # Change the max frame size.
+        c.update_settings({h2.settings.MAX_FRAME_SIZE: frame_size})
+        settings_ack = frame_factory.build_settings_frame({}, ack=True)
+        c.receive_data(settings_ack.serialize())
+
+        # Greatly increase the flow control windows: we're not here to test
+        # flow control today.
+        c.increment_flow_control_window(increment=(2 * frame_size) + 1)
+        c.increment_flow_control_window(
+            increment=(2 * frame_size) + 1, stream_id=1
+        )
+
+        # Send one DATA frame that is exactly the max frame size: confirm it's
+        # fine.
+        data = frame_factory.build_data_frame(
+            data=(b'\x00' * frame_size),
+        )
+        events = c.receive_data(data.serialize())
+        assert len(events) == 1
+        assert isinstance(events[0], h2.events.DataReceived)
+        assert events[0].flow_controlled_length == frame_size
+
+        # Send one that is one byte too large: confirm a protocol error is
+        # raised.
+        data.data += b'\x00'
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data.serialize())
 
 
 class TestBasicServer(object):

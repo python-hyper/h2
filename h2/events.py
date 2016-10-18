@@ -56,7 +56,7 @@ class RequestReceived(object):
 
 class ResponseReceived(object):
     """
-    The ResponseReceived event is fired whenever request headers are received.
+    The ResponseReceived event is fired whenever response headers are received.
     This event carries the HTTP headers for the given response and the stream
     ID of the new stream.
 
@@ -139,6 +139,28 @@ class TrailersReceived(object):
 class _HeadersSent(object):
     """
     The _HeadersSent event is fired whenever headers are sent.
+
+    This is an internal event, used to determine validation steps on
+    outgoing header blocks.
+    """
+    pass
+
+
+class _ResponseSent(_HeadersSent):
+    """
+    The _ResponseSent event is fired whenever response headers are sent
+    on a stream.
+
+    This is an internal event, used to determine validation steps on
+    outgoing header blocks.
+    """
+    pass
+
+
+class _RequestSent(_HeadersSent):
+    """
+    The _RequestSent event is fired whenever request headers are sent
+    on a stream.
 
     This is an internal event, used to determine validation steps on
     outgoing header blocks.

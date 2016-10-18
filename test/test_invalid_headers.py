@@ -6,6 +6,8 @@ test_invalid_headers.py
 This module contains tests that use invalid header blocks, and validates that
 they fail appropriately.
 """
+import itertools
+
 import pytest
 
 import h2.connection
@@ -191,7 +193,8 @@ class TestSendingInvalidFrameSequences(object):
         invalid header blocks are allowed to pass.
         """
         config = h2.config.H2Configuration(
-            validate_outbound_headers=False)
+            validate_outbound_headers=False
+        )
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -208,7 +211,8 @@ class TestSendingInvalidFrameSequences(object):
         """
         config = h2.config.H2Configuration(
             validate_outbound_headers=False,
-            normalize_outbound_headers=False)
+            normalize_outbound_headers=False
+        )
 
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -239,21 +243,22 @@ class TestFilter(object):
     ]
 
     hdr_validation_combos = [
-        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
-        for is_client, is_trailer in [
-            (True, True),
-            (True, False),
-            (False, True),
-            (False, False)
-        ]
+        h2.utilities.HeaderValidationFlags(
+            is_client, is_trailer, is_response_header
+        )
+        for is_client, is_trailer, is_response_header in (
+            itertools.product([True, False], repeat=3)
+        )
     ]
 
-    hdr_validation_no_trailers = [
-        h2.utilities.HeaderValidationFlags(is_client, is_trailer)
-        for is_client, is_trailer in [
-            (True, False),
-            (False, False)
-        ]
+    hdr_validation_response_headers = [
+        flags for flags in hdr_validation_combos
+        if flags.is_response_header
+    ]
+
+    hdr_validation_request_headers_no_trailer = [
+        flags for flags in hdr_validation_combos
+        if not (flags.is_trailer or flags.is_response_header)
     ]
 
     @pytest.mark.parametrize('validation_function', validation_functions)
@@ -281,7 +286,7 @@ class TestFilter(object):
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize(
-        'hdr_validation_flags', hdr_validation_no_trailers
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
     def test_matching_authority_host_headers(self,
                                              validation_function,
@@ -298,7 +303,16 @@ class TestFilter(object):
             (b'host', b'example.com'),
         ]
         assert headers == h2.utilities.validate_headers(
-            headers, hdr_validation_flags)
+            headers, hdr_validation_flags
+        )
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_response_headers
+    )
+    def test_response_header_without_status(self, hdr_validation_flags):
+        headers = [(b'content-length', b'42')]
+        with pytest.raises(h2.exceptions.ProtocolError):
+            h2.utilities.validate_headers(headers, hdr_validation_flags)
 
 
 class TestOversizedHeaders(object):
