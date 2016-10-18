@@ -1319,6 +1319,10 @@ class H2Connection(object):
                 setting.new_value,
             )
 
+        if MAX_FRAME_SIZE in changes:
+            setting = changes[MAX_FRAME_SIZE]
+            self.max_inbound_frame_size = setting.new_value
+
         return changes
 
     def _stream_id_is_outbound(self, stream_id):
