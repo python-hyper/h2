@@ -963,8 +963,6 @@ class H2Stream(object):
         Receive some data.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
-        # TODO: don't need this.
-        self.inbound_flow_control_window -= flow_control_len
         self._inbound_window_manager.window_consumed(flow_control_len)
         self._track_content_length(len(data), end_stream)
 
