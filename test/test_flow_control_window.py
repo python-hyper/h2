@@ -656,7 +656,7 @@ class TestAutomaticFlowControl(object):
         data_frame = frame_factory.build_data_frame(
             b'some data', flags=['END_STREAM']
         )
-        data_event = c.receive_data(data_frame.seriaize())[0]
+        data_event = c.receive_data(data_frame.serialize())[0]
 
         c.acknowledge_received_data(
             data_event.flow_controlled_length, stream_id=1
