@@ -390,7 +390,7 @@ class H2Connection(object):
 
         # The flow control window manager for the connection.
         self._inbound_flow_control_window_manager = WindowManager(
-            max_window_size=self.outbound_flow_control_window
+            max_window_size=self.inbound_flow_control_window
         )
 
         # When in doubt use dict-dispatch.
