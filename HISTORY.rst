@@ -60,6 +60,10 @@ Bugfixes
   per RFC 7540 Section 8.1.2.4.
 - Correctly refuse to send responses that do not contain the ``:status`` header
   field, per RFC 7540 Section 8.1.2.4.
+- Correctly update the maximum frame size when the user updates the value of
+  that setting. Prior to this release, if the user updated the maximum frame
+  size hyper-h2 would ignore the update, preventing the remote peer from using
+  the higher frame sizes.
 
 
 2.4.0 (2016-07-01)
