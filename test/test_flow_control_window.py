@@ -628,6 +628,7 @@ class TestAutomaticFlowControl(object):
         """
         c = h2.connection.H2Connection(client_side=False)
         c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
         headers_frame = frame_factory.build_headers_frame(
