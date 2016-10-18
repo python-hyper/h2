@@ -915,17 +915,10 @@ class H2Connection(object):
             frames = stream.increase_flow_control_window(
                 increment
             )
-            stream.inbound_flow_control_window = guard_increment_window(
-                stream.inbound_flow_control_window,
-                increment
-            )
         else:
+            self._inbound_flow_control_window_manager.window_opened(increment)
             f = WindowUpdateFrame(0)
             f.window_increment = increment
-            self.inbound_flow_control_window = guard_increment_window(
-                self.inbound_flow_control_window,
-                increment
-            )
             frames = [f]
 
         self._prepare_for_sending(frames)
