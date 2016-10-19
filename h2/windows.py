@@ -14,7 +14,7 @@ does not emit too many WINDOW_UPDATE frames.
 """
 from __future__ import division
 
-from .exceptions import ProtocolError, FlowControlError
+from .exceptions import FlowControlError
 
 
 # The largest acceptable value for a HTTP/2 flow control window.
