@@ -743,6 +743,17 @@ class TestAutomaticFlowControl(object):
         )
         assert c.data_to_send() == expected.serialize()
 
+    def test_acknowledging_streams_we_never_saw(self, frame_factory):
+        """
+        If the user acknowledges a stream ID we've never seen, that raises a
+        NoSuchStreamError.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.NoSuchStreamError):
+            c.acknowledge_received_data(2048, stream_id=101)
+
     @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     def test_acknowledging_1024_bytes_when_empty_increments(self,
                                                             frame_factory,
