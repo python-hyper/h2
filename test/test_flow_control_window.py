@@ -766,6 +766,7 @@ class TestAutomaticFlowControl(object):
         c.increment_flow_control_window(
             stream_id=None, increment=self.DEFAULT_FLOW_WINDOW
         )
+        c.clear_outbound_data_buffer()
 
         # Now, acknowledge the receipt of that data. This should cause the
         # stream window to be widened, but not the connection window, because
