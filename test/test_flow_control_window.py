@@ -646,6 +646,31 @@ class TestAutomaticFlowControl(object):
         c.clear_outbound_data_buffer()
         return c
 
+    @given(stream_id=integers(max_value=0))
+    def test_must_acknowledge_for_stream(self, frame_factory, stream_id):
+        """
+        Flow control acknowledgements must be done on a stream ID that is
+        greater than zero.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Create a connection in a state that might actually accept
+        # data acknolwedgement.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        c.receive_data(data_frame.serialize())
+
+        with pytest.raises(ValueError):
+            c.acknowledge_received_data(
+                acknowledged_size=5, stream_id=stream_id
+            )
+
     def test_acknowledging_small_chunks_does_nothing(self, frame_factory):
         """
         When a small amount of data is received and acknowledged, no window
