@@ -698,7 +698,7 @@ class TestAutomaticFlowControl(object):
         )
         assert c.data_to_send() == expected_data
 
-    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
+    @given(integers(min_value=1025, max_value=(DEFAULT_FLOW_WINDOW // 4) - 1))
     def test_connection_only_empty(self, frame_factory, increment):
         """
         If the connection flow control window is empty, but the stream flow
