@@ -671,6 +671,28 @@ class TestAutomaticFlowControl(object):
                 acknowledged_size=5, stream_id=stream_id
             )
 
+    @given(size=integers(max_value=-1))
+    def test_cannot_acknowledge_less_than_zero(self, frame_factory, size):
+        """
+        The user must acknowledge at least 0 bytes.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Create a connection in a state that might actually accept
+        # data acknolwedgement.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        c.receive_data(data_frame.serialize())
+
+        with pytest.raises(ValueError):
+            c.acknowledge_received_data(acknowledged_size=size, stream_id=1)
+
     def test_acknowledging_small_chunks_does_nothing(self, frame_factory):
         """
         When a small amount of data is received and acknowledged, no window
