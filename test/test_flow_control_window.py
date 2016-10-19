@@ -688,10 +688,10 @@ class TestAutomaticFlowControl(object):
         c.acknowledge_received_data(increment, stream_id=1)
 
         first_expected = frame_factory.build_window_update_frame(
-            stream_id=1, increment=increment
+            stream_id=0, increment=increment
         )
         second_expected = frame_factory.build_window_update_frame(
-            stream_id=0, increment=increment
+            stream_id=1, increment=increment
         )
         expected_data = b''.join(
             [first_expected.serialize(), second_expected.serialize()]
