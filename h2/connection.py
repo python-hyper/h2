@@ -1308,7 +1308,11 @@ class H2Connection(object):
             # the window in this case.
             pass
         else:
-            frames.extend(stream.acknowledge_received_data(acknowledged_size))
+            # No point incrementing the windows of closed streams.
+            if stream.open:
+                frames.extend(
+                    stream.acknowledge_received_data(acknowledged_size)
+                )
 
         self._prepare_for_sending(frames)
 

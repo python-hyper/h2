@@ -711,6 +711,30 @@ class TestAutomaticFlowControl(object):
 
         assert not c.data_to_send()
 
+    def test_acknowledging_data_on_closed_stream(self, frame_factory):
+        """
+        When acknowledging data on a stream that has just been closed, no
+        acknowledgement is given for that stream, only for the connection.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        rst_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1
+        )
+        c.receive_data(rst_frame.serialize())
+        c.clear_outbound_data_buffer()
+
+        c.acknowledge_received_data(2048, stream_id=1)
+
+        expected = frame_factory.build_window_update_frame(
+            stream_id=0, increment=2048
+        )
+        assert c.data_to_send() == expected.serialize()
+
     @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     def test_acknowledging_1024_bytes_when_empty_increments(self,
                                                             frame_factory,
