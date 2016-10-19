@@ -664,7 +664,7 @@ class TestAutomaticFlowControl(object):
 
         assert not c.data_to_send()
 
-    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     def test_acknowledging_1024_bytes_when_empty_increments(self,
                                                             frame_factory,
                                                             increment):
@@ -698,7 +698,7 @@ class TestAutomaticFlowControl(object):
         )
         assert c.data_to_send() == expected_data
 
-    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     def test_connection_only_empty(self, frame_factory, increment):
         """
         If the connection flow control window is empty, but the stream flow
@@ -741,7 +741,7 @@ class TestAutomaticFlowControl(object):
         ).serialize()
         assert c.data_to_send() == expected_data
 
-    @given(integers(min_value=1024, max_value=DEFAULT_FLOW_WINDOW))
+    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     def test_mixing_update_forms(self, frame_factory, increment):
         """
         If the user mixes ackowledging data with manually incrementing windows,
