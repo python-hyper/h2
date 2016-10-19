@@ -1303,7 +1303,7 @@ class H2Connection(object):
 
         try:
             stream = self._get_stream_by_id(stream_id)
-        except NoSuchStreamError:
+        except StreamClosedError:
             # The stream is already gone. We're not worried about incrementing
             # the window in this case.
             pass

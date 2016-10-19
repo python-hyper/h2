@@ -711,7 +711,10 @@ class TestAutomaticFlowControl(object):
 
         assert not c.data_to_send()
 
-    def test_acknowledging_data_on_closed_stream(self, frame_factory):
+    @pytest.mark.parametrize('force_cleanup', (True, False))
+    def test_acknowledging_data_on_closed_stream(self,
+                                                 frame_factory,
+                                                 force_cleanup):
         """
         When acknowledging data on a stream that has just been closed, no
         acknowledgement is given for that stream, only for the connection.
@@ -727,6 +730,11 @@ class TestAutomaticFlowControl(object):
         )
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
+
+        if force_cleanup:
+            # Check how many streams are open to force the old one to be
+            # cleaned up.
+            assert c.open_outbound_streams == 0
 
         c.acknowledge_received_data(2048, stream_id=1)
 
