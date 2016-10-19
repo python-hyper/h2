@@ -121,15 +121,19 @@ class WindowManager(object):
         if not self._bytes_processed:
             return None
 
+        max_increment = (self.max_window_size - self.current_window_size)
+        increment = 0
+
+        # Note that, even though we may increment less than _bytes_processed,
+        # we still want to set it to zero whenever we emit an increment. This
+        # is because we'll always increment up to the maximum we can.
         if (self.current_window_size == 0) and (
                 self._bytes_processed > min(1024, self.max_window_size // 4)):
-            increment = self._bytes_processed
+            increment = min(self._bytes_processed, max_increment)
             self._bytes_processed = 0
-            self.current_window_size += increment
-            return increment
+        elif self._bytes_processed >= (self.max_window_size // 2):
+            increment = min(self._bytes_processed, max_increment)
+            self._bytes_processed = 0
 
-        if self._bytes_processed >= (self.max_window_size // 2):
-            increment = self._bytes_processed
-            self._bytes_processed = 0
-            self.current_window_size += increment
-            return increment
+        self.current_window_size += increment
+        return increment
