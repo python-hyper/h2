@@ -1600,28 +1600,6 @@ class H2Connection(object):
         """
         flow_controlled_length = frame.flow_controlled_length
 
-        try:
-            window_size = self.remote_flow_control_window(frame.stream_id)
-        except NoSuchStreamError:
-            # If the stream doesn't exist we still want to adjust the
-            # connection-level flow control window to keep parity with the
-            # remote peer. If it does exist we'll adjust it later.
-            self._inbound_flow_control_window_manager.window_consumed(
-                flow_controlled_length
-            )
-            raise
-
-        # TODO: Can we make this check happen in the window manager? I think we
-        # can!
-        if flow_controlled_length > window_size:
-            raise FlowControlError(
-                "Cannot receive %d bytes, flow control window is %d." %
-                (
-                    flow_controlled_length,
-                    window_size
-                )
-            )
-
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_DATA
         )
