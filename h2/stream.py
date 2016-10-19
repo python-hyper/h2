@@ -1050,6 +1050,22 @@ class H2Stream(object):
 
         return [], events
 
+    def acknowledge_received_data(self, acknowledged_size):
+        """
+        The user has informed us that they've processed some amount of data
+        that was received on this stream. Pass that to the window manager and
+        potentially return some WindowUpdate frames.
+        """
+        increment = self._inbound_window_manager.process_bytes(
+            acknowledged_size
+        )
+        if increment:
+            f = WindowUpdateFrame(self.stream_id)
+            f.window_increment = increment
+            return [f]
+
+        return []
+
     def _build_hdr_validation_flags(self, events):
         """
         Constructs a set of header validation flags for use when normalizing

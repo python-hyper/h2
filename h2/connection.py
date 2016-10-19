@@ -1291,7 +1291,25 @@ class H2Connection(object):
         if acknowledged_size < 0:
             raise ValueError("Cannot acknowledge negative data")
 
-        return
+        frames = []
+
+        conn_manager = self._inbound_flow_control_window_manager
+        conn_increment = conn_manager.process_bytes(acknowledged_size)
+        if conn_increment:
+            f = WindowUpdateFrame(0)
+            f.window_increment = conn_increment
+            frames.append(f)
+
+        try:
+            stream = self._get_stream_by_id(stream_id)
+        except NoSuchStreamError:
+            # The stream is already gone. We're not worried about incrementing
+            # the window in this case.
+            pass
+        else:
+            frames.extend(stream.acknowledge_received_data(acknowledged_size))
+
+        self._prepare_for_sending(frames)
 
     def data_to_send(self, amt=None):
         """
