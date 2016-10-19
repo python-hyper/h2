@@ -698,6 +698,8 @@ class TestAutomaticFlowControl(object):
         )
         assert c.data_to_send() == expected_data
 
+    # This test needs to use a lower cap, because otherwise the algo will
+    # increment the stream window anyway.
     @given(integers(min_value=1025, max_value=(DEFAULT_FLOW_WINDOW // 4) - 1))
     def test_connection_only_empty(self, frame_factory, increment):
         """
