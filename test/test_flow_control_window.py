@@ -711,6 +711,20 @@ class TestAutomaticFlowControl(object):
 
         assert not c.data_to_send()
 
+    def test_acknowledging_no_data_does_nothing(self, frame_factory):
+        """
+        If a user accidentally acknowledges no data, nothing happens.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        # Send an empty data frame, just to give the user impetus to ack the
+        # data.
+        data_frame = frame_factory.build_data_frame(b'')
+        c.receive_data(data_frame.serialize())
+
+        c.acknowledge_received_data(0, stream_id=1)
+        assert not c.data_to_send()
+
     @pytest.mark.parametrize('force_cleanup', (True, False))
     def test_acknowledging_data_on_closed_stream(self,
                                                  frame_factory,
