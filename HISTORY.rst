@@ -10,6 +10,8 @@ API Changes (Backward-Compatible)
 - Added a new ``H2Configuration`` object that allows rich configuration of
   a ``H2Connection``. This object supersedes the prior keyword arguments to the
   ``H2Connection`` object, which are now deprecated and will be removed in 3.0.
+- Added support for automated window management via the
+  ``acknowledge_received_data`` method. See the documentation for more details.
 - Added a ``DenialOfServiceError`` that is raised whenever a behaviour that
   looks like a DoS attempt is encountered: for example, an overly large
   decompressed header list. This is a subclass of ``ProtocolError``.

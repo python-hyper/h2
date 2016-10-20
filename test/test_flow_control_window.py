@@ -7,6 +7,9 @@ Tests of the flow control management in h2
 """
 import pytest
 
+from hypothesis import given
+from hypothesis.strategies import integers
+
 import h2.connection
 import h2.errors
 import h2.events
@@ -603,3 +606,279 @@ class TestFlowControl(object):
 
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
+
+
+class TestAutomaticFlowControl(object):
+    """
+    Tests for the automatic flow control logic.
+    """
+    example_request_headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
+    ]
+
+    DEFAULT_FLOW_WINDOW = 65535
+
+    def _setup_connection_and_send_headers(self, frame_factory):
+        """
+        Setup a server-side H2Connection and send a headers frame, and then
+        clear the outbound data buffer. Also increase the maximum frame size.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        c.update_settings(
+            {h2.settings.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
+        )
+        settings_frame = frame_factory.build_settings_frame(
+            settings={}, ack=True
+        )
+        c.receive_data(settings_frame.serialize())
+        c.clear_outbound_data_buffer()
+
+        headers_frame = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+        c.receive_data(headers_frame.serialize())
+        c.clear_outbound_data_buffer()
+        return c
+
+    @given(stream_id=integers(max_value=0))
+    def test_must_acknowledge_for_stream(self, frame_factory, stream_id):
+        """
+        Flow control acknowledgements must be done on a stream ID that is
+        greater than zero.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Create a connection in a state that might actually accept
+        # data acknolwedgement.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        c.receive_data(data_frame.serialize())
+
+        with pytest.raises(ValueError):
+            c.acknowledge_received_data(
+                acknowledged_size=5, stream_id=stream_id
+            )
+
+    @given(size=integers(max_value=-1))
+    def test_cannot_acknowledge_less_than_zero(self, frame_factory, size):
+        """
+        The user must acknowledge at least 0 bytes.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Create a connection in a state that might actually accept
+        # data acknolwedgement.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        c.receive_data(data_frame.serialize())
+
+        with pytest.raises(ValueError):
+            c.acknowledge_received_data(acknowledged_size=size, stream_id=1)
+
+    def test_acknowledging_small_chunks_does_nothing(self, frame_factory):
+        """
+        When a small amount of data is received and acknowledged, no window
+        update is emitted.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_frame = frame_factory.build_data_frame(
+            b'some data', flags=['END_STREAM']
+        )
+        data_event = c.receive_data(data_frame.serialize())[0]
+
+        c.acknowledge_received_data(
+            data_event.flow_controlled_length, stream_id=1
+        )
+
+        assert not c.data_to_send()
+
+    def test_acknowledging_no_data_does_nothing(self, frame_factory):
+        """
+        If a user accidentally acknowledges no data, nothing happens.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        # Send an empty data frame, just to give the user impetus to ack the
+        # data.
+        data_frame = frame_factory.build_data_frame(b'')
+        c.receive_data(data_frame.serialize())
+
+        c.acknowledge_received_data(0, stream_id=1)
+        assert not c.data_to_send()
+
+    @pytest.mark.parametrize('force_cleanup', (True, False))
+    def test_acknowledging_data_on_closed_stream(self,
+                                                 frame_factory,
+                                                 force_cleanup):
+        """
+        When acknowledging data on a stream that has just been closed, no
+        acknowledgement is given for that stream, only for the connection.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        rst_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1
+        )
+        c.receive_data(rst_frame.serialize())
+        c.clear_outbound_data_buffer()
+
+        if force_cleanup:
+            # Check how many streams are open to force the old one to be
+            # cleaned up.
+            assert c.open_outbound_streams == 0
+
+        c.acknowledge_received_data(2048, stream_id=1)
+
+        expected = frame_factory.build_window_update_frame(
+            stream_id=0, increment=2048
+        )
+        assert c.data_to_send() == expected.serialize()
+
+    def test_acknowledging_streams_we_never_saw(self, frame_factory):
+        """
+        If the user acknowledges a stream ID we've never seen, that raises a
+        NoSuchStreamError.
+        """
+        c = self._setup_connection_and_send_headers(frame_factory)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.NoSuchStreamError):
+            c.acknowledge_received_data(2048, stream_id=101)
+
+    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
+    def test_acknowledging_1024_bytes_when_empty_increments(self,
+                                                            frame_factory,
+                                                            increment):
+        """
+        If the flow control window is empty and we acknowledge 1024 bytes or
+        more, we will emit a WINDOW_UPDATE frame just to move the connection
+        forward.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        first_expected = frame_factory.build_window_update_frame(
+            stream_id=0, increment=increment
+        )
+        second_expected = frame_factory.build_window_update_frame(
+            stream_id=1, increment=increment
+        )
+        expected_data = b''.join(
+            [first_expected.serialize(), second_expected.serialize()]
+        )
+        assert c.data_to_send() == expected_data
+
+    # This test needs to use a lower cap, because otherwise the algo will
+    # increment the stream window anyway.
+    @given(integers(min_value=1025, max_value=(DEFAULT_FLOW_WINDOW // 4) - 1))
+    def test_connection_only_empty(self, frame_factory, increment):
+        """
+        If the connection flow control window is empty, but the stream flow
+        control windows aren't, and 1024 bytes or more are acknowledged by the
+        user, we increment the connection window only.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Here we'll use 4 streams. Set them up.
+        c = self._setup_connection_and_send_headers(frame_factory)
+
+        for stream_id in [3, 5, 7]:
+            f = frame_factory.build_headers_frame(
+                headers=self.example_request_headers, stream_id=stream_id
+            )
+            c.receive_data(f.serialize())
+
+        # Now we send 1/4 of the connection window per stream. Annoyingly,
+        # that's an odd number, so we need to round the last frame up.
+        data_to_send = b'\x00' * (self.DEFAULT_FLOW_WINDOW // 4)
+        for stream_id in [1, 3, 5]:
+            f = frame_factory.build_data_frame(
+                data_to_send, stream_id=stream_id
+            )
+            c.receive_data(f.serialize())
+
+        data_to_send = b'\x00' * c.remote_flow_control_window(7)
+        data_frame = frame_factory.build_data_frame(data_to_send, stream_id=7)
+        c.receive_data(data_frame.serialize())
+
+        # Ok, now the actual test.
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        expected_data = frame_factory.build_window_update_frame(
+            stream_id=0, increment=increment
+        ).serialize()
+        assert c.data_to_send() == expected_data
+
+    @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
+    def test_mixing_update_forms(self, frame_factory, increment):
+        """
+        If the user mixes ackowledging data with manually incrementing windows,
+        we still keep track of what's going on.
+        """
+        # We need to refresh the encoder because hypothesis has a problem with
+        # integrating with py.test, meaning that we use the same frame factory
+        # for all tests.
+        # See https://github.com/HypothesisWorks/hypothesis-python/issues/377
+        frame_factory.refresh_encoder()
+
+        # Empty the flow control window.
+        c = self._setup_connection_and_send_headers(frame_factory)
+        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_frame = frame_factory.build_data_frame(data_to_send)
+        c.receive_data(data_frame.serialize())
+
+        # Manually increment the connection flow control window back to fully
+        # open, but leave the stream window closed.
+        c.increment_flow_control_window(
+            stream_id=None, increment=self.DEFAULT_FLOW_WINDOW
+        )
+        c.clear_outbound_data_buffer()
+
+        # Now, acknowledge the receipt of that data. This should cause the
+        # stream window to be widened, but not the connection window, because
+        # it is already open.
+        c.acknowledge_received_data(increment, stream_id=1)
+
+        # We expect to see one window update frame only, for the stream.
+        expected_data = frame_factory.build_window_update_frame(
+            stream_id=1, increment=increment
+        ).serialize()
+        assert c.data_to_send() == expected_data

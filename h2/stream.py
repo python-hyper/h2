@@ -29,6 +29,7 @@ from .utilities import (
     validate_headers, validate_outbound_headers, normalize_outbound_headers,
     HeaderValidationFlags, extract_method_header
 )
+from .windows import WindowManager
 
 
 class StreamState(IntEnum):
@@ -671,15 +672,21 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
-    def __init__(self, stream_id, config):
+    def __init__(self,
+                 stream_id,
+                 config,
+                 inbound_window_size,
+                 outbound_window_size):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
         self.request_method = None
 
-        # The curent value of the stream flow control windows
-        self.outbound_flow_control_window = 65535
-        self.inbound_flow_control_window = 65535
+        # The curent value of the outbound stream flow control window
+        self.outbound_flow_control_window = outbound_window_size
+
+        # The flow control manager.
+        self._inbound_window_manager = WindowManager(inbound_window_size)
 
         # The expected content length, if any.
         self._expected_content_length = None
@@ -692,6 +699,16 @@ class H2Stream(object):
 
         # The configuration for this stream.
         self.config = config
+
+    @property
+    def inbound_flow_control_window(self):
+        """
+        The size of the inbound flow control window for the stream. This is
+        rarely publicly useful: instead, use :meth:`remote_flow_control_window
+        <h2.stream.H2Stream.remote_flow_control_window>`. This shortcut is
+        largely present to provide a shortcut to this data.
+        """
+        return self._inbound_window_manager.current_window_size
 
     @property
     def open(self):
@@ -868,6 +885,8 @@ class H2Stream(object):
         Increase the size of the flow control window for the remote side.
         """
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
+        self._inbound_window_manager.window_opened(increment)
+
         wuf = WindowUpdateFrame(self.stream_id)
         wuf.window_increment = increment
         return [wuf]
@@ -946,7 +965,7 @@ class H2Stream(object):
         Receive some data.
         """
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
-        self.inbound_flow_control_window -= flow_control_len
+        self._inbound_window_manager.window_consumed(flow_control_len)
         self._track_content_length(len(data), end_stream)
 
         if end_stream:
@@ -1030,6 +1049,22 @@ class H2Stream(object):
             events[0].error_code = _error_code_from_int(frame.error_code)
 
         return [], events
+
+    def acknowledge_received_data(self, acknowledged_size):
+        """
+        The user has informed us that they've processed some amount of data
+        that was received on this stream. Pass that to the window manager and
+        potentially return some WindowUpdate frames.
+        """
+        increment = self._inbound_window_manager.process_bytes(
+            acknowledged_size
+        )
+        if increment:
+            f = WindowUpdateFrame(self.stream_id)
+            f.window_increment = increment
+            return [f]
+
+        return []
 
     def _build_hdr_validation_flags(self, events):
         """
@@ -1146,6 +1181,18 @@ class H2Stream(object):
 
             if end_stream and expected != actual:
                 raise InvalidBodyLengthError(expected, actual)
+
+    def _inbound_flow_control_change_from_settings(self, delta):
+        """
+        We changed SETTINGS_INITIAL_WINDOW_SIZE, which means we need to
+        update the target window size for flow control. For our flow control
+        strategy, this means we need to do two things: we need to adjust the
+        current window size, but we also need to set the target maximum window
+        size to the new value.
+        """
+        new_max_size = self._inbound_window_manager.max_window_size + delta
+        self._inbound_window_manager.window_opened(delta)
+        self._inbound_window_manager.max_window_size = new_max_size
 
 
 def _decode_headers(headers, encoding):

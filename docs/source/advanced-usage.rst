@@ -294,3 +294,36 @@ stream ID of ``0``, that may have unblocked *all* streams that are currently
 blocked. The user should use :meth:`local_flow_control_window
 <h2.connection.H2Connection.local_flow_control_window>` to check all blocked
 streams to see if more data is available.
+
+Auto Flow Control
+~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 2.5.0
+
+In most cases, there is no advantage for users in managing their own flow
+control strategies. While particular high performance or specific-use-case
+applications may gain value from directly controlling the emission of
+``WINDOW_UPDATE`` frames, the average application can use a
+lowest-common-denominator strategy to emit those frames. As of version 2.5.0,
+hyper-h2 now provides this automatic strategy for users, if they want to use
+it.
+
+This automatic strategy is built around a single method:
+:meth:`acknowledge_received_data
+<h2.connection.H2Connection.acknowledge_received_data>`. This method
+flags to the connection object that your application has dealt with a certain
+number of flow controlled bytes, and that the window should be incremented in
+some way. Whenever your application has "processed" some received bytes, this
+method should be called to signal that they have been processed.
+
+The key difference between this method and :meth:`increment_flow_control_window
+<h2.connection.H2Connection.increment_flow_control_window>` is that the method
+:meth:`acknowledge_received_data
+<h2.connection.H2Connection.acknowledge_received_data>` does not guarantee that
+it will emit a ``WINDOW_UPDATE`` frame, and if it does it will not necessarily
+emit them for *only* the stream or *only* the frame. Instead, the
+``WINDOW_UPDATE`` frames will be *coalesced*: they will be emitted only when
+a certain number of bytes have been freed up.
+
+For most applications, this method should be preferred to the manual flow
+control mechanism.
