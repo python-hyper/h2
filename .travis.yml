@@ -32,8 +32,5 @@ matrix:
 install:
   - "pip install -U pip setuptools"
   - "pip install -U tox"
-before_script:
-  - "flake8 --max-complexity 10 h2 test"
-  - "sphinx-build -nW -b html -d docs/build/doctrees docs/source docs/build/html"
 script:
   - tox
