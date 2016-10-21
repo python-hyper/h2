@@ -34,4 +34,4 @@ install:
   - "pip install -U pip setuptools"
   - "pip install -U tox"
 script:
-  - tox
+  - tox -- --hypothesis-profile travis
