@@ -4,6 +4,7 @@ language: python
 cache:
   directories:
     - $HOME/.cache/pip
+    - .hypothesis
 
 matrix:
   include:
