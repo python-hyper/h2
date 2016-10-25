@@ -12,6 +12,19 @@ Bugfixes
   size hyper-h2 would ignore the update, preventing the remote peer from using
   the higher frame sizes.
 
+2.2.7 (2016-10-25)
+------------------
+
+*Final 2.2.X release*
+
+Bugfixes
+~~~~~~~~
+
+- Correctly update the maximum frame size when the user updates the value of
+  that setting. Prior to this release, if the user updated the maximum frame
+  size hyper-h2 would ignore the update, preventing the remote peer from using
+  the higher frame sizes.
+
 2.3.2 (2016-08-23)
 ------------------
 
