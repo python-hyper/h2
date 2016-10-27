@@ -14,7 +14,14 @@ import binascii
 from .settings import ChangedSetting
 
 
-class RequestReceived(object):
+class Event(Event):
+    """
+    Base class for h2 events.
+    """
+    pass
+
+
+class RequestReceived(Event):
     """
     The RequestReceived event is fired whenever request headers are received.
     This event carries the HTTP headers for the given request and the stream ID
@@ -54,7 +61,7 @@ class RequestReceived(object):
         )
 
 
-class ResponseReceived(object):
+class ResponseReceived(Event):
     """
     The ResponseReceived event is fired whenever response headers are received.
     This event carries the HTTP headers for the given response and the stream
@@ -94,7 +101,7 @@ class ResponseReceived(object):
         )
 
 
-class TrailersReceived(object):
+class TrailersReceived(Event):
     """
     The TrailersReceived event is fired whenever trailers are received on a
     stream. Trailers are a set of headers sent after the body of the
@@ -136,7 +143,7 @@ class TrailersReceived(object):
         )
 
 
-class _HeadersSent(object):
+class _HeadersSent(Event):
     """
     The _HeadersSent event is fired whenever headers are sent.
 
@@ -181,7 +188,7 @@ class _TrailersSent(_HeadersSent):
     pass
 
 
-class InformationalResponseReceived(object):
+class InformationalResponseReceived(Event):
     """
     The InformationalResponseReceived event is fired when an informational
     response (that is, one whose status code is a 1XX code) is received from
@@ -224,7 +231,7 @@ class InformationalResponseReceived(object):
         )
 
 
-class DataReceived(object):
+class DataReceived(Event):
     """
     The DataReceived event is fired whenever data is received on a stream from
     the remote peer. The event carries the data itself, and the stream ID on
@@ -265,7 +272,7 @@ class DataReceived(object):
         )
 
 
-class WindowUpdated(object):
+class WindowUpdated(Event):
     """
     The WindowUpdated event is fired whenever a flow control window changes
     size. HTTP/2 defines flow control windows for connections and streams: this
@@ -287,7 +294,7 @@ class WindowUpdated(object):
         )
 
 
-class RemoteSettingsChanged(object):
+class RemoteSettingsChanged(Event):
     """
     The RemoteSettingsChanged event is fired whenever the remote peer changes
     its settings. It contains a complete inventory of changed settings,
@@ -337,7 +344,7 @@ class RemoteSettingsChanged(object):
         )
 
 
-class PingAcknowledged(object):
+class PingAcknowledged(Event):
     """
     The PingAcknowledged event is fired whenever a user-emitted PING is
     acknowledged. This contains the data in the ACK'ed PING, allowing the
@@ -353,7 +360,7 @@ class PingAcknowledged(object):
         )
 
 
-class StreamEnded(object):
+class StreamEnded(Event):
     """
     The StreamEnded event is fired whenever a stream is ended by a remote
     party. The stream may not be fully closed if it has not been closed
@@ -367,7 +374,7 @@ class StreamEnded(object):
         return "<StreamEnded stream_id:%s>" % self.stream_id
 
 
-class StreamReset(object):
+class StreamReset(Event):
     """
     The StreamReset event is fired in two situations. The first is when the
     remote party forcefully resets the stream. The second is when the remote
@@ -394,7 +401,7 @@ class StreamReset(object):
         )
 
 
-class PushedStreamReceived(object):
+class PushedStreamReceived(Event):
     """
     The PushedStreamReceived event is fired whenever a pushed stream has been
     received from a remote peer. The event carries on it the new stream ID, the
@@ -421,7 +428,7 @@ class PushedStreamReceived(object):
         )
 
 
-class SettingsAcknowledged(object):
+class SettingsAcknowledged(Event):
     """
     The SettingsAcknowledged event is fired whenever a settings ACK is received
     from the remote peer. The event carries on it the settings that were
@@ -440,7 +447,7 @@ class SettingsAcknowledged(object):
         )
 
 
-class PriorityUpdated(object):
+class PriorityUpdated(Event):
     """
     The PriorityUpdated event is fired whenever a stream sends updated priority
     information. This can occur when the stream is opened, or at any time
@@ -478,7 +485,7 @@ class PriorityUpdated(object):
         )
 
 
-class ConnectionTerminated(object):
+class ConnectionTerminated(Event):
     """
     The ConnectionTerminated event is fired when a connection is torn down by
     the remote peer using a GOAWAY frame. Once received, no further action may
@@ -511,7 +518,7 @@ class ConnectionTerminated(object):
         )
 
 
-class AlternativeServiceAvailable(object):
+class AlternativeServiceAvailable(Event):
     """
     The AlternativeServiceAvailable event is fired when the remote peer
     advertises an `RFC 7838 <https://tools.ietf.org/html/rfc7838>`_ Alternative
