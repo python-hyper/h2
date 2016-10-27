@@ -4,6 +4,11 @@ Release History
 2.6.0dev0
 ---------
 
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added a new ``Event`` class that acts as a base class for all events.
+
 2.5.0 (2016-10-25)
 ------------------
 
