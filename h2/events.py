@@ -14,7 +14,7 @@ import binascii
 from .settings import ChangedSetting
 
 
-class Event(Event):
+class Event(object):
     """
     Base class for h2 events.
     """
