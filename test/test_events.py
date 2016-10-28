@@ -6,6 +6,9 @@ test_events.py
 Specific tests for any function that is logically self-contained as part of
 events.py.
 """
+import inspect
+import sys
+
 from hypothesis import given
 from hypothesis.strategies import (
     integers, lists, tuples
@@ -317,3 +320,26 @@ class TestEventReprs(object):
             '<AlternativeServiceAvailable origin:example.com, '
             'field_value:h2=":8000"; ma=60>'
         )
+
+
+def all_events():
+    """
+    Generates all the classes (i.e., events) defined in h2.events.
+    """
+    for _, obj in inspect.getmembers(sys.modules['h2.events']):
+
+        # We are only interested in objects that are defined in h2.events;
+        # objects that are imported from other modules are not of interest.
+        if hasattr(obj, '__module__') and (obj.__module__ != 'h2.events'):
+            continue
+
+        if inspect.isclass(obj):
+            yield obj
+
+
+@pytest.mark.parametrize('event', all_events())
+def test_all_events_subclass_from_event(event):
+    """
+    Every event defined in h2.events subclasses from h2.events.Event.
+    """
+    assert (event is h2.events.Event) or issubclass(event, h2.events.Event)
