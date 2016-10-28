@@ -7,7 +7,8 @@ Release History
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Added a new ``Event`` class that acts as a base class for all events.
+- Added a new ``h2.events.Event`` class that acts as a base class for all
+  events.
 
 2.5.0 (2016-10-25)
 ------------------

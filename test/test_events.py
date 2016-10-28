@@ -342,4 +342,4 @@ def test_all_events_subclass_from_event(event):
     """
     Every event defined in h2.events subclasses from h2.events.Event.
     """
-    assert (event == h2.events.Event) or issubclass(event, h2.events.Event)
+    assert (event is h2.events.Event) or issubclass(event, h2.events.Event)
