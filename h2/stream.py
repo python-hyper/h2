@@ -496,7 +496,7 @@ _transitions = {
 
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
-        (None, StreamState.HALF_CLOSED_REMOTE),
+        (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_DATA):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
