@@ -1076,7 +1076,12 @@ class H2Stream(object):
                 events[0], (_TrailersSent, TrailersReceived)
             )
             is_response_header = isinstance(
-                events[0], (_ResponseSent, ResponseReceived)
+                events[0],
+                (
+                    _ResponseSent,
+                    ResponseReceived,
+                    InformationalResponseReceived
+                )
             )
         except IndexError:
             # Some state changes don't emit an internal event (for example,
