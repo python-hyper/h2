@@ -1083,6 +1083,9 @@ class H2Stream(object):
                     InformationalResponseReceived
                 )
             )
+            is_push_promise = isinstance(
+                events[0], (PushedStreamReceived)
+            )
         except IndexError:
             # Some state changes don't emit an internal event (for example,
             # sending a push promise).  We *always* emit an event for trailers,
@@ -1095,11 +1098,13 @@ class H2Stream(object):
             # an internal event, so we can do away with this branch.
             is_trailer = False
             is_response_header = False
+            is_push_promise = True
 
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
             is_trailer=is_trailer,
-            is_response_header=is_response_header
+            is_response_header=is_response_header,
+            is_push_promise=is_push_promise,
         )
 
     def _build_headers_frames(self,

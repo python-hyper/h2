@@ -171,7 +171,7 @@ def authority_from_headers(headers):
 # should be applied to a given set of headers.
 HeaderValidationFlags = collections.namedtuple(
     'HeaderValidationFlags',
-    ['is_client', 'is_trailer', 'is_response_header']
+    ['is_client', 'is_trailer', 'is_response_header', 'is_push_promise']
 )
 
 
