@@ -10,6 +10,14 @@ API Changes (Backward-Compatible)
 - Added a new ``h2.events.Event`` class that acts as a base class for all
   events.
 
+Bugfixes
+~~~~~~~~
+
+- Correctly reject pushed request header blocks whenever they have malformed
+  request header blocks.
+- Correctly normalize pushed request header blocks whenever they have
+  normalizable header fields.
+
 2.5.0 (2016-10-25)
 ------------------
 

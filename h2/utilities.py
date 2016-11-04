@@ -171,7 +171,7 @@ def authority_from_headers(headers):
 # should be applied to a given set of headers.
 HeaderValidationFlags = collections.namedtuple(
     'HeaderValidationFlags',
-    ['is_client', 'is_trailer', 'is_response_header']
+    ['is_client', 'is_trailer', 'is_response_header', 'is_push_promise']
 )
 
 
@@ -402,9 +402,13 @@ def _check_host_authority_header(headers, hdr_validation_flags):
     but their values do not match.
     """
     # We only expect to see :authority and Host headers on request header
-    # blocks that aren't trailers, so skip this validation if we're on the
-    # server side or looking at trailer blocks.
-    if hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
+    # blocks that aren't trailers, so skip this validation if this is a
+    # response header or we're looking at trailer blocks.
+    skip_validation = (
+        hdr_validation_flags.is_response_header or
+        hdr_validation_flags.is_trailer
+    )
+    if skip_validation:
         return headers
 
     return _validate_host_authority_header(headers)
@@ -444,9 +448,13 @@ def _check_sent_host_authority_header(headers, hdr_validation_flags):
     the header block contains both fields, but their values do not match.
     """
     # We only expect to see :authority and Host headers on request header
-    # blocks that aren't trailers, so skip this validation if we're on the
-    # server side or looking at trailer blocks.
-    if not hdr_validation_flags.is_client or hdr_validation_flags.is_trailer:
+    # blocks that aren't trailers, so skip this validation if this is a
+    # response header or we're looking at trailer blocks.
+    skip_validation = (
+        hdr_validation_flags.is_response_header or
+        hdr_validation_flags.is_trailer
+    )
+    if skip_validation:
         return headers
 
     return _validate_host_authority_header(headers)

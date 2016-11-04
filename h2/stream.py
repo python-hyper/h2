@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _ResponseSent, _RequestSent, _TrailersSent
+    _ResponseSent, _RequestSent, _TrailersSent, _PushedRequestSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -248,7 +248,8 @@ class H2StreamStateMachine(object):
         if self.client is True:
             raise ProtocolError("Cannot push streams from client peers.")
 
-        return []
+        event = _PushedRequestSent()
+        return [event]
 
     def recv_push_promise(self, previous_state):
         """
@@ -496,7 +497,7 @@ _transitions = {
 
     # State: reserved local
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
-        (None, StreamState.HALF_CLOSED_REMOTE),
+        (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_DATA):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
@@ -814,11 +815,9 @@ class H2Stream(object):
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
 
-        # This does not trigger any events.
         events = self.state_machine.process_input(
             StreamInputs.SEND_PUSH_PROMISE
         )
-        assert not events
 
         ppf = PushPromiseFrame(self.stream_id)
         ppf.promised_stream_id = related_stream_id
@@ -904,6 +903,10 @@ class H2Stream(object):
             StreamInputs.RECV_PUSH_PROMISE
         )
         events[0].pushed_stream_id = promised_stream_id
+
+        if self.config.validate_inbound_headers:
+            hdr_validation_flags = self._build_hdr_validation_flags(events)
+            headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
             headers = list(_decode_headers(headers, header_encoding))
@@ -1071,30 +1074,26 @@ class H2Stream(object):
         Constructs a set of header validation flags for use when normalizing
         and validating header blocks.
         """
-        try:
-            is_trailer = isinstance(
-                events[0], (_TrailersSent, TrailersReceived)
+        is_trailer = isinstance(
+            events[0], (_TrailersSent, TrailersReceived)
+        )
+        is_response_header = isinstance(
+            events[0],
+            (
+                _ResponseSent,
+                ResponseReceived,
+                InformationalResponseReceived
             )
-            is_response_header = isinstance(
-                events[0], (_ResponseSent, ResponseReceived)
-            )
-        except IndexError:
-            # Some state changes don't emit an internal event (for example,
-            # sending a push promise).  We *always* emit an event for trailers,
-            # so the absence of an event means this definitely isn't a trailer.
-            # Similarly, we also emit an event whenever response headers are
-            # sent or received. So absence of those events means this is not an
-            # response header either.
-            #
-            # TODO: Find any places where we don't emit anything, and emit
-            # an internal event, so we can do away with this branch.
-            is_trailer = False
-            is_response_header = False
+        )
+        is_push_promise = isinstance(
+            events[0], (PushedStreamReceived, _PushedRequestSent)
+        )
 
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
             is_trailer=is_trailer,
-            is_response_header=is_response_header
+            is_response_header=is_response_header,
+            is_push_promise=is_push_promise,
         )
 
     def _build_headers_frames(self,

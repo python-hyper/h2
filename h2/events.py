@@ -188,6 +188,17 @@ class _TrailersSent(_HeadersSent):
     pass
 
 
+class _PushedRequestSent(_HeadersSent):
+    """
+    The _PushedRequestSent event is fired whenever pushed request headers are
+    sent.
+
+    This is an internal event, used to determine validation steps on outgoing
+    header blocks.
+    """
+    pass
+
+
 class InformationalResponseReceived(Event):
     """
     The InformationalResponseReceived event is fired when an informational
