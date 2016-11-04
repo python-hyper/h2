@@ -19,7 +19,7 @@ from .events import (
     RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
     StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
     InformationalResponseReceived, AlternativeServiceAvailable,
-    _ResponseSent, _RequestSent, _TrailersSent
+    _ResponseSent, _RequestSent, _TrailersSent, _PushedRequestSent
 )
 from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError
@@ -248,7 +248,8 @@ class H2StreamStateMachine(object):
         if self.client is True:
             raise ProtocolError("Cannot push streams from client peers.")
 
-        return []
+        event = _PushedRequestSent()
+        return [event]
 
     def recv_push_promise(self, previous_state):
         """
@@ -814,11 +815,9 @@ class H2Stream(object):
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
 
-        # This does not trigger any events.
         events = self.state_machine.process_input(
             StreamInputs.SEND_PUSH_PROMISE
         )
-        assert not events
 
         ppf = PushPromiseFrame(self.stream_id)
         ppf.promised_stream_id = related_stream_id
