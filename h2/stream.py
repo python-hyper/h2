@@ -1074,34 +1074,20 @@ class H2Stream(object):
         Constructs a set of header validation flags for use when normalizing
         and validating header blocks.
         """
-        try:
-            is_trailer = isinstance(
-                events[0], (_TrailersSent, TrailersReceived)
+        is_trailer = isinstance(
+            events[0], (_TrailersSent, TrailersReceived)
+        )
+        is_response_header = isinstance(
+            events[0],
+            (
+                _ResponseSent,
+                ResponseReceived,
+                InformationalResponseReceived
             )
-            is_response_header = isinstance(
-                events[0],
-                (
-                    _ResponseSent,
-                    ResponseReceived,
-                    InformationalResponseReceived
-                )
-            )
-            is_push_promise = isinstance(
-                events[0], (PushedStreamReceived)
-            )
-        except IndexError:
-            # Some state changes don't emit an internal event (for example,
-            # sending a push promise).  We *always* emit an event for trailers,
-            # so the absence of an event means this definitely isn't a trailer.
-            # Similarly, we also emit an event whenever response headers are
-            # sent or received. So absence of those events means this is not an
-            # response header either.
-            #
-            # TODO: Find any places where we don't emit anything, and emit
-            # an internal event, so we can do away with this branch.
-            is_trailer = False
-            is_response_header = False
-            is_push_promise = True
+        )
+        is_push_promise = isinstance(
+            events[0], (PushedStreamReceived, _PushedRequestSent)
+        )
 
         return HeaderValidationFlags(
             is_client=self.state_machine.client,
