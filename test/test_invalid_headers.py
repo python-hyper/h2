@@ -76,6 +76,64 @@ class TestInvalidFrameSequences(object):
         assert c.data_to_send() == expected_frame.serialize()
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_push_promise_event(self, frame_factory, headers):
+        """
+        If a PUSH_PROMISE header frame is received with an invalid header block
+        it is rejected with a PROTOCOL_ERROR.
+        """
+        c = h2.connection.H2Connection(client_side=True)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1, headers=self.base_request_headers, end_stream=True
+        )
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=headers
+        )
+        data = f.serialize()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=0, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_push_promise_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_inbound_headers`` disabled, then invalid header
+        blocks in push promise frames are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            client_side=True,
+            validate_inbound_headers=False
+        )
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+        c.send_headers(
+            stream_id=1, headers=self.base_request_headers, end_stream=True
+        )
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_push_promise_frame(
+            stream_id=1,
+            promised_stream_id=2,
+            headers=headers
+        )
+        data = f.serialize()
+
+        events = c.receive_data(data)
+        assert len(events) == 1
+        pp_event = events[0]
+        assert pp_event.headers == headers
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
         """
         If we have ``validate_inbound_headers`` disabled, then all of these
@@ -187,6 +245,27 @@ class TestSendingInvalidFrameSequences(object):
             c.send_headers(1, headers)
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_send_push_promise(self, frame_factory, headers):
+        """
+        Sending invalid headers in a push promise raises a ProtocolError.
+        """
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        header_frame = frame_factory.build_headers_frame(
+            self.base_request_headers
+        )
+        c.receive_data(header_frame.serialize())
+
+        # Clear the data, then try to send a push promise.
+        c.clear_outbound_data_buffer()
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.push_stream(
+                stream_id=1, promised_stream_id=2, request_headers=headers
+            )
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
         """
         If we have ``validate_outbound_headers`` disabled, then all of these
@@ -202,6 +281,32 @@ class TestSendingInvalidFrameSequences(object):
         # Clear the data, then send headers.
         c.clear_outbound_data_buffer()
         c.send_headers(1, headers)
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_push_promise_skipping_validation(self, frame_factory, headers):
+        """
+        If we have ``validate_outbound_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False,
+            validate_outbound_headers=False,
+        )
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        header_frame = frame_factory.build_headers_frame(
+            self.base_request_headers
+        )
+        c.receive_data(header_frame.serialize())
+
+        # Clear the data, then send a push promise.
+        c.clear_outbound_data_buffer()
+        c.push_stream(
+            stream_id=1, promised_stream_id=2, request_headers=headers
+        )
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skip_normalization(self, frame_factory, headers):
@@ -226,6 +331,39 @@ class TestSendingInvalidFrameSequences(object):
         c.clear_outbound_data_buffer()
         c.send_headers(1, headers)
         assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    def test_push_promise_skip_normalization(self, frame_factory, headers):
+        """
+        If we have ``normalize_outbound_headers`` disabled, then all of these
+        invalid header blocks are allowed to pass unmodified.
+        """
+        config = h2.config.H2Configuration(
+            client_side=False,
+            validate_outbound_headers=False,
+            normalize_outbound_headers=False,
+        )
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        header_frame = frame_factory.build_headers_frame(
+            self.base_request_headers
+        )
+        c.receive_data(header_frame.serialize())
+
+        frame_factory.refresh_encoder()
+        pp_frame = frame_factory.build_push_promise_frame(
+            stream_id=1, promised_stream_id=2, headers=headers
+        )
+
+        # Clear the data, then send a push promise.
+        c.clear_outbound_data_buffer()
+        c.push_stream(
+            stream_id=1, promised_stream_id=2, request_headers=headers
+        )
+        assert c.data_to_send() == pp_frame.serialize()
 
 
 class TestFilter(object):
