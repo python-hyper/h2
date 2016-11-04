@@ -905,6 +905,10 @@ class H2Stream(object):
         )
         events[0].pushed_stream_id = promised_stream_id
 
+        if self.config.validate_inbound_headers:
+            hdr_validation_flags = self._build_hdr_validation_flags(events)
+            headers = validate_headers(headers, hdr_validation_flags)
+
         if header_encoding:
             headers = list(_decode_headers(headers, header_encoding))
         events[0].headers = headers
