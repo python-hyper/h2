@@ -441,6 +441,15 @@ def _strip_surrounding_whitespace(headers, hdr_validation_flags):
             yield (header[0].strip(), header[1].strip())
 
 
+def _strip_connection_headers(headers, hdr_validation_flags):
+    """
+    Strip any connection headers as per RFC7540 § 8.1.2.2.
+    """
+    for header in headers:
+        if header[0] not in CONNECTION_HEADERS:
+            yield header
+
+
 def _check_sent_host_authority_header(headers, hdr_validation_flags):
     """
     Raises an InvalidHeaderBlockError if we try to send a header block
@@ -469,6 +478,7 @@ def normalize_outbound_headers(headers, hdr_validation_flags):
     """
     headers = _lowercase_header_names(headers, hdr_validation_flags)
     headers = _strip_surrounding_whitespace(headers, hdr_validation_flags)
+    headers = _strip_connection_headers(headers, hdr_validation_flags)
     headers = _secure_headers(headers, hdr_validation_flags)
 
     return headers
