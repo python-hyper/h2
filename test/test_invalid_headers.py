@@ -220,15 +220,17 @@ class TestSendingInvalidFrameSequences(object):
     invalid_header_blocks = [
         base_request_headers + [(':late', 'pseudo-header')],
         [(':path', 'duplicate-pseudo-header')] + base_request_headers,
-        base_request_headers + [('connection', 'close')],
-        base_request_headers + [('proxy-connection', 'close')],
-        base_request_headers + [('keep-alive', 'close')],
-        base_request_headers + [('transfer-encoding', 'gzip')],
-        base_request_headers + [('upgrade', 'super-protocol/1.1')],
         base_request_headers + [('te', 'chunked')],
         base_request_headers + [('host', 'notexample.com')],
         [header for header in base_request_headers
          if header[0] != ':authority'],
+    ]
+    strippable_header_blocks = [
+        base_request_headers + [('connection', 'close')],
+        base_request_headers + [('proxy-connection', 'close')],
+        base_request_headers + [('keep-alive', 'close')],
+        base_request_headers + [('transfer-encoding', 'gzip')],
+        base_request_headers + [('upgrade', 'super-protocol/1.1')]
     ]
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
@@ -364,6 +366,27 @@ class TestSendingInvalidFrameSequences(object):
             stream_id=1, promised_stream_id=2, request_headers=headers
         )
         assert c.data_to_send() == pp_frame.serialize()
+
+    @pytest.mark.parametrize('headers', strippable_header_blocks)
+    def test_strippable_headers(self, frame_factory, headers):
+        """
+        Test connection related headers are removed before sending.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then try to send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+
+        conn_headers = (
+            'connection', 'proxy-connection', 'keep-alive',
+            'transfer-encoding', 'upgrade'
+        )
+        stripped_headers = [h for h in headers if h[0] not in conn_headers]
+
+        f = frame_factory.build_headers_frame(stripped_headers)
+        assert c.data_to_send() == f.serialize()
 
 
 class TestFilter(object):
