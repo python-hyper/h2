@@ -220,16 +220,19 @@ class TestSendingInvalidFrameSequences(object):
     invalid_header_blocks = [
         base_request_headers + [(':late', 'pseudo-header')],
         [(':path', 'duplicate-pseudo-header')] + base_request_headers,
-        base_request_headers + [('connection', 'close')],
-        base_request_headers + [('proxy-connection', 'close')],
-        base_request_headers + [('keep-alive', 'close')],
-        base_request_headers + [('transfer-encoding', 'gzip')],
-        base_request_headers + [('upgrade', 'super-protocol/1.1')],
         base_request_headers + [('te', 'chunked')],
         base_request_headers + [('host', 'notexample.com')],
         [header for header in base_request_headers
          if header[0] != ':authority'],
     ]
+    strippable_header_blocks = [
+        base_request_headers + [('connection', 'close')],
+        base_request_headers + [('proxy-connection', 'close')],
+        base_request_headers + [('keep-alive', 'close')],
+        base_request_headers + [('transfer-encoding', 'gzip')],
+        base_request_headers + [('upgrade', 'super-protocol/1.1')]
+    ]
+    all_header_blocks = invalid_header_blocks + strippable_header_blocks
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event(self, frame_factory, headers):
@@ -265,7 +268,7 @@ class TestSendingInvalidFrameSequences(object):
                 stream_id=1, promised_stream_id=2, request_headers=headers
             )
 
-    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    @pytest.mark.parametrize('headers', all_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
         """
         If we have ``validate_outbound_headers`` disabled, then all of these
@@ -282,7 +285,12 @@ class TestSendingInvalidFrameSequences(object):
         c.clear_outbound_data_buffer()
         c.send_headers(1, headers)
 
-    @pytest.mark.parametrize('headers', invalid_header_blocks)
+        # Ensure headers are still normalized.
+        norm_headers = h2.utilities.normalize_outbound_headers(headers, None)
+        f = frame_factory.build_headers_frame(norm_headers)
+        assert c.data_to_send() == f.serialize()
+
+    @pytest.mark.parametrize('headers', all_header_blocks)
     def test_push_promise_skipping_validation(self, frame_factory, headers):
         """
         If we have ``validate_outbound_headers`` disabled, then all of these
@@ -302,13 +310,21 @@ class TestSendingInvalidFrameSequences(object):
         )
         c.receive_data(header_frame.serialize())
 
+        # Create push promise frame with normalized headers.
+        frame_factory.refresh_encoder()
+        norm_headers = h2.utilities.normalize_outbound_headers(headers, None)
+        pp_frame = frame_factory.build_push_promise_frame(
+            stream_id=1, promised_stream_id=2, headers=norm_headers
+        )
+
         # Clear the data, then send a push promise.
         c.clear_outbound_data_buffer()
         c.push_stream(
             stream_id=1, promised_stream_id=2, request_headers=headers
         )
+        assert c.data_to_send() == pp_frame.serialize()
 
-    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    @pytest.mark.parametrize('headers', all_header_blocks)
     def test_headers_event_skip_normalization(self, frame_factory, headers):
         """
         If we have ``normalize_outbound_headers`` disabled, then all of these
@@ -332,7 +348,7 @@ class TestSendingInvalidFrameSequences(object):
         c.send_headers(1, headers)
         assert c.data_to_send() == f.serialize()
 
-    @pytest.mark.parametrize('headers', invalid_header_blocks)
+    @pytest.mark.parametrize('headers', all_header_blocks)
     def test_push_promise_skip_normalization(self, frame_factory, headers):
         """
         If we have ``normalize_outbound_headers`` disabled, then all of these
@@ -364,6 +380,21 @@ class TestSendingInvalidFrameSequences(object):
             stream_id=1, promised_stream_id=2, request_headers=headers
         )
         assert c.data_to_send() == pp_frame.serialize()
+
+    @pytest.mark.parametrize('headers', strippable_header_blocks)
+    def test_strippable_headers(self, frame_factory, headers):
+        """
+        Test connection related headers are removed before sending.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then try to send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+
+        f = frame_factory.build_headers_frame(self.base_request_headers)
+        assert c.data_to_send() == f.serialize()
 
 
 class TestFilter(object):
