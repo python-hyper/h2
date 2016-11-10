@@ -9,8 +9,8 @@ API Changes (Backward-Compatible)
 
 - Added a new ``h2.events.Event`` class that acts as a base class for all
   events.
-- Rather than reject Connection-specific headers, h2 will now normalize the
-  header block by removing them.
+- Rather than reject outbound Connection-specific headers, h2 will now
+  normalize the header block by removing them.
 
 Bugfixes
 ~~~~~~~~
