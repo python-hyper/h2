@@ -110,7 +110,7 @@ class H2Server:
             response_headers = (
                 (':status', '404'),
                 ('content-length', '0'),
-                ('server', 'twisted-h2'),
+                ('server', 'curio-h2'),
             )
             self.conn.send_headers(
                 stream_id, response_headers, end_stream=True
