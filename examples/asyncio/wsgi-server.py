@@ -181,7 +181,7 @@ class H2Protocol(asyncio.Protocol):
             # This is specific to a single stream.
             if event.stream_id in self._flow_controlled_data:
                 self._stream_data.put_nowait(
-                    self._flow_controlled_data.pop(stream_id)
+                    self._flow_controlled_data.pop(event.stream_id)
                 )
         else:
             # This event is specific to the connection. Free up *all* the
