@@ -23,7 +23,19 @@ import sys
 import graphviz
 import graphviz.files
 
-from ._discover import findMachines
+import h2.connection
+import h2.stream
+
+
+# This is all the state machines we currently know about and will render.
+# If any new state machines are added, they should be inserted here.
+STATE_MACHINES = [
+    (
+        "h2.connection.H2ConnectionStateMachine",
+        h2.connection.H2ConnectionStateMachine
+    ),
+    ("h2.stream.H2StreamStateMachine", h2.stream.H2StreamStateMachine),
+]
 
 
 def _gvquote(s):
@@ -179,10 +191,10 @@ def main():
         )
     )
 
-    for fqpn, machine in _findMachines(args.fqpn):
+    for fqpn, machine in STATE_MACHINES:
         print(fqpn, '...discovered')
 
-        digraph = machine.asDigraph()
+        digraph = build_digraph(machine)
 
         if explicitly_save_dot:
             digraph.save(filename="{}.dot".format(fqpn),
