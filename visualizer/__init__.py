@@ -124,78 +124,80 @@ def makeDigraph(automaton, inputAsString=repr,
     return digraph
 
 
-def tool(_progname=sys.argv[0],
-         _argv=sys.argv[1:],
-         _syspath=sys.path,
-         _findMachines=findMachines,
-         _print=print):
+def main():
     """
-    Entry point for command line utility.
+    Renders all the state machines in hyper-h2 into images.
     """
+    program_name = sys.argv[0]
+    argv = sys.argv[1:]
 
-    DESCRIPTION = """
-    Visualize automat.MethodicalMachines as graphviz graphs.
+    description = """
+    Visualize hyper-h2 state machines as graphs.
     """
-    EPILOG = """
+    epilog = """
     You must have the graphviz tool suite installed.  Please visit
     http://www.graphviz.org for more information.
     """
-    if _syspath[0]:
-        _syspath.insert(0, '')
-    argumentParser = argparse.ArgumentParser(
-        prog=_progname,
-        description=DESCRIPTION,
-        epilog=EPILOG)
-    argumentParser.add_argument('fqpn',
-                                help="A Fully Qualified Path name"
-                                " representing where to find machines.")
-    argumentParser.add_argument('--quiet', '-q',
-                                help="suppress output",
-                                default=False,
-                                action="store_true")
-    argumentParser.add_argument('--dot-directory', '-d',
-                                help="Where to write out .dot files.",
-                                default=".automat_visualize")
-    argumentParser.add_argument('--image-directory', '-i',
-                                help="Where to write out image files.",
-                                default=".automat_visualize")
-    argumentParser.add_argument('--image-type', '-t',
-                                help="The image format.",
-                                choices=graphviz.files.FORMATS,
-                                default='png')
-    argumentParser.add_argument('--view', '-v',
-                                help="View rendered graphs with"
-                                " default image viewer",
-                                default=False,
-                                action="store_true")
-    args = argumentParser.parse_args(_argv)
 
-    explicitlySaveDot = (args.dot_directory
-                         and (not args.image_directory
-                              or args.image_directory != args.dot_directory))
-    if args.quiet:
-        def _print(*args):
-            pass
+    argument_parser = argparse.ArgumentParser(
+        prog=program_name,
+        description=description,
+        epilog=epilog
+    )
+    argument_parser.add_argument(
+        '--dot-directory',
+        '-d',
+        help="Where to write out .dot files.",
+        default=".h2_visualize"
+    )
+    argument_parser.add_argument(
+        '--image-directory',
+        '-i',
+        help="Where to write out image files.",
+        default=".h2_visualize"
+    )
+    argument_parser.add_argument(
+        '--image-type',
+        '-t',
+        help="The image format.",
+        choices=graphviz.files.FORMATS,
+        default='png'
+    )
+    argument_parser.add_argument(
+        '--view',
+        '-v',
+        help="View rendered graphs with default image viewer",
+        default=False,
+        action="store_true"
+    )
+    args = argument_parser.parse_args(argv)
+
+    explicitly_save_dot = (
+        args.dot_directory and (
+            not args.image_directory or
+            args.image_directory != args.dot_directory
+        )
+    )
 
     for fqpn, machine in _findMachines(args.fqpn):
-        _print(fqpn, '...discovered')
+        print(fqpn, '...discovered')
 
         digraph = machine.asDigraph()
 
-        if explicitlySaveDot:
+        if explicitly_save_dot:
             digraph.save(filename="{}.dot".format(fqpn),
                          directory=args.dot_directory)
-            _print(fqpn, "...wrote dot into", args.dot_directory)
+            print(fqpn, "...wrote dot into", args.dot_directory)
 
         if args.image_directory:
-            deleteDot = not args.dot_directory or explicitlySaveDot
+            delete_dot = not args.dot_directory or explicitly_save_dot
             digraph.format = args.image_type
             digraph.render(filename="{}.dot".format(fqpn),
                            directory=args.image_directory,
                            view=args.view,
-                           cleanup=deleteDot)
-            if deleteDot:
+                           cleanup=delete_dot)
+            if delete_dot:
                 msg = "...wrote image into"
             else:
                 msg = "...wrote image and dot into"
-            _print(fqpn, msg, args.image_directory)
+            print(fqpn, msg, args.image_directory)
