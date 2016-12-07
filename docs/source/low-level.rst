@@ -111,7 +111,7 @@ A visual representation of this FSM is shown below:
 
 .. image:: _static/h2.stream.H2StreamStateMachine.dot.png
    :alt: A visual representation of the stream FSM.
-   :target: _static/h2.stream.H2StreamStateMachine.dot.pn
+   :target: _static/h2.stream.H2StreamStateMachine.dot.png
 
 
 .. _priority:
