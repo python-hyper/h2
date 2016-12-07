@@ -53,6 +53,75 @@ STATE_MACHINES = [
 ]
 
 
+def quote(s):
+    return '"{}"'.format(s.replace('"', r'\"'))
+
+
+def html(s):
+    return '<{}>'.format(s)
+
+
+def element(name, *children, **attrs):
+    """
+    Construct a string from the HTML element description.
+    """
+    formatted_attributes = ' '.join(
+        '{}={}'.format(key, quote(str(value)))
+        for key, value in sorted(attrs.items())
+    )
+    formatted_children = ''.join(children)
+    return u'<{name} {attrs}>{children}</{name}>'.format(
+        name=name,
+        attrs=formatted_attributes,
+        children=formatted_children
+    )
+
+
+def row_for_output(event, side_effect):
+    """
+    Given an output tuple (an event and its side effect), generates a table row
+    from it.
+    """
+    point_size = {'point-size': '9'}
+    event_cell = element(
+        "td",
+        element("font", enum_member_name(event), **point_size)
+    )
+    side_effect_name = (
+        function_name(side_effect) if side_effect is not None else "None"
+    )
+    side_effect_cell = element(
+        "td",
+        element("font", side_effect_name, **point_size)
+    )
+    return element("tr", event_cell, side_effect_cell)
+
+
+def table_maker(initial_state, final_state, outputs, port):
+    """
+    Construct an HTML table to label a state transition.
+    """
+    header = "{} -&gt; {}".format(
+        enum_member_name(initial_state), enum_member_name(final_state)
+    )
+    header_row = element(
+        "tr",
+        element(
+            "td",
+            element(
+                "font",
+                header,
+                face="menlo-italic"
+            ),
+            port=port,
+            colspan="2",
+        )
+    )
+    rows = [header_row]
+    rows.extend(row_for_output(*output) for output in outputs)
+    return element("table", *rows)
+
+
 def enum_member_name(state):
     """
     All enum member names have the form <EnumClassName>.<EnumMemberName>. For
@@ -92,21 +161,39 @@ def build_digraph(state_machine):
                      color="blue")
         seen_first_state = True
 
-    for n, transition in enumerate(state_machine.transitions.items()):
+    # We frequently have vary many inputs that all trigger the same state
+    # transition, and only differ in terms of their input and side-effect. It
+    # would be polite to say that graphviz does not handle this very well. So
+    # instead we *collapse* the state transitions all into the one edge, and
+    # then provide a label that displays a table of all the inputs and their
+    # associated side effects.
+    transitions = collections.defaultdict(list)
+    for transition in state_machine.transitions.items():
         initial_state, event = transition[0]
         side_effect, final_state = transition[1]
-        input_label = enum_member_name(event)
+        transition_key = (initial_state, final_state)
+        transitions[transition_key].append((event, side_effect))
 
-        if side_effect is not None:
-            input_label = "{} ({})".format(
-                input_label, function_name(side_effect)
-            )
+    for n, (transition_key, outputs) in enumerate(transitions.items()):
+        this_transition = "t{}".format(n)
+        initial_state, final_state = transition_key
 
-        digraph.edge(
-            enum_member_name(initial_state),
-            enum_member_name(final_state),
-            label=input_label,
+        port = "tableport"
+        table = table_maker(
+            initial_state=initial_state,
+            final_state=final_state,
+            outputs=outputs,
+            port=port
         )
+
+        digraph.node(this_transition,
+                     label=html(table), margin="0.2", shape="none")
+
+        digraph.edge(enum_member_name(initial_state),
+                     '{}:{}:w'.format(this_transition, port),
+                     arrowhead="none")
+        digraph.edge('{}:{}:e'.format(this_transition, port),
+                     enum_member_name(final_state))
 
     return digraph
 
