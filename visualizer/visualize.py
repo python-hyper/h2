@@ -143,7 +143,8 @@ def build_digraph(state_machine):
     Produce a L{graphviz.Digraph} object from a state machine.
     """
     digraph = graphviz.Digraph(node_attr={'fontname': 'Menlo'},
-                               edge_attr={'fontname': 'Menlo'})
+                               edge_attr={'fontname': 'Menlo'},
+                               graph_attr={'dpi': '200'})
 
     # First, add the states as nodes.
     seen_first_state = False
