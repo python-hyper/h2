@@ -1,6 +1,16 @@
 Release History
 ===============
 
+2.5.1dev0
+---------
+
+Bugfixes
+~~~~~~~~
+
+- Remote peers are now allowed to send zero or any positive number as a value
+  for ``SETTINGS_MAX_HEADER_LIST_SIZE``, where previously sending zero would
+  raise a ``InvalidSettingsValueError``.
+
 2.5.0 (2016-10-25)
 ------------------
 
