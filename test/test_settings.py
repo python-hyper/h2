@@ -326,11 +326,11 @@ class TestSettings(object):
     @given(integers())
     def test_cannot_set_invalid_values_for_max_header_list_size(self, val):
         """
-        SETTINGS_MAX_HEADER_LIST_SIZE only allows positive values.
+        SETTINGS_MAX_HEADER_LIST_SIZE only allows non-negative values.
         """
         s = h2.settings.Settings()
 
-        if val > 0:
+        if val >= 0:
             s.max_header_list_size = val
             s.acknowledge()
             assert s.max_header_list_size == val
