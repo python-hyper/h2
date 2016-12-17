@@ -269,7 +269,7 @@ def _validate_setting(setting, value):
         if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == MAX_HEADER_LIST_SIZE:
-        if not value > 0:
+        if value < 0:
             return ErrorCodes.PROTOCOL_ERROR
 
     return 0
