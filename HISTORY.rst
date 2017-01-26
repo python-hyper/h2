@@ -22,6 +22,9 @@ Bugfixes
 - Remote peers are now allowed to send zero or any positive number as a value
   for ``SETTINGS_MAX_HEADER_LIST_SIZE``, where previously sending zero would
   raise a ``InvalidSettingsValueError``.
+- Resolved issue where the ``HTTP2-Settings`` header value for plaintext
+  upgrade that was emitted by ``initiate_upgrade_connection`` included the
+  *entire* ``SETTINGS`` frame, instead of just the payload.
 
 2.5.0 (2016-10-25)
 ------------------
