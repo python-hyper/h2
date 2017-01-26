@@ -1,6 +1,14 @@
 Release History
 ===============
 
+2.4.3dev0
+---------
+
+- Resolved issue where the ``HTTP2-Settings`` header value for plaintext
+  upgrade that was emitted by ``initiate_upgrade_connection`` included the
+  *entire* ``SETTINGS`` frame, instead of just the payload.
+
+
 2.4.2 (2016-10-25)
 ------------------
 
