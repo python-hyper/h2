@@ -48,7 +48,7 @@ class TestClientUpgrade(object):
         expected_frame = frame_factory.build_settings_frame(
             settings=conn.local_settings
         )
-        assert decoded_frame == expected_frame.serialize()
+        assert decoded_frame == expected_frame.serialize_body()
 
     def test_emits_preamble(self, frame_factory):
         """
