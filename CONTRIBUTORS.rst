@@ -98,3 +98,8 @@ In chronological order:
 - Nate Prewitt (@nateprewitt)
 
   - Added code to validate that trailers do not contain pseudo-header fields.
+
+Chun-Han, Hsiao (@chhsiao90)
+
+  - Fixed a bug with invalid ``HTTP2-Settings`` header output in plaintext
+    upgrade.
