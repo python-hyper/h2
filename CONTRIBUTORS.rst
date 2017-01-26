@@ -73,3 +73,8 @@ In chronological order:
   - Fixed the broken Twisted HEAD request example.
   - Added verification logic for ensuring that responses to HEAD requests have
     no body.
+
+Chun-Han, Hsiao (@chhsiao90)
+
+  - Fixed a bug with invalid ``HTTP2-Settings`` header output in plaintext
+    upgrade.
