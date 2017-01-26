@@ -500,7 +500,7 @@ class H2Connection(object):
             for setting, value in self.local_settings.items():
                 f.settings[setting] = value
 
-            frame_data = f.serialize()
+            frame_data = f.serialize_body()
             frame_data = base64.urlsafe_b64encode(frame_data)
 
         # Set up appropriate state. Stream 1 in a half-closed state:
