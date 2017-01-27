@@ -7,6 +7,9 @@ Release History
 - Resolved issue where the ``HTTP2-Settings`` header value for plaintext
   upgrade that was emitted by ``initiate_upgrade_connection`` included the
   *entire* ``SETTINGS`` frame, instead of just the payload.
+- Resolved issue where the ``HTTP2-Settings`` header value sent by a client for
+  plaintext upgrade would be ignored by ``initiate_upgrade_connection``, rather
+  than have those settings applied appropriately.
 
 
 2.3.3 (2016-10-25)
