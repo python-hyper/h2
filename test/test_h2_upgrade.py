@@ -160,7 +160,7 @@ class TestServerUpgrade(object):
         Calling initiate_upgrade_connection returns nothing.
         """
         conn = h2.connection.H2Connection(client_side=False)
-        curl_header = "AAMAAABkAAQAAP__"
+        curl_header = b"AAMAAABkAAQAAP__"
         data = conn.initiate_upgrade_connection(curl_header)
         assert data is None
 
@@ -263,3 +263,42 @@ class TestServerUpgrade(object):
             error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_client_settings_are_applied(self, frame_factory):
+        """
+        The settings provided by the client are applied and immediately
+        ACK'ed.
+        """
+        server = h2.connection.H2Connection(client_side=False)
+        client = h2.connection.H2Connection(client_side=True)
+
+        # As a precaution, let's confirm that the server and client, at the
+        # start of the connection, do not agree on their initial settings
+        # state.
+        assert (
+            client.local_settings._settings != server.remote_settings._settings
+        )
+
+        # Get the client header data and pass it to the server.
+        header_data = client.initiate_upgrade_connection()
+        server.initiate_upgrade_connection(header_data)
+
+        # This gets complex, but here we go.
+        # RFC 7540 § 3.2.1 says that "explicit acknowledgement" of the settings
+        # in the header is "not necessary". That's annoyingly vague, but we
+        # interpret that to mean "should not be sent". So to test that this
+        # worked we need to test that the server has only sent the preamble,
+        # and has not sent a SETTINGS ack, and also that the server has the
+        # correct settings.
+        expected_frame = frame_factory.build_settings_frame(
+            server.local_settings
+        )
+        assert server.data_to_send() == expected_frame.serialize()
+
+        # We violate abstraction layers here, but I don't think defining __eq__
+        # for this is worth it. In this case, both the client and server should
+        # agree that these settings have been ACK'd, so their underlying
+        # dictionaries should be identical.
+        assert (
+            client.local_settings._settings == server.remote_settings._settings
+        )
