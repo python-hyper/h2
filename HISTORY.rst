@@ -1,8 +1,8 @@
 Release History
 ===============
 
-2.5.2dev0
----------
+2.5.2 (2017-01-27)
+------------------
 
 - Resolved issue where the ``HTTP2-Settings`` header value for plaintext
   upgrade that was emitted by ``initiate_upgrade_connection`` included the
