@@ -272,6 +272,13 @@ class TestServerUpgrade(object):
         server = h2.connection.H2Connection(client_side=False)
         client = h2.connection.H2Connection(client_side=True)
 
+        # As a precaution, let's confirm that the server and client, at the
+        # start of the connection, do not agree on their initial settings
+        # state.
+        assert (
+            client.local_settings._settings != server.remote_settings._settings
+        )
+
         # Get the client header data and pass it to the server.
         header_data = client.initiate_upgrade_connection()
         server.initiate_upgrade_connection(header_data)
