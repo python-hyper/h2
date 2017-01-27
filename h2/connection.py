@@ -495,6 +495,9 @@ class H2Connection(object):
         """
         frame_data = None
 
+        # Begin by getting the preamble in place.
+        self.initiate_connection()
+
         if self.client_side:
             f = SettingsFrame(0)
             for setting, value in self.local_settings.items():
@@ -502,12 +505,19 @@ class H2Connection(object):
 
             frame_data = f.serialize_body()
             frame_data = base64.urlsafe_b64encode(frame_data)
+        elif settings_header:
+            # We have a settings header from the client. This needs to be
+            # applied, but we want to throw away the ACK. We do this by
+            # inserting the data into a Settings frame and then passing it to
+            # the state machine, but ignoring the return value.
+            settings_header = base64.urlsafe_b64decode(settings_header)
+            f = SettingsFrame(0)
+            f.parse_body(settings_header)
+            self._receive_settings_frame(f)
 
         # Set up appropriate state. Stream 1 in a half-closed state:
         # half-closed(local) for clients, half-closed(remote) for servers.
         # Additionally, we need to set up the Connection state machine.
-        self.initiate_connection()
-
         connection_input = (
             ConnectionInputs.SEND_HEADERS if self.client_side
             else ConnectionInputs.RECV_HEADERS
