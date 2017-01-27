@@ -160,7 +160,7 @@ class TestServerUpgrade(object):
         Calling initiate_upgrade_connection returns nothing.
         """
         conn = h2.connection.H2Connection(client_side=False)
-        curl_header = "AAMAAABkAAQAAP__"
+        curl_header = b"AAMAAABkAAQAAP__"
         data = conn.initiate_upgrade_connection(curl_header)
         assert data is None
 
