@@ -20,7 +20,7 @@ ever to use Hyper-h2 to build a compliant HTTP/2 server or client.
 An enormous chunk of this work has been focused on tighter enforcement of
 restrictions in RFC 7540, ensuring that we correctly police the actions of
 remote peers, and error appropriately when those peers violate the
-specification. Several of these constitute breaking changes, becuase data that
+specification. Several of these constitute breaking changes, because data that
 was previously received and handled without obvious error now raises
 ``ProtocolError`` exceptions and causes the connection to be terminated.
 
@@ -42,7 +42,7 @@ were an attempt to make a forward-looking guarantee that was entirely unneeded.
 
 Altogether, this has been an extremely productive period for Hyper-h2, and a
 lot of great work has been done by the community. To that end, we'd also like
-to extend a great thankyou to those contributers who made their first contribution
+to extend a great thankyou to those contributors who made their first contribution
 to the project between release 1.0.0 and 2.0.0. Many thanks to:
 `Thomas Kriechbaumer`_, `Alex Chan`_, `Maximilian Hils`_, and `Glyph`_. For a
 full historical list of contributors, see :doc:`contributors`.
