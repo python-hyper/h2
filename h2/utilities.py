@@ -19,11 +19,11 @@ UPPER_RE = re.compile(b"[A-Z]")
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
 CONNECTION_HEADERS = frozenset([
-    b'connection', u'upgrade',
-    b'proxy-connection', u'transfer-encoding',
+    b'connection', u'connection',
+    b'proxy-connection', u'proxy-connection',
     b'keep-alive', u'keep-alive',
-    b'transfer-encoding', u'proxy-connection',
-    b'upgrade', u'connection',
+    b'transfer-encoding', u'transfer-encoding',
+    b'upgrade', u'upgrade',
 ])
 
 
