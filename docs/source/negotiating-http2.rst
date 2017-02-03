@@ -90,7 +90,7 @@ The code below demonstrates how to handle a plaintext upgrade from the perspecti
 Prior Knowledge
 ---------------
 
-It's possible that you as a client know that a particular server supports HTTP/2, and that you do not need to perform any of the negotiations decribed above. In that case, you may follow the steps in :ref:`starting-alpn`, ignoring all references to ALPN and NPN: there's no need to perform the upgrade dance described in :ref:`starting-upgrade`.
+It's possible that you as a client know that a particular server supports HTTP/2, and that you do not need to perform any of the negotiations described above. In that case, you may follow the steps in :ref:`starting-alpn`, ignoring all references to ALPN and NPN: there's no need to perform the upgrade dance described in :ref:`starting-upgrade`.
 
 .. _RFC 7540: https://tools.ietf.org/html/rfc7540
 .. _RFC 7540 Section 3.2: https://tools.ietf.org/html/rfc7540#section-3.2

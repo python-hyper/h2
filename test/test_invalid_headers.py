@@ -487,7 +487,7 @@ class TestFilter(object):
 class TestOversizedHeaders(object):
     """
     Tests that oversized header blocks are correctly rejected. This replicates
-    the "HPACK Bomb" attack, and confirms that we're resistent against it.
+    the "HPACK Bomb" attack, and confirms that we're resistant against it.
     """
     request_header_block = [
         (b':method', b'GET'),

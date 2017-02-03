@@ -1330,7 +1330,7 @@ class H2Connection(object):
         """
         Returns some data for sending out of the internal data buffer.
 
-        This method is analagous to ``read`` on a file-like object, but it
+        This method is analogous to ``read`` on a file-like object, but it
         doesn't block. Instead, it returns as much data as the user asks for,
         or less if that much data is not available. It does not perform any
         I/O, and so uses a different name.
