@@ -255,13 +255,13 @@ class Settings(collections.MutableMapping):
 
     def __eq__(self, other):
         if isinstance(other, Settings):
-            return self._settings == other._settings
+            return self == other
         else:
             return False
             
     def __ne__(self, other):
         if isinstance(other, Settings):
-            return self._settings != other._settings
+            return not self == other
         else:
             return True
                 
