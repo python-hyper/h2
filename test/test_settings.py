@@ -351,7 +351,6 @@ class TestSettings(object):
             with pytest.raises(KeyError):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]
 
-
     def equal_objects_are_equal(s1,s2):
         s1.acknowledge()
         s2.acknowledge()
