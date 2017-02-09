@@ -265,7 +265,6 @@ class Settings(collections.MutableMapping):
         else:
             return True
                 
-
 def _validate_setting(setting, value):
     """
     Confirms that a specific setting has a well-formed value. If the setting is
@@ -285,10 +284,3 @@ def _validate_setting(setting, value):
             return ErrorCodes.PROTOCOL_ERROR
 
     return 0
-
-
-
-
-
-
-    
