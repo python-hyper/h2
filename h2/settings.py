@@ -253,6 +253,18 @@ class Settings(collections.MutableMapping):
     def __len__(self):
         return len(self._settings)
 
+    def __eq__(self, other):
+        if isinstance(other, Settings):
+            return self._settings == other._settings
+        else:
+            return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, Settings):
+            return not self == other
+        else:
+            return NotImplemented
+
 
 def _validate_setting(setting, value):
     """
