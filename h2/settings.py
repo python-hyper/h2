@@ -257,13 +257,13 @@ class Settings(collections.MutableMapping):
         if isinstance(other, Settings):
             return self._settings == other._settings
         else:
-            return NotImplemented
+            return False
             
     def __ne__(self, other):
         if isinstance(other, Settings):
             return self._settings != other._settings
         else:
-            return False
+            return True
                 
 
 def _validate_setting(setting, value):
