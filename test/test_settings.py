@@ -360,4 +360,4 @@ class TestSettings(object):
     def notequal_objects_are_notequal(s1,s2):
         s1.acknowledge()
         s2.acknowledge()
-        assert s1._settings!=s2._settings
+        assert s1._settings != s2._settings
