@@ -342,7 +342,7 @@ class TestSettings(object):
             assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
             assert s.max_header_list_size is None
 
-            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e: 
                 s[h2.settings.MAX_HEADER_LIST_SIZE] = val
 
             s.acknowledge()
@@ -350,3 +350,14 @@ class TestSettings(object):
 
             with pytest.raises(KeyError):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]
+
+
+    def equal_objects_are_equal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings==s2._settings
+   
+    def notequal_objects_are_notequal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings!=s2._settings

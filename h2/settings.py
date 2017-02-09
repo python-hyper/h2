@@ -254,30 +254,37 @@ class Settings(collections.MutableMapping):
         return len(self._settings)
 
 
-    def _validate_setting(setting, value):
-        
-
-        if setting == ENABLE_PUSH:
-            if value not in (0, 1):
-                return ErrorCodes.PROTOCOL_ERROR
-        elif setting == INITIAL_WINDOW_SIZE:
-            if not 0 <= value <= 2147483647:  # 2^31 - 1
-                return ErrorCodes.FLOW_CONTROL_ERROR
-        elif setting == MAX_FRAME_SIZE:
-            if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
-                return ErrorCodes.PROTOCOL_ERROR
-        elif  setting == MAX_HEADER_LIST_SIZE:
-            if value < 0:
-                return ErrorCodes.PROTOCOL_ERROR
-    
-        return 0
-
-
     def __eq__(self,other):
         return self._settings==other._settings
 
     def __ne__(self,other):
         return not self._settings==other._settings
+
+
+def _validate_setting(setting, value):
+    """
+    Confirms that a specific setting has a well-formed value. If the setting is
+    invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
+    """
+    if setting == ENABLE_PUSH:
+        if value not in (0, 1):
+            return ErrorCodes.PROTOCOL_ERROR
+    elif setting == INITIAL_WINDOW_SIZE:
+        if not 0 <= value <= 2147483647:  # 2^31 - 1
+            return ErrorCodes.FLOW_CONTROL_ERROR
+    elif setting == MAX_FRAME_SIZE:
+        if not 16384 <= value <= 16777215:  # 2^14 and 2^24 - 1
+            return ErrorCodes.PROTOCOL_ERROR
+    elif setting == MAX_HEADER_LIST_SIZE:
+        if value < 0:
+            return ErrorCodes.PROTOCOL_ERROR
+
+    return 0
+
+
+
+
+    
 
 
 
