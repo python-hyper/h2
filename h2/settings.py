@@ -262,7 +262,6 @@ class Settings(collections.MutableMapping):
     def __ne__(self, other):
         return not self == other
                 
-
 def _validate_setting(setting, value):
     """
     Confirms that a specific setting has a well-formed value. If the setting is
@@ -282,10 +281,3 @@ def _validate_setting(setting, value):
             return ErrorCodes.PROTOCOL_ERROR
 
     return 0
-
-
-
-
-
-
-    

@@ -467,3 +467,23 @@ class EqualityTestsMixin(object):
         a = self.anInstance()
         b = Delegate()
         assert (a != b) == [b]
+
+    def equal_objects_are_equal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings==s2._settings
+   
+    def notequal_objects_are_notequal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings!=s2._settings
+
+    def equal_objects_are_equal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings==s2._settings
+   
+    def notequal_objects_are_notequal(s1,s2):
+        s1.acknowledge()
+        s2.acknowledge()
+        assert s1._settings != s2._settings

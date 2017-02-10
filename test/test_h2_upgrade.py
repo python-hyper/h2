@@ -299,4 +299,11 @@ class TestServerUpgrade(object):
         # dictionaries should be identical.
         assert (
             client.local_settings._settings == server.remote_settings._settings
+<<<<<<< HEAD
         )
+||||||| merged common ancestors
+        )
+        
+=======
+        ) 
+>>>>>>> dbed3a594469ce54b90a6722d5e8bf91d75796eb
