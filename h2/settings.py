@@ -258,10 +258,11 @@ class Settings(collections.MutableMapping):
             return self._settings == other._settings
         else:
             return NotImplemented
-            
+
     def __ne__(self, other):
         return not self == other
-                
+
+
 def _validate_setting(setting, value):
     """
     Confirms that a specific setting has a well-formed value. If the setting is
