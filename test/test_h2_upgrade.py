@@ -16,6 +16,7 @@ import h2.errors
 import h2.events
 import h2.exceptions
 
+
 class TestClientUpgrade(object):
     """
     Tests of the client-side of the HTTP/2 upgrade dance.
