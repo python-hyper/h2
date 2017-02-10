@@ -301,4 +301,4 @@ class TestServerUpgrade(object):
         # dictionaries should be identical.
         assert (
             client.local_settings._settings == server.remote_settings._settings
-        ) 
+        )
