@@ -255,7 +255,7 @@ class Settings(collections.MutableMapping):
 
     def __eq__(self, other):
         if isinstance(other, Settings):
-            return self == other
+            return self._settings == other._settings
         else:
             return False
             
