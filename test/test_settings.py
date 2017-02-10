@@ -351,12 +351,12 @@ class TestSettings(object):
             with pytest.raises(KeyError):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]
 
-class EqualityTestsMixin(object):
+class test_settings_equality(object):
     """
-    A mixin defining tests for the standard implementation of C{==} and C{!=}.
+    A class defining tests for the standard implementation of == and != .
     """
 
-    def anInstance(self):
+    def an_instance(self):
         """
         Return an instance of the class under test.  Each call to this method
         must return a different object.  All objects returned must be equal to
@@ -365,105 +365,105 @@ class EqualityTestsMixin(object):
         return h2.settings.Settings()
         
 
-    def anotherInstance(self):
+    def another_instance(self):
         """
         Return an instance of the class under test.  Each call to this method
         must return a different object.  The objects must not be equal to the
-        objects returned by C{anInstance}.  They may or may not be equal to
+        objects returned by anInstance.  They may or may not be equal to
         each other (they will not be compared against each other).
         """
-        return h2.settings.Settings()
+        return h2.settings.Settings(client=False, initial_values=overrides)
 
-    def test_identicalEq(self):
+    def test_identical_eq(self):
         """
-        An object compares equal to itself using the C{==} operator.
+        An object compares equal to itself using the == operator.
         """
-        o = self.anInstance()
+        o = self.an_instance()
         assert (o == o)
 
-    def test_identicalNe(self):
+    def test_identical_ne(self):
         """
-        An object doesn't compare not equal to itself using the C{!=} operator.
+        An object doesn't compare not equal to itself using the != operator.
         """
-        o = self.anInstance()
+        o = self.an_instance()
         assert not (o != o)
 
-    def test_sameEq(self):
+    def test_same_eq(self):
         """
         Two objects that are equal to each other compare equal to each other
-        using the C{==} operator.
+        using the == operator.
         """
-        a = self.anInstance()
-        b = self.anInstance()
+        a = self.an_instance()
+        b = self.an_instance()
         assert (a == b)
 
-    def test_sameNe(self):
+    def test_same_ne(self):
         """
         Two objects that are equal to each other do not compare not equal to
-        each other using the C{!=} operator.
+        each other using the != operator.
         """
-        a = self.anInstance()
-        b = self.anInstance()
+        a = self.an_instance()
+        b = self.an_instance()
         assert not (a != b)
 
-    def test_differentEq(self):
+    def test_different_eq(self):
         """
         Two objects that are not equal to each other do not compare equal to
-        each other using the C{==} operator.
+        each other using the == operator.
         """
-        a = self.anInstance()
-        b = self.anotherInstance()
+        a = self.an_instance()
+        b = self.another_instance()
         assert not (a == b)
 
-    def test_differentNe(self):
+    def test_different_ne(self):
         """
         Two objects that are not equal to each other compare not equal to each
-        other using the C{!=} operator.
+        other using the != operator.
         """
-        a = self.anInstance()
-        b = self.anotherInstance()
+        a = self.an_instance()
+        b = self.another_instance()
         assert (a != b)
 
-    def test_anotherTypeEq(self):
+    def test_another_type_eq(self):
         """
         The object does not compare equal to an object of an unrelated type
-        (which does not implement the comparison) using the C{==} operator.
+        (which does not implement the comparison) using the == operator.
         """
-        a = self.anInstance()
+        a = self.an_instance()
         b = object()
         assert not (a == b)
 
-    def test_anotherTypeNe(self):
+    def test_another_type_ne(self):
         """
         The object compares not equal to an object of an unrelated type (which
-        does not implement the comparison) using the C{!=} operator.
+        does not implement the comparison) using the != operator.
         """
-        a = self.anInstance()
+        a = self.an_instance()
         b = object()
         assert (a != b)
 
-    def test_delegatedEq(self):
+    def test_delegated_eq(self):
         """
-        The result of comparison using C{==} is delegated to the right-hand
+        The result of comparison using == is delegated to the right-hand
         operand if it is of an unrelated type.
         """
         class Delegate(object):
             def __eq__(self, other):
                 return [self]
 
-        a = self.anInstance()
+        a = self.an_instance()
         b = Delegate()
         assert (a == b) == [b]
 
-    def test_delegateNe(self):
+    def test_delegate_ne(self):
         """
-        The result of comparison using C{!=} is delegated to the right-hand
+        The result of comparison using != is delegated to the right-hand
         operand if it is of an unrelated type.
         """
         class Delegate(object):
             def __ne__(self, other):
                 return [self]
 
-        a = self.anInstance()
+        a = self.an_instance()
         b = Delegate()
         assert (a != b) == [b]
