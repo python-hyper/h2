@@ -351,6 +351,7 @@ class TestSettings(object):
             with pytest.raises(KeyError):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]
 
+
 class test_settings_equality(object):
     """
     A class defining tests for the standard implementation of == and != .
@@ -363,7 +364,6 @@ class test_settings_equality(object):
         each other.
         """
         return h2.settings.Settings()
-        
 
     def another_instance(self):
         """
@@ -372,6 +372,12 @@ class test_settings_equality(object):
         objects returned by anInstance.  They may or may not be equal to
         each other (they will not be compared against each other).
         """
+        overrides = {
+            h2.settings.HEADER_TABLE_SIZE: 8080,
+            h2.settings.MAX_FRAME_SIZE: 16388,
+            h2.settings.MAX_CONCURRENT_STREAMS: 100,
+            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
+        }
         return h2.settings.Settings(client=False, initial_values=overrides)
 
     def test_identical_eq(self):
