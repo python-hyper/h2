@@ -363,7 +363,13 @@ class test_settings_equality(object):
         must return a different object.  All objects returned must be equal to
         each other.
         """
-        return h2.settings.Settings()
+        overrides = {
+            h2.settings.HEADER_TABLE_SIZE: 0,
+            h2.settings.MAX_FRAME_SIZE: 16384,
+            h2.settings.MAX_CONCURRENT_STREAMS: 4,
+            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
+        }
+        return h2.settings.Settings(client=True, initial_values=overrides)
 
     def another_instance(self):
         """
