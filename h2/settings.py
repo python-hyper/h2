@@ -257,7 +257,7 @@ class Settings(collections.MutableMapping):
         if isinstance(other, Settings):
             return self._settings == other._settings
         else:
-            return False
+            return NotImplemented
             
     def __ne__(self, other):
         return not self == other
@@ -279,5 +279,4 @@ def _validate_setting(setting, value):
     elif setting == MAX_HEADER_LIST_SIZE:
         if value < 0:
             return ErrorCodes.PROTOCOL_ERROR
-
     return 0
