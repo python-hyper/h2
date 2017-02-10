@@ -2,6 +2,7 @@
 """
 test_h2_upgrade.py
 ~~~~~~~~~~~~~~~~~~
+
 This module contains tests that exercise the HTTP Upgrade functionality of
 hyper-h2, ensuring that clients and servers can upgrade their plaintext
 HTTP/1.1 connections to HTTP/2.
