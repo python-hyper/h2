@@ -260,8 +260,10 @@ class Settings(collections.MutableMapping):
             return NotImplemented
 
     def __ne__(self, other):
-        return not self == other
-
+        if isinstance(other, Settings):
+            return not self == other
+        else:
+            return NotImplemented 
 
 def _validate_setting(setting, value):
     """
