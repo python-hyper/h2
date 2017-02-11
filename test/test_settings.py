@@ -352,7 +352,7 @@ class TestSettings(object):
                 s[h2.settings.MAX_HEADER_LIST_SIZE]
 
 
-class test_settings_equality(object):
+class TestSettingsEquality(object):
     """
     A class defining tests for the standard implementation of == and != .
     """
