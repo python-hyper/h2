@@ -11,6 +11,7 @@ API Changes (Backward-Compatible)
   events.
 - Rather than reject outbound Connection-specific headers, h2 will now
   normalize the header block by removing them.
+- Implement equality for the ``Settings`` class.
 
 Bugfixes
 ~~~~~~~~
