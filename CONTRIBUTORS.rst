@@ -46,7 +46,7 @@ In chronological order:
 
   - Changed Travis status icon to SVG.
   - Documentation improvements.
-VISHYA
+
 - Felix Yan (@felixonmars)
 
   - Widened allowed version numbers of enum34.
@@ -99,7 +99,7 @@ VISHYA
 
   - Added code to validate that trailers do not contain pseudo-header fields.
 
-Chun-Han, Hsiao (@chhsiao90)
+- Chun-Han, Hsiao (@chhsiao90)
 
   - Fixed a bug with invalid ``HTTP2-Settings`` header output in plaintext
     upgrade.
