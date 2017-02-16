@@ -52,6 +52,23 @@ class TestFlowControl(object):
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
         assert (c.local_flow_control_window(1) == remaining_length)
 
+    @pytest.mark.parametrize("pad_length", [5, 0])
+    def test_flow_control_decreases_with_sent_data_with_padding(self,
+                                                                pad_length):
+        """
+        When padded data is sent on a stream, the flow control window drops
+        by the length of the padding plus 1 for the 1-byte padding length
+        field.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+
+        c.send_data(1, b'some data', pad_length=pad_length)
+        remaining_length = (
+            self.DEFAULT_FLOW_WINDOW - len(b'some data') - pad_length - 1
+        )
+        assert c.local_flow_control_window(1) == remaining_length
+
     def test_flow_control_decreases_with_received_data(self, frame_factory):
         """
         When data is received on a stream, the remote flow control window
@@ -70,7 +87,7 @@ class TestFlowControl(object):
     def test_flow_control_decreases_with_padded_data(self, frame_factory):
         """
         When padded data is received on a stream, the remote flow control
-        window should drop by an amount that includes the padding.
+        window drops by an amount that includes the padding.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
