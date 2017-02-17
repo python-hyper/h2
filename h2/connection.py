@@ -32,10 +32,7 @@ from .exceptions import (
     DenialOfServiceError
 )
 from .frame_buffer import FrameBuffer
-from .settings import (
-    Settings, HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_FRAME_SIZE,
-    MAX_CONCURRENT_STREAMS, MAX_HEADER_LIST_SIZE
-)
+from .settings import Settings, SettingCodes
 from .stream import H2Stream
 from .utilities import guard_increment_window
 from .windows import WindowManager
@@ -350,8 +347,9 @@ class H2Connection(object):
         self.local_settings = Settings(
             client=self.config.client_side,
             initial_values={
-                MAX_CONCURRENT_STREAMS: 100,
-                MAX_HEADER_LIST_SIZE: self.DEFAULT_MAX_HEADER_LIST_SIZE,
+                SettingCodes.MAX_CONCURRENT_STREAMS: 100,
+                SettingCodes.MAX_HEADER_LIST_SIZE:
+                    self.DEFAULT_MAX_HEADER_LIST_SIZE,
             }
         )
         self.remote_settings = Settings(client=not self.config.client_side)
@@ -1376,8 +1374,8 @@ class H2Connection(object):
 
         changes = self.remote_settings.acknowledge()
 
-        if INITIAL_WINDOW_SIZE in changes:
-            setting = changes[INITIAL_WINDOW_SIZE]
+        if SettingCodes.INITIAL_WINDOW_SIZE in changes:
+            setting = changes[SettingCodes.INITIAL_WINDOW_SIZE]
             self._flow_control_change_from_settings(
                 setting.original_value,
                 setting.new_value,
@@ -1385,12 +1383,12 @@ class H2Connection(object):
 
         # HEADER_TABLE_SIZE changes by the remote part affect our encoder: cf.
         # RFC 7540 Section 6.5.2.
-        if HEADER_TABLE_SIZE in changes:
-            setting = changes[HEADER_TABLE_SIZE]
+        if SettingCodes.HEADER_TABLE_SIZE in changes:
+            setting = changes[SettingCodes.HEADER_TABLE_SIZE]
             self.encoder.header_table_size = setting.new_value
 
-        if MAX_FRAME_SIZE in changes:
-            setting = changes[MAX_FRAME_SIZE]
+        if SettingCodes.MAX_FRAME_SIZE in changes:
+            setting = changes[SettingCodes.MAX_FRAME_SIZE]
             self.max_outbound_frame_size = setting.new_value
             for stream in self.streams.values():
                 stream.max_outbound_frame_size = setting.new_value
@@ -1835,19 +1833,19 @@ class H2Connection(object):
         """
         changes = self.local_settings.acknowledge()
 
-        if INITIAL_WINDOW_SIZE in changes:
-            setting = changes[INITIAL_WINDOW_SIZE]
+        if SettingCodes.INITIAL_WINDOW_SIZE in changes:
+            setting = changes[SettingCodes.INITIAL_WINDOW_SIZE]
             self._inbound_flow_control_change_from_settings(
                 setting.original_value,
                 setting.new_value,
             )
 
-        if MAX_HEADER_LIST_SIZE in changes:
-            setting = changes[MAX_HEADER_LIST_SIZE]
+        if SettingCodes.MAX_HEADER_LIST_SIZE in changes:
+            setting = changes[SettingCodes.MAX_HEADER_LIST_SIZE]
             self.decoder.max_header_list_size = setting.new_value
 
-        if MAX_FRAME_SIZE in changes:
-            setting = changes[MAX_FRAME_SIZE]
+        if SettingCodes.MAX_FRAME_SIZE in changes:
+            setting = changes[SettingCodes.MAX_FRAME_SIZE]
             self.max_inbound_frame_size = setting.new_value
 
         return changes

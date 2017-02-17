@@ -153,6 +153,9 @@ HTTP/2 Error Codes
 Settings
 --------
 
+.. autoclass:: h2.settings.SettingCodes
+   :members:
+
 .. autoclass:: h2.settings.Settings
    :inherited-members:
 
