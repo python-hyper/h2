@@ -202,12 +202,13 @@ class TestEventReprs(object):
         e = h2.events.RemoteSettingsChanged()
         e.changed_settings = {
             h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
-                h2.settings.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15),
         }
 
         assert repr(e) == (
-            "<RemoteSettingsChanged changed_settings:{4: ChangedSetting("
-            "setting=4, original_value=65536, new_value=32768)}>"
+            "<RemoteSettingsChanged changed_settings:{ChangedSetting("
+            "setting=SettingCodes.INITIAL_WINDOW_SIZE, original_value=65536, "
+            "new_value=32768)}>"
         )
 
     def test_pingacknowledged_repr(self):
@@ -267,12 +268,13 @@ class TestEventReprs(object):
         e = h2.events.SettingsAcknowledged()
         e.changed_settings = {
             h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
-                h2.settings.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15),
         }
 
         assert repr(e) == (
-            "<SettingsAcknowledged changed_settings:{4: ChangedSetting("
-            "setting=4, original_value=65536, new_value=32768)}>"
+            "<SettingsAcknowledged changed_settings:{ChangedSetting("
+            "setting=SettingCodes.INITIAL_WINDOW_SIZE, original_value=65536, "
+            "new_value=32768)}>"
         )
 
     def test_priorityupdated_repr(self):

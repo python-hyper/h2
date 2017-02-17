@@ -12,6 +12,16 @@ API Changes (Backward-Compatible)
 - Rather than reject outbound Connection-specific headers, h2 will now
   normalize the header block by removing them.
 - Implement equality for the ``Settings`` class.
+- Added ``h2.settings.SettingCodes``, an enum that is used to store all the
+  HTTP/2 setting codes. This allows us to use a better printed representation of
+  the setting code in most places that it is used.
+- The ``setting`` field in ``ChangedSetting`` for the ``RemoteSettingsChanged``
+  and ``SettingsAcknowledged`` events has been updated to be instances of
+  ``SettingCodes`` whenever they correspond to a known setting code. When they
+  are an unknown setting code, they are instead ``int``. As ``SettingCodes`` is
+  a subclass of ``int``, this is non-breaking.
+- Deprecated the other fields in ``h2.settings``. These will be removed in
+  3.0.0.
 
 Bugfixes
 ~~~~~~~~

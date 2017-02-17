@@ -11,7 +11,7 @@ H2 state machine it processes the data and returns a list of Event objects.
 """
 import binascii
 
-from .settings import ChangedSetting
+from .settings import ChangedSetting, _setting_code_from_int
 
 
 class Event(object):
@@ -343,6 +343,7 @@ class RemoteSettingsChanged(Event):
         """
         e = cls()
         for setting, new_value in new_settings.items():
+            setting = _setting_code_from_int(setting)
             original_value = old_settings.get(setting)
             change = ChangedSetting(setting, original_value, new_value)
             e.changed_settings[setting] = change
@@ -350,8 +351,8 @@ class RemoteSettingsChanged(Event):
         return e
 
     def __repr__(self):
-        return "<RemoteSettingsChanged changed_settings:%s>" % (
-            self.changed_settings,
+        return "<RemoteSettingsChanged changed_settings:{%s}>" % (
+            ", ".join(repr(cs) for cs in self.changed_settings.values()),
         )
 
 
@@ -453,8 +454,8 @@ class SettingsAcknowledged(Event):
         self.changed_settings = {}
 
     def __repr__(self):
-        return "<SettingsAcknowledged changed_settings:%s>" % (
-            self.changed_settings,
+        return "<SettingsAcknowledged changed_settings:{%s}>" % (
+            ", ".join(repr(cs) for cs in self.changed_settings.values()),
         )
 
 
