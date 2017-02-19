@@ -64,6 +64,13 @@ class StreamInputs(Enum):
     UPGRADE_SERVER = 18  # Added 2.3.0
 
 
+class StreamClosedBy(Enum):
+    SEND_END_STREAM = 0
+    RECV_END_STREAM = 1
+    SEND_RST_STREAM = 2
+    RECV_RST_STREAM = 3
+
+
 # This array is initialized once, and is indexed by the stream states above.
 # It indicates whether a stream in the given state is open. The reason we do
 # this is that we potentially check whether a stream in a given state is open
@@ -97,6 +104,9 @@ class H2StreamStateMachine(object):
         self.trailers_sent = None
         self.headers_received = None
         self.trailers_received = None
+
+        # Whether the stream is closed by send/recv END_STREAM/RST_STREAM
+        self.stream_closed_by = None
 
     def process_input(self, input_):
         """
@@ -202,10 +212,20 @@ class H2StreamStateMachine(object):
         event.stream_id = self.stream_id
         return [event]
 
+    def stream_half_closed(self, previous_state):
+        """
+        Fires when a END_STREAM flag is received in IDLE state,
+        and the stream state will turn into HALF_CLOSED state
+        """
+        event = StreamEnded()
+        event.stream_id = self.stream_id
+        return [event]
+
     def stream_ended(self, previous_state):
         """
         Fires when a stream is cleanly ended.
         """
+        self.stream_closed_by = StreamClosedBy.RECV_END_STREAM
         event = StreamEnded()
         event.stream_id = self.stream_id
         return [event]
@@ -214,6 +234,7 @@ class H2StreamStateMachine(object):
         """
         Fired when a stream is forcefully reset.
         """
+        self.stream_closed_by = StreamClosedBy.RECV_RST_STREAM
         event = StreamReset()
         event.stream_id = self.stream_id
         return [event]
@@ -269,7 +290,21 @@ class H2StreamStateMachine(object):
         event.parent_stream_id = self.stream_id
         return [event]
 
-    def send_reset(self, previous_state):
+    def send_end_stream(self, previous_state):
+        """
+        Called when an attempt is made to send END_STREAM at HALF_CLOSED_REMOTE
+        state.
+        """
+        self.stream_closed_by = StreamClosedBy.SEND_END_STREAM
+
+    def send_reset_stream(self, previous_state):
+        """
+        Called when an attempt is made to send RST_STREAM at non-closed stream
+        state.
+        """
+        self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
+
+    def reset_stream_on_error(self, previous_state):
         """
         Called when we need to forcefully emit another RST_STREAM frame on
         behalf of the state machine.
@@ -279,18 +314,25 @@ class H2StreamStateMachine(object):
         it's the first time we've done this if the stream is currently in a
         state other than CLOSED.
         """
-        events = []
-
-        if previous_state != StreamState.CLOSED:
-            event = StreamReset()
-            event.stream_id = self.stream_id
-            event.error_code = ErrorCodes.STREAM_CLOSED
-            event.remote_reset = False
-            events.append(event)
+        self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
 
         error = StreamClosedError(self.stream_id)
-        error._events = events
+
+        event = StreamReset()
+        event.stream_id = self.stream_id
+        event.error_code = ErrorCodes.STREAM_CLOSED
+        event.remote_reset = False
+        error._events = [event]
         raise error
+
+    def recv_on_closed_stream(self, previous_state):
+        """
+        Called when an unexpected frame is received on an already-closed
+        stream.
+        An endpoint receives an unexepcted frame should treat it as
+        a stream error or connection error with type STREAM_CLOSED
+        """
+        raise StreamClosedError(self.stream_id)
 
     def send_on_closed_stream(self, previous_state):
         """
@@ -302,10 +344,27 @@ class H2StreamStateMachine(object):
         matches the standard API of the state machine, but provides more detail
         to the user.
         """
-        assert previous_state == StreamState.CLOSED
         raise StreamClosedError(self.stream_id)
 
-    def push_on_closed_stream(self, previous_state):
+    def recv_push_on_closed_stream(self, previous_state):
+        """
+        Called when a PUSH_PROMISE frame received on an already-closed stream
+
+        If the stream is closed by us with sending RST_STREAM, then we presume
+        that the PUSH_PROMISE was in flight when we reset the parent stream.
+        Rathen than accept the new stream, just reset it.
+        Otherwise, we should call this a PROTOCOL_ERROR: pushing a stream on a
+        naturally closed stream is a real problem because it creates a brand
+        new stream that the remote peer now believes exists
+        """
+        assert self.stream_closed_by is not None
+
+        if self.stream_closed_by == StreamClosedBy.SEND_RST_STREAM:
+            raise StreamClosedError(self.stream_id)
+        else:
+            raise ProtocolError("Attempted to push on closed stream.")
+
+    def send_push_on_closed_stream(self, previous_state):
         """
         Called when an attempt is made to push on an already-closed stream.
 
@@ -315,8 +374,33 @@ class H2StreamStateMachine(object):
         allowed to be there. The only recourse is to tear the whole connection
         down.
         """
-        assert previous_state == StreamState.CLOSED
         raise ProtocolError("Attempted to push on closed stream.")
+
+    def window_on_closed_stream(self, previous_state):
+        """
+        Called when a WINDOW_UPDATE frame received on an already-closed stream
+
+        If a END_STREAM had just sent for a short period, then just ignore the
+        frame. Otherwise, follow same rule of recv_on_closed_stream.
+        """
+        assert self.stream_closed_by is not None
+
+        if self.stream_closed_by == StreamClosedBy.SEND_END_STREAM:
+            return []
+        return self.recv_on_closed_stream(previous_state)
+
+    def reset_on_closed_stream(self, previous_state):
+        """
+        Called when a RST_STREAM frame received on an already-closed stream
+
+        If a END_STREAM had just sent for a short period, then just ignore the
+        frame. Otherwise, follow same rule of recv_on_closed_stream.
+        """
+        assert self.stream_closed_by is not None
+
+        if self.stream_closed_by is StreamClosedBy.SEND_END_STREAM:
+            return []
+        return self.recv_on_closed_stream(previous_state)
 
     def send_informational_response(self, previous_state):
         """
@@ -480,7 +564,7 @@ _transitions = {
     (StreamState.IDLE, StreamInputs.RECV_HEADERS):
         (H2StreamStateMachine.request_received, StreamState.OPEN),
     (StreamState.IDLE, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.IDLE, StreamInputs.SEND_PUSH_PROMISE):
         (H2StreamStateMachine.send_new_pushed_stream,
             StreamState.RESERVED_LOCAL),
@@ -499,13 +583,13 @@ _transitions = {
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.RESERVED_LOCAL),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.RESERVED_LOCAL),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_RST_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset_stream, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.RESERVED_LOCAL, StreamInputs.SEND_ALTERNATIVE_SERVICE):
@@ -518,13 +602,13 @@ _transitions = {
         (H2StreamStateMachine.response_received,
             StreamState.HALF_CLOSED_LOCAL),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.RESERVED_REMOTE),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.RESERVED_REMOTE),
     (StreamState.RESERVED_REMOTE, StreamInputs.SEND_RST_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset_stream, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.RESERVED_REMOTE, StreamInputs.RECV_ALTERNATIVE_SERVICE):
@@ -542,13 +626,14 @@ _transitions = {
     (StreamState.OPEN, StreamInputs.SEND_END_STREAM):
         (None, StreamState.HALF_CLOSED_LOCAL),
     (StreamState.OPEN, StreamInputs.RECV_END_STREAM):
-        (H2StreamStateMachine.stream_ended, StreamState.HALF_CLOSED_REMOTE),
+        (H2StreamStateMachine.stream_half_closed,
+         StreamState.HALF_CLOSED_REMOTE),
     (StreamState.OPEN, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.OPEN),
     (StreamState.OPEN, StreamInputs.SEND_RST_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset_stream, StreamState.CLOSED),
     (StreamState.OPEN, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.OPEN, StreamInputs.SEND_PUSH_PROMISE):
@@ -568,28 +653,28 @@ _transitions = {
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.response_sent, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_HEADERS):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_DATA):
         (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_END_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_end_stream, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_WINDOW_UPDATE):
         (None, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_RST_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset_stream, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_PUSH_PROMISE):
         (H2StreamStateMachine.send_push_promise,
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PUSH_PROMISE):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.send_informational_response,
             StreamState.HALF_CLOSED_REMOTE),
@@ -611,7 +696,7 @@ _transitions = {
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_updated, StreamState.HALF_CLOSED_LOCAL),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.SEND_RST_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.send_reset_stream, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.stream_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_LOCAL, StreamInputs.RECV_PUSH_PROMISE):
@@ -626,32 +711,44 @@ _transitions = {
         (H2StreamStateMachine.recv_alt_svc, StreamState.HALF_CLOSED_LOCAL),
 
     # State: closed
-    (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
-        (H2StreamStateMachine.window_updated, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
-        (None, StreamState.CLOSED),  # Swallow further RST_STREAMs
+    (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
+        (None, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (None, StreamState.CLOSED),
 
-    # While closed, all other received frames should cause RST_STREAM
-    # frames to be emitted. END_STREAM is always carried *by* a frame,
-    # so it should do nothing.
+    # RFC 7540 Section 5.1 defines how the end point should react when receive
+    # frame as following statement.
+    # An endpoint that receives any frame other than PRIORITY after receiving
+    # a RST_STREAM MUST treat that as a stream error of type STREAM_CLOSED.
+    # An endpoint that receives any frames after receiving a frame with the
+    # END_STREAM flag set MUST treat that as a connection error of type
+    # STREAM_CLOSED.
     (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
-        (H2StreamStateMachine.push_on_closed_stream, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
-        (None, StreamState.CLOSED),
+        (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
+        (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
+
+    # WINDOW_UPDATE or RST_STREAM frames can be received in this state
+    # for a short period after a DATA or HEADERS frame containing a
+    # END_STREAM flag is sent.
+    (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
+        (H2StreamStateMachine.window_on_closed_stream, StreamState.CLOSED),
+    (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
+        (H2StreamStateMachine.reset_on_closed_stream, StreamState.CLOSED),
+
+    # A receiver MUST treat the receipt of a PUSH_PROMISE on a stream that is
+    # neither "open" nor "half-closed (local)" as a connection error of type
+    # PROTOCOL_ERROR.
+    (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
+        (H2StreamStateMachine.recv_push_on_closed_stream, StreamState.CLOSED),
 
     # Also, users should be forbidden from sending on closed streams.
     (StreamState.CLOSED, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_PUSH_PROMISE):
-        (H2StreamStateMachine.push_on_closed_stream, StreamState.CLOSED),
+        (H2StreamStateMachine.send_push_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_RST_STREAM):
         (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.SEND_DATA):
@@ -730,6 +827,13 @@ class H2Stream(object):
         Whether the stream is closed.
         """
         return self.state_machine.state == StreamState.CLOSED
+
+    @property
+    def closed_by(self):
+        """
+        Returns how the stream is closed by of ``StreamClosedBy``
+        """
+        return self.state_machine.stream_closed_by
 
     def upgrade(self, client_side):
         """
@@ -989,11 +1093,13 @@ class H2Stream(object):
         events = self.state_machine.process_input(
             StreamInputs.RECV_WINDOW_UPDATE
         )
-        events[0].delta = increment
-        self.outbound_flow_control_window = guard_increment_window(
-            self.outbound_flow_control_window,
-            increment
-        )
+
+        if events:
+            events[0].delta = increment
+            self.outbound_flow_control_window = guard_increment_window(
+                self.outbound_flow_control_window,
+                increment
+            )
 
         return [], events
 

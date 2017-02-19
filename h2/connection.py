@@ -33,7 +33,7 @@ from .exceptions import (
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings, SettingCodes
-from .stream import H2Stream
+from .stream import H2Stream, StreamClosedBy
 from .utilities import guard_increment_window
 from .windows import WindowManager
 
@@ -378,10 +378,12 @@ class H2Connection(object):
         # Data that needs to be sent.
         self._data_to_send = b''
 
-        # Keeps track of streams that have been forcefully reset by this peer.
+        # Keeps track of how streams is closed by.
         # Used to ensure that we don't blow up in the face of frames that were
-        # in flight when a stream was reset.
-        self._reset_streams = set()
+        # in flight when a RST_STREAM was sent.
+        # And used to determine stream error or connection error when more
+        # frames was received at closed state.
+        self._closed_streams = {}
 
         # The flow control window manager for the connection.
         self._inbound_flow_control_window_manager = WindowManager(
@@ -425,7 +427,8 @@ class H2Connection(object):
                 to_delete.append(stream_id)
 
         for stream_id in to_delete:
-            del self.streams[stream_id]
+            stream = self.streams.pop(stream_id)
+            self._closed_streams[stream_id] = stream.closed_by
 
         return count
 
@@ -1015,8 +1018,6 @@ class H2Connection(object):
         stream = self._get_stream_by_id(stream_id)
         frames = stream.reset_stream(error_code)
         self._prepare_for_sending(frames)
-        self._reset_streams.add(stream_id)
-        del self.streams[stream_id]
 
     def close_connection(self, error_code=0, additional_data=None,
                          last_stream_id=None):
@@ -1468,27 +1469,30 @@ class H2Connection(object):
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
         except StreamClosedError as e:
-            # We need to send a RST_STREAM frame on behalf of the stream.
-            # The frame the stream wants to emit is already present in the
-            # exception.
-            # This does not require re-raising: it's an expected behaviour. The
-            # only time we don't do that is if this is a stream the user
-            # manually reset.
-            if frame.stream_id not in self._reset_streams:
+            # If stream is closed by RST_STREAM, just send RST_STREAM to remote
+            # end point. Otherwise, re-raise and closed the connection
+            if self._stream_is_closed_by_reset(e.stream_id):
                 f = RstStreamFrame(e.stream_id)
                 f.error_code = e.error_code
                 self._prepare_for_sending([f])
                 events = e._events
             else:
-                events = []
-        except StreamIDTooLowError as e:
-            # The stream ID seems invalid. This is unlikely, so it's probably
-            # the case that this frame is actually for a stream that we've
-            # already reset and removed the state for. If it is, just swallow
-            # the error. If we didn't do that, re-raise.
-            if frame.stream_id not in self._reset_streams:
                 raise
-            events = []
+        except StreamIDTooLowError as e:
+            # The stream ID seems invalid. This may happen when the closed
+            # stream had bean cleanup, or when there is another stream opened
+            # with higher stream id before this stream open
+            # We will consider how the stream is closed by and treat it as
+            # stream error or connection error depends
+            if self._stream_is_closed_by_reset(e.stream_id):
+                f = RstStreamFrame(e.stream_id)
+                f.error_code = ErrorCodes.STREAM_CLOSED
+                self._prepare_for_sending([f])
+                events = []
+            elif self._stream_is_closed_by_end(e.stream_id):
+                raise StreamClosedError(e.stream_id)
+            else:
+                raise
         except KeyError as e:  # pragma: no cover
             # We don't have a function for handling this frame. Let's call this
             # a PROTOCOL_ERROR and exit.
@@ -1573,7 +1577,8 @@ class H2Connection(object):
             # PROTOCOL_ERROR: pushing a stream on a naturally closed stream is
             # a real problem because it creates a brand new stream that the
             # remote peer now believes exists.
-            if frame.stream_id in self._reset_streams:
+            if (self._stream_closed_by(frame.stream_id) ==
+                    StreamClosedBy.SEND_RST_STREAM):
                 f = RstStreamFrame(frame.promised_stream_id)
                 f.error_code = ErrorCodes.REFUSED_STREAM
                 return [f], events
@@ -1588,11 +1593,19 @@ class H2Connection(object):
         if (frame.stream_id % 2) == 0:
             raise ProtocolError("Cannot recursively push streams.")
 
-        frames, stream_events = stream.receive_push_promise_in_band(
-            frame.promised_stream_id,
-            pushed_headers,
-            self.config.header_encoding,
-        )
+        try:
+            frames, stream_events = stream.receive_push_promise_in_band(
+                frame.promised_stream_id,
+                pushed_headers,
+                self.config.header_encoding,
+            )
+        except StreamClosedError:
+            # The parent stream was reset by us, so we presume that
+            # PUSH_PROMISE was in flight when we reset the parent stream.
+            # So we just reset the new stream
+            f = RstStreamFrame(frame.promised_stream_id)
+            f.error_code = ErrorCodes.REFUSED_STREAM
+            return [f], events
 
         new_stream = self._begin_new_stream(
             frame.promised_stream_id, AllowedStreamIDs.EVEN
@@ -1856,6 +1869,34 @@ class H2Connection(object):
         (one initiated by this peer), returns ``False`` otherwise.
         """
         return (stream_id % 2 == int(self.config.client_side))
+
+    def _stream_closed_by(self, stream_id):
+        """
+        Returns how the stream closed, the value will be
+        ``h2.stream.StreamClosedBy`` or ``None`` if the stream is closed by
+        another opened stream had higher stream id.
+        """
+        if stream_id in self.streams:
+            return self.streams[stream_id].closed_by
+        if stream_id in self._closed_streams:
+            return self._closed_streams[stream_id]
+        return None
+
+    def _stream_is_closed_by_reset(self, stream_id):
+        """
+        Returns ``True`` if the stream is closed by send or receive RST_STREAM
+        frame, returns ``False`` otherwise.
+        """
+        return self._stream_closed_by(stream_id) in (
+            StreamClosedBy.RECV_RST_STREAM, StreamClosedBy.SEND_RST_STREAM)
+
+    def _stream_is_closed_by_end(self, stream_id):
+        """
+        Returns ``True`` if the stream is closed by send or receive END_STREAM
+        flag in HEADER or DATA frame, returns ``False`` otherwise.
+        """
+        return self._stream_closed_by(stream_id) in (
+            StreamClosedBy.RECV_END_STREAM, StreamClosedBy.SEND_END_STREAM)
 
 
 def _add_frame_priority(frame, weight=None, depends_on=None, exclusive=None):
