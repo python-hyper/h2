@@ -36,8 +36,10 @@ class TestH2Config(object):
         The boolean config options raise an error if you try to set a value
         that isn't a boolean.
         """
-        config = h2.config.H2Configuration()
+        with pytest.raises(ValueError):
+            config = h2.config.H2Configuration(**{option_name: value})
 
+        config = h2.config.H2Configuration()
         with pytest.raises(ValueError):
             setattr(config, option_name, value)
 
@@ -52,6 +54,9 @@ class TestH2Config(object):
         setattr(config, option_name, value)
         assert getattr(config, option_name) == value
 
+        config = h2.config.H2Configuration(**{option_name: value})
+        assert getattr(config, option_name) == value
+
     @pytest.mark.parametrize('header_encoding', [True, 1, object()])
     def test_header_encoding_must_be_false_str_none(self, header_encoding):
         """
@@ -63,6 +68,9 @@ class TestH2Config(object):
         with pytest.raises(ValueError):
             config.header_encoding = header_encoding
 
+        with pytest.raises(ValueError):
+            config = h2.config.H2Configuration(header_encoding=header_encoding)
+
     @pytest.mark.parametrize('header_encoding', [False, 'ascii', None])
     def test_header_encoding_is_reflected(self, header_encoding):
         """
@@ -70,4 +78,7 @@ class TestH2Config(object):
         """
         config = h2.config.H2Configuration()
         config.header_encoding = header_encoding
+        assert config.header_encoding == header_encoding
+
+        config = h2.config.H2Configuration(header_encoding=header_encoding)
         assert config.header_encoding == header_encoding
