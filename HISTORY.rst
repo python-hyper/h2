@@ -22,6 +22,9 @@ API Changes (Backward-Compatible)
   a subclass of ``int``, this is non-breaking.
 - Deprecated the other fields in ``h2.settings``. These will be removed in
   3.0.0.
+- Added an optional ``pad_length`` parameter to ``H2Connection.send_data``
+  to allow the user to include padding on a data frame.
+
 
 Bugfixes
 ~~~~~~~~
