@@ -105,7 +105,7 @@ class H2StreamStateMachine(object):
         self.headers_received = None
         self.trailers_received = None
 
-        # Whether the stream is closed by send/recv END_STREAM/RST_STREAM
+        # How the stream was closed. One of StreamClosedBy.
         self.stream_closed_by = None
 
     def process_input(self, input_):
@@ -214,8 +214,8 @@ class H2StreamStateMachine(object):
 
     def stream_half_closed(self, previous_state):
         """
-        Fires when a END_STREAM flag is received in IDLE state,
-        and the stream state will turn into HALF_CLOSED state
+        Fires when an END_STREAM flag is received in the OPEN state,
+        transitioning this stream to a HALF_CLOSED_REMOTE state.
         """
         event = StreamEnded()
         event.stream_id = self.stream_id
@@ -292,15 +292,15 @@ class H2StreamStateMachine(object):
 
     def send_end_stream(self, previous_state):
         """
-        Called when an attempt is made to send END_STREAM at HALF_CLOSED_REMOTE
-        state.
+        Called when an attempt is made to send END_STREAM in the
+        HALF_CLOSED_REMOTE state.
         """
         self.stream_closed_by = StreamClosedBy.SEND_END_STREAM
 
     def send_reset_stream(self, previous_state):
         """
-        Called when an attempt is made to send RST_STREAM at non-closed stream
-        state.
+        Called when an attempt is made to send RST_STREAM in a non-closed
+        stream state.
         """
         self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
 
@@ -329,8 +329,11 @@ class H2StreamStateMachine(object):
         """
         Called when an unexpected frame is received on an already-closed
         stream.
-        An endpoint receives an unexepcted frame should treat it as
-        a stream error or connection error with type STREAM_CLOSED
+
+        An endpoint that receives an unexepcted frame should treat it as
+        a stream error or connection error with type STREAM_CLOSED, depending
+        on the specific frame. The error handling is done at a higher level:
+        this just raises the appropriate error.
         """
         raise StreamClosedError(self.stream_id)
 
@@ -348,14 +351,15 @@ class H2StreamStateMachine(object):
 
     def recv_push_on_closed_stream(self, previous_state):
         """
-        Called when a PUSH_PROMISE frame received on an already-closed stream
+        Called when a PUSH_PROMISE frame is received on an already-closed
+        stream.
 
-        If the stream is closed by us with sending RST_STREAM, then we presume
-        that the PUSH_PROMISE was in flight when we reset the parent stream.
-        Rathen than accept the new stream, just reset it.
+        If the stream was closed by us sending a RST_STREAM frame, then we
+        presume that the PUSH_PROMISE was in flight when we reset the parent
+        stream. Rathen than accept the new stream, we just reset it.
         Otherwise, we should call this a PROTOCOL_ERROR: pushing a stream on a
         naturally closed stream is a real problem because it creates a brand
-        new stream that the remote peer now believes exists
+        new stream that the remote peer now believes exists.
         """
         assert self.stream_closed_by is not None
 
@@ -378,10 +382,15 @@ class H2StreamStateMachine(object):
 
     def window_on_closed_stream(self, previous_state):
         """
-        Called when a WINDOW_UPDATE frame received on an already-closed stream
+        Called when a WINDOW_UPDATE frame is received on an already-closed
+        stream.
 
-        If a END_STREAM had just sent for a short period, then just ignore the
-        frame. Otherwise, follow same rule of recv_on_closed_stream.
+        If we sent an END_STREAM frame, we just ignore the frame, as instructed
+        in RFC 7540 Section 5.1. Technically we should eventually consider
+        WINDOW_UPDATE in this state an error, but we don't have access to a
+        clock so we just always allow it. If we closed the stream for any other
+        reason, we behave as we do for receiving any other frame on a closed
+        stream.
         """
         assert self.stream_closed_by is not None
 
@@ -391,10 +400,14 @@ class H2StreamStateMachine(object):
 
     def reset_on_closed_stream(self, previous_state):
         """
-        Called when a RST_STREAM frame received on an already-closed stream
+        Called when a RST_STREAM frame is received on an already-closed stream.
 
-        If a END_STREAM had just sent for a short period, then just ignore the
-        frame. Otherwise, follow same rule of recv_on_closed_stream.
+        If we sent an END_STREAM frame, we just ignore the frame, as instructed
+        in RFC 7540 Section 5.1. Technically we should eventually consider
+        RST_STREAM in this state an error, but we don't have access to a clock
+        so we just always allow it. If we closed the stream for any other
+        reason, we behave as we do for receiving any other frame on a closed
+        stream.
         """
         assert self.stream_closed_by is not None
 
@@ -716,13 +729,14 @@ _transitions = {
     (StreamState.CLOSED, StreamInputs.RECV_ALTERNATIVE_SERVICE):
         (None, StreamState.CLOSED),
 
-    # RFC 7540 Section 5.1 defines how the end point should react when receive
-    # frame as following statement.
-    # An endpoint that receives any frame other than PRIORITY after receiving
-    # a RST_STREAM MUST treat that as a stream error of type STREAM_CLOSED.
-    # An endpoint that receives any frames after receiving a frame with the
-    # END_STREAM flag set MUST treat that as a connection error of type
-    # STREAM_CLOSED.
+    # RFC 7540 Section 5.1 defines how the end point should react when
+    # receiving a frame on a closed stream with the following statements:
+    #
+    # > An endpoint that receives any frame other than PRIORITY after receiving
+    # > a RST_STREAM MUST treat that as a stream error of type STREAM_CLOSED.
+    # > An endpoint that receives any frames after receiving a frame with the
+    # > END_STREAM flag set MUST treat that as a connection error of type
+    # > STREAM_CLOSED.
     (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
         (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_DATA):
@@ -730,17 +744,17 @@ _transitions = {
     (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
 
-    # WINDOW_UPDATE or RST_STREAM frames can be received in this state
-    # for a short period after a DATA or HEADERS frame containing a
-    # END_STREAM flag is sent.
+    # > WINDOW_UPDATE or RST_STREAM frames can be received in this state
+    # > for a short period after a DATA or HEADERS frame containing a
+    # > END_STREAM flag is sent.
     (StreamState.CLOSED, StreamInputs.RECV_WINDOW_UPDATE):
         (H2StreamStateMachine.window_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_RST_STREAM):
         (H2StreamStateMachine.reset_on_closed_stream, StreamState.CLOSED),
 
-    # A receiver MUST treat the receipt of a PUSH_PROMISE on a stream that is
-    # neither "open" nor "half-closed (local)" as a connection error of type
-    # PROTOCOL_ERROR.
+    # > A receiver MUST treat the receipt of a PUSH_PROMISE on a stream that is
+    # > neither "open" nor "half-closed (local)" as a connection error of type
+    # > PROTOCOL_ERROR.
     (StreamState.CLOSED, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.recv_push_on_closed_stream, StreamState.CLOSED),
 
@@ -831,7 +845,7 @@ class H2Stream(object):
     @property
     def closed_by(self):
         """
-        Returns how the stream is closed by of ``StreamClosedBy``
+        Returns how the stream was closed, as one of StreamClosedBy.
         """
         return self.state_machine.stream_closed_by
 

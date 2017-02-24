@@ -152,8 +152,8 @@ class TestStreamsClosedByEndStream(object):
         )
 
         if clear_streams:
-            # Call open_inbound_streams to force connection clean
-            # closed stream
+            # Call open_inbound_streams to force the connection to clean
+            # closed streams.
             c.open_inbound_streams
 
         c.clear_outbound_data_buffer()
@@ -198,8 +198,8 @@ class TestStreamsClosedByEndStream(object):
         c.receive_data(f.serialize())
 
         if clear_streams:
-            # Call open_outbound_streams to force connection clean
-            # closed stream
+            # Call open_outbound_streams to force the connection to clean
+            # closed streams.
             c.open_outbound_streams
 
         c.clear_outbound_data_buffer()

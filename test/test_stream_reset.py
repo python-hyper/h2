@@ -118,8 +118,8 @@ class TestStreamReset(object):
         c.clear_outbound_data_buffer()
 
         if clear_streams:
-            # Call open_outbound_streams to force connection clean
-            # closed stream
+            # Call open_outbound_streams to force the connection to clean
+            # closed streams.
             c.open_outbound_streams
 
         f = frame_factory.build_push_promise_frame(
