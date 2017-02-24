@@ -837,7 +837,7 @@ class H2Connection(object):
 
         self._prepare_for_sending(frames)
 
-    def send_data(self, stream_id, data, end_stream=False):
+    def send_data(self, stream_id, data, end_stream=False, pad_length=None):
         """
         Send data on a given stream.
 
@@ -861,24 +861,44 @@ class H2Connection(object):
         :param end_stream: (optional) Whether this is the last data to be sent
             on the stream. Defaults to ``False``.
         :type end_stream: ``bool``
+        :param pad_length: (optional) Length of the padding to apply to the
+            data frame. Defaults to ``None`` for no use of padding. Note that
+            a value of ``0`` results in padding of length ``0``
+            (with the "padding" flag set on the frame).
+
+            .. versionadded:: 2.6.0
+
+        :type pad_length: ``int``
         :returns: Nothing
         """
-        if len(data) > self.local_flow_control_window(stream_id):
+        frame_size = len(data)
+        if pad_length is not None:
+            if not isinstance(pad_length, int):
+                raise TypeError("pad_length must be an int")
+            if pad_length < 0 or pad_length > 255:
+                raise ValueError("pad_length must be within range: [0, 255]")
+            # Account for padding bytes plus the 1-byte padding length field.
+            frame_size += pad_length + 1
+
+        if frame_size > self.local_flow_control_window(stream_id):
             raise FlowControlError(
                 "Cannot send %d bytes, flow control window is %d." %
-                (len(data), self.local_flow_control_window(stream_id))
+                (frame_size, self.local_flow_control_window(stream_id))
             )
-        elif len(data) > self.max_outbound_frame_size:
+        elif frame_size > self.max_outbound_frame_size:
             raise FrameTooLargeError(
                 "Cannot send frame size %d, max frame size is %d" %
-                (len(data), self.max_outbound_frame_size)
+                (frame_size, self.max_outbound_frame_size)
             )
 
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames = self.streams[stream_id].send_data(data, end_stream)
+        frames = self.streams[stream_id].send_data(
+            data, end_stream, pad_length=pad_length
+        )
+
         self._prepare_for_sending(frames)
 
-        self.outbound_flow_control_window -= len(data)
+        self.outbound_flow_control_window -= frame_size
         assert self.outbound_flow_control_window >= 0
 
     def end_stream(self, stream_id):

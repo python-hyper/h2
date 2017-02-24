@@ -959,7 +959,7 @@ class H2Stream(object):
         assert not events
         return []
 
-    def send_data(self, data, end_stream=False):
+    def send_data(self, data, end_stream=False, pad_length=None):
         """
         Prepare some data frames. Optionally end the stream.
 
@@ -972,8 +972,12 @@ class H2Stream(object):
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             df.flags.add('END_STREAM')
+        if pad_length is not None:
+            df.flags.add('PADDED')
+            df.pad_length = pad_length
 
-        self.outbound_flow_control_window -= len(data)
+        # Subtract flow_controlled_length to account for possible padding
+        self.outbound_flow_control_window -= df.flow_controlled_length
         assert self.outbound_flow_control_window >= 0
 
         return [df]

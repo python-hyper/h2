@@ -109,9 +109,116 @@ class TestBasicClient(object):
         c.clear_outbound_data_buffer()
         events = c.send_data(1, b'some data')
         assert not events
+        data_to_send = c.data_to_send()
         assert (
-            c.data_to_send() == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
+            data_to_send == b'\x00\x00\t\x00\x00\x00\x00\x00\x01some data'
         )
+
+        buffer = h2.frame_buffer.FrameBuffer(server=False)
+        buffer.max_frame_size = 65535
+        buffer.add_data(data_to_send)
+        data_frame = list(buffer)[0]
+        sanity_check_data_frame(
+            data_frame=data_frame,
+            expected_flow_controlled_length=len(b'some data'),
+            expect_padded_flag=False,
+            expected_data_frame_pad_length=0
+        )
+
+    def test_sending_data_with_padding(self):
+        """
+        Single data frames with padding are encoded correctly.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+
+        # Clear the data, then send some data.
+        c.clear_outbound_data_buffer()
+        events = c.send_data(1, b'some data', pad_length=5)
+        assert not events
+        data_to_send = c.data_to_send()
+        assert data_to_send == (
+            b'\x00\x00\x0f\x00\x08\x00\x00\x00\x01'
+            b'\x05some data\x00\x00\x00\x00\x00'
+        )
+
+        buffer = h2.frame_buffer.FrameBuffer(server=False)
+        buffer.max_frame_size = 65535
+        buffer.add_data(data_to_send)
+        data_frame = list(buffer)[0]
+        sanity_check_data_frame(
+            data_frame=data_frame,
+            expected_flow_controlled_length=len(b'some data') + 1 + 5,
+            expect_padded_flag=True,
+            expected_data_frame_pad_length=5
+        )
+
+    def test_sending_data_with_zero_length_padding(self):
+        """
+        Single data frames with zero-length padding are encoded
+        correctly.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+
+        # Clear the data, then send some data.
+        c.clear_outbound_data_buffer()
+        events = c.send_data(1, b'some data', pad_length=0)
+        assert not events
+        data_to_send = c.data_to_send()
+        assert data_to_send == (
+            b'\x00\x00\x0a\x00\x08\x00\x00\x00\x01'
+            b'\x00some data'
+        )
+
+        buffer = h2.frame_buffer.FrameBuffer(server=False)
+        buffer.max_frame_size = 65535
+        buffer.add_data(data_to_send)
+        data_frame = list(buffer)[0]
+        sanity_check_data_frame(
+            data_frame=data_frame,
+            expected_flow_controlled_length=len(b'some data') + 1,
+            expect_padded_flag=True,
+            expected_data_frame_pad_length=0
+        )
+
+    @pytest.mark.parametrize("expected_error,pad_length", [
+        (None,  0),
+        (None, 255),
+        (None, None),
+        (ValueError, -1),
+        (ValueError, 256),
+        (TypeError, 'invalid'),
+        (TypeError, ''),
+        (TypeError, '10'),
+        (TypeError, {}),
+        (TypeError, ['1', '2', '3']),
+        (TypeError, []),
+        (TypeError, 1.5),
+        (TypeError, 1.0),
+        (TypeError, -1.0),
+    ])
+    def test_sending_data_with_invalid_padding_length(self,
+                                                      expected_error,
+                                                      pad_length):
+        """
+        ``send_data`` with a ``pad_length`` parameter that is an integer
+        outside the range of [0, 255] throws a ``ValueError``, and a
+        ``pad_length`` parameter which is not an ``integer`` type
+        throws a ``TypeError``.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+
+        c.clear_outbound_data_buffer()
+        if expected_error is not None:
+            with pytest.raises(expected_error):
+                c.send_data(1, b'some data', pad_length=pad_length)
+        else:
+            c.send_data(1, b'some data', pad_length=pad_length)
 
     def test_closing_stream_sending_data(self, frame_factory):
         """
@@ -1576,3 +1683,27 @@ class TestBasicServer(object):
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
 
         assert not c.data_to_send()
+
+
+def sanity_check_data_frame(data_frame,
+                            expected_flow_controlled_length,
+                            expect_padded_flag,
+                            expected_data_frame_pad_length):
+        """
+        ``data_frame`` is a frame of type ``hyperframe.frame.DataFrame``,
+        and the ``flags`` and ``flow_controlled_length`` of ``data_frame``
+        match expectations.
+        """
+
+        assert isinstance(data_frame, hyperframe.frame.DataFrame)
+
+        assert(
+            (data_frame.flow_controlled_length ==
+             expected_flow_controlled_length)
+        )
+        if expect_padded_flag:
+            assert 'PADDED' in data_frame.flags
+        else:
+            assert 'PADDED' not in data_frame.flags
+
+        assert data_frame.pad_length == expected_data_frame_pad_length
