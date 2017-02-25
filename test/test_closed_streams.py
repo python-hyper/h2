@@ -134,8 +134,8 @@ class TestStreamsClosedByEndStream(object):
                                               frame,
                                               clear_streams):
         """
-        A stream that is closed by receive END_STREAM will raise
-        ProtocolError when received unexpected frame.
+        A stream that is closed by receiving END_STREAM raises
+        ProtocolError when it receives an unexpected frame.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
@@ -184,8 +184,8 @@ class TestStreamsClosedByEndStream(object):
                                               frame,
                                               clear_streams):
         """
-        A stream that is closed by sending END_STREAM will raise
-        ProtocolError when received unexpected frame.
+        A stream that is closed by sending END_STREAM raises
+        ProtocolError when it receives an unexpected frame.
         """
         c = h2.connection.H2Connection(client_side=True)
         c.initiate_connection()

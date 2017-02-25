@@ -330,7 +330,7 @@ class H2StreamStateMachine(object):
         Called when an unexpected frame is received on an already-closed
         stream.
 
-        An endpoint that receives an unexepcted frame should treat it as
+        An endpoint that receives an unexpected frame should treat it as
         a stream error or connection error with type STREAM_CLOSED, depending
         on the specific frame. The error handling is done at a higher level:
         this just raises the appropriate error.
@@ -351,7 +351,7 @@ class H2StreamStateMachine(object):
 
     def recv_push_on_closed_stream(self, previous_state):
         """
-        Called when a PUSH_PROMISE frame is received on an already-closed
+        Called when a PUSH_PROMISE frame is received on a full stop
         stream.
 
         If the stream was closed by us sending a RST_STREAM frame, then we
