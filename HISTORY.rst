@@ -42,6 +42,10 @@ Bugfixes
 - Resolved issue where the ``HTTP2-Settings`` header value sent by a client for
   plaintext upgrade would be ignored by ``initiate_upgrade_connection``, rather
   than have those settings applied appropriately.
+- Resolved an issue whereby certain frames received from a peer in the CLOSED
+  state would trigger connection errors when RFC 7540 says they should have
+  triggered stream errors instead. Added more detailed stream closure tracking
+  to ensure we don't throw away connections unnecessarily.
 
 
 2.5.2 (2017-01-27)
