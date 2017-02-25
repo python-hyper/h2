@@ -25,6 +25,24 @@ class _BooleanConfigOption(object):
         setattr(instance, self.attr_name, value)
 
 
+class DummyLogger(object):
+    """
+    An Logger object that does not actual logging, hence a DummyLogger.
+
+    For the class the log operation is merely a no-op.  The intent is to avoid
+    conditionals being sprinkled throughout the hyper-h2 code for calls to
+    logging functions when no logger is passed into the corresponding object.
+    """
+    def __init__(self, *vargs):
+        pass
+
+    def debug(self, *vargs, **kwargs):
+        """
+        No-op logging. Only level needed for now.
+        """
+        pass
+
+
 class H2Configuration(object):
     """
     An object that controls the way a single HTTP/2 connection behaves.
@@ -70,6 +88,14 @@ class H2Configuration(object):
         be skipped, and allow the object to receive headers that may be illegal
         according to RFC 7540. Defaults to ``True``.
     :type validate_inbound_headers: ``bool``
+
+    :param logger: A logger that conforms to the requirements for this module,
+        those being no I/O and no context switches, which is needed in order
+        to run in asynchronous operation.
+
+        .. versionadded:: 2.6.0
+
+    :type logger: ``logging.Logger``
     """
     client_side = _BooleanConfigOption('client_side')
     validate_outbound_headers = _BooleanConfigOption(
@@ -87,12 +113,14 @@ class H2Configuration(object):
                  header_encoding='utf-8',
                  validate_outbound_headers=True,
                  normalize_outbound_headers=True,
-                 validate_inbound_headers=True):
+                 validate_inbound_headers=True,
+                 logger=None):
         self.client_side = client_side
         self.header_encoding = header_encoding
         self.validate_outbound_headers = validate_outbound_headers
         self.normalize_outbound_headers = normalize_outbound_headers
         self.validate_inbound_headers = validate_inbound_headers
+        self.logger = logger or DummyLogger(__name__)
 
     @property
     def header_encoding(self):
