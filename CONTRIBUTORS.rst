@@ -108,3 +108,7 @@ In chronological order:
 
   - Added support for equality testing to ``h2.settings.Settings`` objects.
 
+- Fred Thomsen (@fredthomsen)
+
+  - Added logging.
+
