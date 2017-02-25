@@ -11,7 +11,7 @@ API Changes (Backward-Compatible)
   events.
 - Rather than reject outbound Connection-specific headers, h2 will now
   normalize the header block by removing them.
-- Implement equality for the ``Settings`` class.
+- Implement equality for the ``h2.settings.Settings`` class.
 - Added ``h2.settings.SettingCodes``, an enum that is used to store all the
   HTTP/2 setting codes. This allows us to use a better printed representation of
   the setting code in most places that it is used.
@@ -24,7 +24,10 @@ API Changes (Backward-Compatible)
   3.0.0.
 - Added an optional ``pad_length`` parameter to ``H2Connection.send_data``
   to allow the user to include padding on a data frame.
-
+- Added a new parameter to the ``h2.config.H2Configuration`` initializer which
+  takes a logger.  This allows us to log by providing a logger that conforms
+  to the requirements of this module so that it can be used in different
+  environments.
 
 Bugfixes
 ~~~~~~~~

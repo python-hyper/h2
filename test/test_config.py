@@ -5,6 +5,7 @@ test_config
 
 Test the configuration object.
 """
+import logging
 import pytest
 
 import h2.config
@@ -21,6 +22,7 @@ class TestH2Config(object):
         config = h2.config.H2Configuration()
         assert config.client_side
         assert config.header_encoding == 'utf-8'
+        assert isinstance(config.logger, h2.config.DummyLogger)
 
     boolean_config_options = [
         'client_side',
@@ -116,3 +118,12 @@ class TestH2Config(object):
         config = h2.config.H2Configuration()
         config.header_encoding = header_encoding
         assert config.header_encoding == header_encoding
+
+    def test_logger_instance_is_reflected(self):
+        """
+        The value of ``logger``, when set, is reflected in the value.
+        """
+        logger = logging.Logger('hyper-h2.test')
+        config = h2.config.H2Configuration()
+        config.logger = logger
+        assert config.logger is logger

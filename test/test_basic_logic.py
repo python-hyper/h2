@@ -18,6 +18,7 @@ import h2.events
 import h2.exceptions
 import h2.frame_buffer
 import h2.settings
+import h2.stream
 
 import helpers
 
@@ -1683,6 +1684,13 @@ class TestBasicServer(object):
         assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
 
         assert not c.data_to_send()
+
+    def test_stream_repr(self):
+        """
+        Ensure stream string representation is appropriate.
+        """
+        s = h2.stream.H2Stream(4, None, 12, 14)
+        assert repr(s) == "<H2Stream id:4 state:<StreamState.IDLE: 0>>"
 
 
 def sanity_check_data_frame(data_frame,

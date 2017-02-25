@@ -812,6 +812,13 @@ class H2Stream(object):
         # The configuration for this stream.
         self.config = config
 
+    def __repr__(self):
+        return "<%s id:%d state:%r>" % (
+            type(self).__name__,
+            self.stream_id,
+            self.state_machine.state
+        )
+
     @property
     def inbound_flow_control_window(self):
         """
@@ -855,6 +862,8 @@ class H2Stream(object):
         request/response of an upgraded connection. Places the stream into an
         appropriate state.
         """
+        self.config.logger.debug("Upgrading %r", self)
+
         assert self.stream_id == 1
         input_ = (
             StreamInputs.UPGRADE_CLIENT if client_side
@@ -870,6 +879,7 @@ class H2Stream(object):
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
         or trailers.
         """
+        self.config.logger.debug("Send headers %s on %r", headers, self)
         # Convert headers to two-tuples.
         # FIXME: The fallback for dictionary headers is to be removed in 3.0.
         try:
@@ -930,6 +940,8 @@ class H2Stream(object):
         stream header. Called on the stream that has the PUSH_PROMISE frame
         sent on it.
         """
+        self.config.logger.debug("Push stream %r", self)
+
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition *first*.
 
@@ -965,6 +977,10 @@ class H2Stream(object):
 
         .. warning:: Does not perform flow control checks.
         """
+        self.config.logger.debug(
+            "Send data on %r with end stream set to %s", self, end_stream
+        )
+
         self.state_machine.process_input(StreamInputs.SEND_DATA)
 
         df = DataFrame(self.stream_id)
@@ -986,6 +1002,8 @@ class H2Stream(object):
         """
         End a stream without sending data.
         """
+        self.config.logger.debug("End stream %r", self)
+
         self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
         df = DataFrame(self.stream_id)
         df.flags.add('END_STREAM')
@@ -996,6 +1014,9 @@ class H2Stream(object):
         Advertise an RFC 7838 alternative service. The semantics of this are
         better documented in the ``H2Connection`` class.
         """
+        self.config.logger.debug(
+            "Advertise alternative service of %r for %r", field_value, self
+        )
         self.state_machine.process_input(StreamInputs.SEND_ALTERNATIVE_SERVICE)
         asf = AltSvcFrame(self.stream_id)
         asf.field = field_value
@@ -1005,6 +1026,10 @@ class H2Stream(object):
         """
         Increase the size of the flow control window for the remote side.
         """
+        self.config.logger.debug(
+            "Increase flow control window for %r by %d",
+            self, increment
+        )
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         self._inbound_window_manager.window_opened(increment)
 
@@ -1021,6 +1046,10 @@ class H2Stream(object):
         stream. This is called on the stream that has the PUSH_PROMISE sent
         on it.
         """
+        self.config.logger.debug(
+            "Receive Push Promise on %r for remote stream %d",
+            self, promised_stream_id
+        )
         events = self.state_machine.process_input(
             StreamInputs.RECV_PUSH_PROMISE
         )
@@ -1041,6 +1070,7 @@ class H2Stream(object):
         called immediately after initialization. Sends no frames, simply
         updates the state machine.
         """
+        self.config.logger.debug("%r pushed by remote peer", self)
         events = self.state_machine.process_input(
             StreamInputs.RECV_PUSH_PROMISE
         )
@@ -1089,6 +1119,10 @@ class H2Stream(object):
         """
         Receive some data.
         """
+        self.config.logger.debug(
+            "Receive data on %r with end stream %s and flow control length "
+            "set to %d", self, end_stream, flow_control_len
+        )
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
         self._inbound_window_manager.window_consumed(flow_control_len)
         self._track_content_length(len(data), end_stream)
@@ -1108,6 +1142,10 @@ class H2Stream(object):
         """
         Handle a WINDOW_UPDATE increment.
         """
+        self.config.logger.debug(
+            "Receive Window Update on %r for increment of %d",
+            self, increment
+        )
         events = self.state_machine.process_input(
             StreamInputs.RECV_WINDOW_UPDATE
         )
@@ -1127,6 +1165,7 @@ class H2Stream(object):
         but the type of error it is depends on the state of the stream and must
         transition the state of the stream, so we need to handle it.
         """
+        self.config.logger.debug("Receive Continuation frame on %r", self)
         self.state_machine.process_input(
             StreamInputs.RECV_CONTINUATION
         )
@@ -1137,6 +1176,10 @@ class H2Stream(object):
         An Alternative Service frame was received on the stream. This frame
         inherits the origin associated with this stream.
         """
+        self.config.logger.debug(
+            "Receive Alternative Service frame on stream %r", self
+        )
+
         # If the origin is present, RFC 7838 says we have to ignore it.
         if frame.origin:
             return [], []
@@ -1159,6 +1202,9 @@ class H2Stream(object):
         """
         Close the stream locally. Reset the stream with an error code.
         """
+        self.config.logger.debug(
+            "Local reset %r with error code: %d", self, error_code
+        )
         self.state_machine.process_input(StreamInputs.SEND_RST_STREAM)
 
         rsf = RstStreamFrame(self.stream_id)
@@ -1169,6 +1215,9 @@ class H2Stream(object):
         """
         Handle a stream being reset remotely.
         """
+        self.config.logger.debug(
+            "Remote reset %r with error code: %d", self, frame.error_code
+        )
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
 
         if events:
@@ -1183,6 +1232,10 @@ class H2Stream(object):
         that was received on this stream. Pass that to the window manager and
         potentially return some WindowUpdate frames.
         """
+        self.config.logger.debug(
+            "Acknowledge received data with size %d on %r",
+            acknowledged_size, self
+        )
         increment = self._inbound_window_manager.process_bytes(
             acknowledged_size
         )

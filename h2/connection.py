@@ -506,6 +506,9 @@ class H2Connection(object):
         :param stream_id: The ID of the stream to open.
         :param allowed_ids: What kind of stream ID is allowed.
         """
+        self.config.logger.debug(
+            "Attempting to initiate stream ID %d", stream_id
+        )
         outbound = self._stream_id_is_outbound(stream_id)
         highest_stream_id = (
             self.highest_outbound_stream_id if outbound else
@@ -526,10 +529,12 @@ class H2Connection(object):
             inbound_window_size=self.local_settings.initial_window_size,
             outbound_window_size=self.remote_settings.initial_window_size
         )
+        self.config.logger.debug("Stream ID %d created", stream_id)
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
 
         self.streams[stream_id] = s
+        self.config.logger.debug("Current streams: %s", self.streams.keys())
 
         if outbound:
             self.highest_outbound_stream_id = stream_id
@@ -543,6 +548,7 @@ class H2Connection(object):
         Provides any data that needs to be sent at the start of the connection.
         Must be called for both clients and servers.
         """
+        self.config.logger.debug("Initializing connection")
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
         if self.config.client_side:
             preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
@@ -552,6 +558,9 @@ class H2Connection(object):
         f = SettingsFrame(0)
         for setting, value in self.local_settings.items():
             f.settings[setting] = value
+        self.config.logger.debug(
+            "Send Settings frame: %s", self.local_settings
+        )
 
         self._data_to_send += preamble + f.serialize()
 
@@ -588,8 +597,11 @@ class H2Connection(object):
             For servers, returns nothing.
         :rtype: ``bytes`` or ``None``
         """
-        frame_data = None
+        self.config.logger.debug(
+            "Upgrade connection. Current settings: %s", self.local_settings
+        )
 
+        frame_data = None
         # Begin by getting the preamble in place.
         self.initiate_connection()
 
@@ -617,6 +629,7 @@ class H2Connection(object):
             ConnectionInputs.SEND_HEADERS if self.config.client_side
             else ConnectionInputs.RECV_HEADERS
         )
+        self.config.logger.debug("Process input %s", connection_input)
         self.state_machine.process_input(connection_input)
 
         # Set up stream 1.
@@ -686,9 +699,12 @@ class H2Connection(object):
         # No streams have been opened yet, so return the lowest allowed stream
         # ID.
         if not self.highest_outbound_stream_id:
-            return 1 if self.config.client_side else 2
-
-        next_stream_id = self.highest_outbound_stream_id + 2
+            next_stream_id = 1 if self.config.client_side else 2
+        else:
+            next_stream_id = self.highest_outbound_stream_id + 2
+        self.config.logger.debug(
+            "Next available stream ID %d", next_stream_id
+        )
         if next_stream_id > self.HIGHEST_ALLOWED_STREAM_ID:
             raise NoAvailableStreamIDError("Exhausted allowed stream IDs")
 
@@ -798,6 +814,10 @@ class H2Connection(object):
 
         :returns: Nothing
         """
+        self.config.logger.debug(
+            "Send headers on stream ID %d", stream_id
+        )
+
         # Check we can open the stream.
         if stream_id not in self.streams:
             max_open_streams = self.remote_settings.max_concurrent_streams
@@ -871,6 +891,9 @@ class H2Connection(object):
         :type pad_length: ``int``
         :returns: Nothing
         """
+        self.config.logger.debug(
+            "Send data on stream ID %d with len %d", stream_id, len(data)
+        )
         frame_size = len(data)
         if pad_length is not None:
             if not isinstance(pad_length, int):
@@ -879,6 +902,9 @@ class H2Connection(object):
                 raise ValueError("pad_length must be within range: [0, 255]")
             # Account for padding bytes plus the 1-byte padding length field.
             frame_size += pad_length + 1
+        self.config.logger.debug(
+            "Frame size on stream ID %d is %d", stream_id, frame_size
+        )
 
         if frame_size > self.local_flow_control_window(stream_id):
             raise FlowControlError(
@@ -899,6 +925,10 @@ class H2Connection(object):
         self._prepare_for_sending(frames)
 
         self.outbound_flow_control_window -= frame_size
+        self.config.logger.debug(
+            "Outbound flow control window size is %d",
+            self.outbound_flow_control_window
+        )
         assert self.outbound_flow_control_window >= 0
 
     def end_stream(self, stream_id):
@@ -912,6 +942,7 @@ class H2Connection(object):
         :type stream_id: ``int``
         :returns: Nothing
         """
+        self.config.logger.debug("End stream ID %d", stream_id)
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
         frames = self.streams[stream_id].end_stream()
         self._prepare_for_sending(frames)
@@ -953,6 +984,10 @@ class H2Connection(object):
             f.window_increment = increment
             frames = [f]
 
+        self.config.logger.debug(
+            "Increase stream ID %d flow control window by %d",
+            stream_id, increment
+        )
         self._prepare_for_sending(frames)
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
@@ -977,6 +1012,10 @@ class H2Connection(object):
             :class:`HeaderTuple <hpack:hpack.HeaderTuple>` objects.
         :returns: Nothing
         """
+        self.config.logger.debug(
+            "Send Push Promise frame on stream ID %d", stream_id
+        )
+
         if not self.remote_settings.enable_push:
             raise ProtocolError("Remote peer has disabled stream push")
 
@@ -1010,6 +1049,8 @@ class H2Connection(object):
                             PING frame.
         :returns: Nothing
         """
+        self.config.logger.debug("Send Ping frame")
+
         if not isinstance(opaque_data, bytes) or len(opaque_data) != 8:
             raise ValueError("Invalid value for ping data: %r" % opaque_data)
 
@@ -1035,6 +1076,7 @@ class H2Connection(object):
         :type error_code: ``int``
         :returns: Nothing
         """
+        self.config.logger.debug("Reset stream ID %d", stream_id)
         self.state_machine.process_input(ConnectionInputs.SEND_RST_STREAM)
         stream = self._get_stream_by_id(stream_id)
         frames = stream.reset_stream(error_code)
@@ -1057,6 +1099,7 @@ class H2Connection(object):
             by the sender. Defaults to ``highest_inbound_stream_id``.
         :returns: Nothing
         """
+        self.config.logger.debug("Close connection")
         self.state_machine.process_input(ConnectionInputs.SEND_GOAWAY)
 
         # Additional_data must be bytes
@@ -1081,6 +1124,9 @@ class H2Connection(object):
 
         :param new_settings: A dictionary of {setting: new value}
         """
+        self.config.logger.debug(
+            "Update connection settings to %s", new_settings
+        )
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
         self.local_settings.update(new_settings)
         s = SettingsFrame(0)
@@ -1314,6 +1360,10 @@ class H2Connection(object):
         :returns: Nothing
         :rtype: ``None``
         """
+        self.config.logger.debug(
+            "Ack received data on stream ID %d with size %d",
+            stream_id, acknowledged_size
+        )
         if stream_id <= 0:
             raise ValueError(
                 "Stream ID %d is not valid for acknowledge_received_data" %
@@ -1459,6 +1509,10 @@ class H2Connection(object):
         :returns: A list of events that the remote peer triggered by sending
             this data.
         """
+        self.config.logger.debug(
+            "Process received data on connection. Received data: %r", data
+        )
+
         events = []
         self.incoming_buffer.add_data(data)
         self.incoming_buffer.max_frame_size = self.max_inbound_frame_size
