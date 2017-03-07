@@ -7,6 +7,11 @@ Release History
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- Added new ``UnknownFrameReceived`` event that fires when unknown extension
+  frames have been received. This only fires when using hyperframe 5.0 or
+  later: earlier versions of hyperframe cause us to silently ignore extension
+  frames.
+
 Bugfixes
 ~~~~~~~~
 
