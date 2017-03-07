@@ -27,7 +27,7 @@ from .events import (
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
     TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
-    NoAvailableStreamIDError, UnsupportedFrameError, RFC1122Error
+    NoAvailableStreamIDError, RFC1122Error
 )
 from .frame_buffer import FrameBuffer
 from .settings import (
@@ -36,6 +36,15 @@ from .settings import (
 )
 from .stream import H2Stream
 from .utilities import validate_headers, guard_increment_window
+
+
+try:
+    from hyperframe.frame import ExtensionFrame
+except ImportError:  # Platform-specific: Hyperframe < 5.0.0
+    # If the frame doesn't exist, that's just fine: we'll define it ourselves
+    # and the method will just never be called.
+    class ExtensionFrame(object):
+        pass
 
 
 class ConnectionState(Enum):
@@ -358,6 +367,7 @@ class H2Connection(object):
             GoAwayFrame: self._receive_goaway_frame,
             ContinuationFrame: self._receive_naked_continuation,
             AltSvcFrame: self._receive_alt_svc_frame,
+            ExtensionFrame: self._receive_unknown_frame
         }
 
     def _prepare_for_sending(self, frames):
@@ -1352,10 +1362,6 @@ class H2Connection(object):
             if frame.stream_id not in self._reset_streams:
                 raise
             events = []
-        except KeyError as e:  # pragma: no cover
-            # We don't have a function for handling this frame. Let's call this
-            # a PROTOCOL_ERROR and exit.
-            raise UnsupportedFrameError("Unexpected frame: %s" % frame)
         else:
             self._prepare_for_sending(frames)
 
@@ -1712,6 +1718,18 @@ class H2Connection(object):
             events.append(event)
 
         return frames, events
+
+    def _receive_unknown_frame(self, frame):
+        """
+        We have received a frame that we do not understand. This is almost
+        certainly an extension frame, though it's impossible to be entirely
+        sure.
+
+        RFC 7540 § 5.5 says that we MUST ignore unknown frame types: so we
+        do.
+        """
+        # We don't do anything here.
+        return [], []
 
     def _local_settings_acked(self):
         """
