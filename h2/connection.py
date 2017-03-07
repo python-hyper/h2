@@ -23,7 +23,7 @@ from .errors import ErrorCodes, _error_code_from_int
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
-    AlternativeServiceAvailable,
+    AlternativeServiceAvailable, UnknownFrameReceived
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
@@ -1934,13 +1934,15 @@ class H2Connection(object):
         sure.
 
         RFC 7540 § 5.5 says that we MUST ignore unknown frame types: so we
-        do.
+        do. We do notify the user that we received one, however.
         """
         # All we do here is log.
         self.config.logger.debug(
             "Received unknown extension frame (ID %d)", frame.stream_id
         )
-        return [], []
+        event = UnknownFrameReceived()
+        event.frame = frame
+        return [], [event]
 
     def _local_settings_acked(self):
         """
