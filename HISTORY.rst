@@ -1,6 +1,14 @@
 Release History
 ===============
 
+2.6.1dev0
+---------
+
+Bugfixes
+~~~~~~~~
+
+- Allowed hyperframe v5 support while continuing to ignore unexpected frames.
+
 2.6.0 (2017-02-28)
 ------------------
 
