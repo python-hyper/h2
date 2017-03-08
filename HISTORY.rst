@@ -4,6 +4,12 @@ Release History
 2.4.4dev0
 ---------
 
+Bugfixes
+~~~~~~~~
+
+- Allowed hyperframe v5 support while continuing to ignore unexpected frames.
+
+
 2.4.3 (2017-01-27)
 ------------------
 
