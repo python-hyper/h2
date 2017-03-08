@@ -323,6 +323,13 @@ class TestEventReprs(object):
             'field_value:h2=":8000"; ma=60>'
         )
 
+    def test_unknownframereceived_repr(self):
+        """
+        UnknownFrameReceived has a useful debug representation.
+        """
+        e = h2.events.UnknownFrameReceived()
+        assert repr(e) == '<UnknownFrameReceived>'
+
 
 def all_events():
     """

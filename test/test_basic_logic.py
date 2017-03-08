@@ -1574,8 +1574,10 @@ class TestBasicServer(object):
         f.type = frame_id
 
         events = c.receive_data(f.serialize())
-        assert not events
         assert not c.data_to_send()
+        assert len(events) == 1
+        assert isinstance(events[0], h2.events.UnknownFrameReceived)
+        assert isinstance(events[0].frame, hyperframe.frame.ExtensionFrame)
 
     def test_can_send_goaway_repeatedly(self, frame_factory):
         """

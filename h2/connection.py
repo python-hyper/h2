@@ -23,13 +23,12 @@ from .errors import ErrorCodes, _error_code_from_int
 from .events import (
     WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
     SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
-    AlternativeServiceAvailable,
+    AlternativeServiceAvailable, UnknownFrameReceived
 )
 from .exceptions import (
     ProtocolError, NoSuchStreamError, FlowControlError, FrameTooLargeError,
     TooManyStreamsError, StreamClosedError, StreamIDTooLowError,
-    NoAvailableStreamIDError, UnsupportedFrameError, RFC1122Error,
-    DenialOfServiceError
+    NoAvailableStreamIDError, RFC1122Error, DenialOfServiceError
 )
 from .frame_buffer import FrameBuffer
 from .settings import Settings, SettingCodes
@@ -43,6 +42,15 @@ except ImportError:  # Platform-specific: HPACK < 2.3.0
     # If the exception doesn't exist, it cannot possibly be thrown. Define a
     # placeholder name, but don't otherwise worry about it.
     class OversizedHeaderListError(Exception):
+        pass
+
+
+try:
+    from hyperframe.frame import ExtensionFrame
+except ImportError:  # Platform-specific: Hyperframe < 5.0.0
+    # If the frame doesn't exist, that's just fine: we'll define it ourselves
+    # and the method will just never be called.
+    class ExtensionFrame(object):
         pass
 
 
@@ -404,6 +412,7 @@ class H2Connection(object):
             GoAwayFrame: self._receive_goaway_frame,
             ContinuationFrame: self._receive_naked_continuation,
             AltSvcFrame: self._receive_alt_svc_frame,
+            ExtensionFrame: self._receive_unknown_frame
         }
 
     def _prepare_for_sending(self, frames):
@@ -1575,10 +1584,6 @@ class H2Connection(object):
                 # Closed implicitly, also a connection error, but of type
                 # PROTOCOL_ERROR.
                 raise
-        except KeyError as e:  # pragma: no cover
-            # We don't have a function for handling this frame. Let's call this
-            # a PROTOCOL_ERROR and exit.
-            raise UnsupportedFrameError("Unexpected frame: %s" % frame)
         else:
             self._prepare_for_sending(frames)
 
@@ -1921,6 +1926,23 @@ class H2Connection(object):
             events.append(event)
 
         return frames, events
+
+    def _receive_unknown_frame(self, frame):
+        """
+        We have received a frame that we do not understand. This is almost
+        certainly an extension frame, though it's impossible to be entirely
+        sure.
+
+        RFC 7540 § 5.5 says that we MUST ignore unknown frame types: so we
+        do. We do notify the user that we received one, however.
+        """
+        # All we do here is log.
+        self.config.logger.debug(
+            "Received unknown extension frame (ID %d)", frame.stream_id
+        )
+        event = UnknownFrameReceived()
+        event.frame = frame
+        return [], [event]
 
     def _local_settings_acked(self):
         """
