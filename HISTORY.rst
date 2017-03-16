@@ -10,6 +10,15 @@ Bugfixes
 - Allowed hyperframe v5 support while continuing to ignore unexpected frames.
 
 
+2.4.4 (2017-03-16)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Allowed hyperframe v5 support while continuing to ignore unexpected frames.
+
+
 2.5.2 (2017-01-27)
 ------------------
 
