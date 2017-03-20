@@ -5,6 +5,7 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
+import math
 import warnings
 
 from enum import Enum, IntEnum
@@ -983,20 +984,26 @@ class H2Stream(object):
 
         self.state_machine.process_input(StreamInputs.SEND_DATA)
 
-        df = DataFrame(self.stream_id)
-        df.data = data
+        dfs = []
+        num_frames = math.ceil(len(data)/self.max_outbound_frame_size)
+        for frame_num in num_frames:
+            df = DataFrame(self.stream_id)
+            df.data = data[frame_num * self.max_outbound_frame_size:frame_num+1 * self.max_outbound_frame_size]
+            if pad_length is not None:
+                df.flags.add('PADDED')
+                df.pad_length = pad_length
+
+            # Subtract flow_controlled_length to account for possible padding
+            self.outbound_flow_control_window -= df.flow_controlled_length
+            assert self.outbound_flow_control_window >= 0
+
+            dfs.append(df)
+
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
-            df.flags.add('END_STREAM')
-        if pad_length is not None:
-            df.flags.add('PADDED')
-            df.pad_length = pad_length
+            dfs[-1].flags.add('END_STREAM')
 
-        # Subtract flow_controlled_length to account for possible padding
-        self.outbound_flow_control_window -= df.flow_controlled_length
-        assert self.outbound_flow_control_window >= 0
-
-        return [df]
+        return dfs
 
     def end_stream(self):
         """

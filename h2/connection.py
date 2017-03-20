@@ -6,6 +6,7 @@ h2/connection
 An implementation of a HTTP/2 connection.
 """
 import base64
+import math
 
 from enum import Enum, IntEnum
 
@@ -877,7 +878,7 @@ class H2Connection(object):
         :param stream_id: The ID of the stream on which to send the data.
         :type stream_id: ``int``
         :param data: The data to send on the stream.
-        :type data: ``bytes``
+        :type data: ``memoryview``
         :param end_stream: (optional) Whether this is the last data to be sent
             on the stream. Defaults to ``False``.
         :type end_stream: ``bool``
@@ -894,27 +895,25 @@ class H2Connection(object):
         self.config.logger.debug(
             "Send data on stream ID %d with len %d", stream_id, len(data)
         )
-        frame_size = len(data)
+        data_size = len(data)
+        padding_per_frame = 0
         if pad_length is not None:
             if not isinstance(pad_length, int):
                 raise TypeError("pad_length must be an int")
             if pad_length < 0 or pad_length > 255:
                 raise ValueError("pad_length must be within range: [0, 255]")
             # Account for padding bytes plus the 1-byte padding length field.
-            frame_size += pad_length + 1
+            padding_per_frame = pad_length + 1
+        num_frames = math.ceil(data_size / float(self.max_outbound_frame_size))
+        data_size += padding_per_frame * num_frames
         self.config.logger.debug(
-            "Frame size on stream ID %d is %d", stream_id, frame_size
+            "Data size on stream ID %d is %d", stream_id, data_size
         )
 
-        if frame_size > self.local_flow_control_window(stream_id):
+        if data_size > self.local_flow_control_window(stream_id):
             raise FlowControlError(
                 "Cannot send %d bytes, flow control window is %d." %
-                (frame_size, self.local_flow_control_window(stream_id))
-            )
-        elif frame_size > self.max_outbound_frame_size:
-            raise FrameTooLargeError(
-                "Cannot send frame size %d, max frame size is %d" %
-                (frame_size, self.max_outbound_frame_size)
+                (data_size, self.local_flow_control_window(stream_id))
             )
 
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
@@ -924,7 +923,7 @@ class H2Connection(object):
 
         self._prepare_for_sending(frames)
 
-        self.outbound_flow_control_window -= frame_size
+        self.outbound_flow_control_window -= data_size
         self.config.logger.debug(
             "Outbound flow control window size is %d",
             self.outbound_flow_control_window
