@@ -1841,21 +1841,19 @@ def sanity_check_data_frame(data_frame,
                             expected_flow_controlled_length,
                             expect_padded_flag,
                             expected_data_frame_pad_length):
-        """
-        ``data_frame`` is a frame of type ``hyperframe.frame.DataFrame``,
-        and the ``flags`` and ``flow_controlled_length`` of ``data_frame``
-        match expectations.
-        """
+    """
+    ``data_frame`` is a frame of type ``hyperframe.frame.DataFrame``,
+    and the ``flags`` and ``flow_controlled_length`` of ``data_frame``
+    match expectations.
+    """
 
-        assert isinstance(data_frame, hyperframe.frame.DataFrame)
+    assert isinstance(data_frame, hyperframe.frame.DataFrame)
 
-        assert(
-            (data_frame.flow_controlled_length ==
-             expected_flow_controlled_length)
-        )
-        if expect_padded_flag:
-            assert 'PADDED' in data_frame.flags
-        else:
-            assert 'PADDED' not in data_frame.flags
+    assert data_frame.flow_controlled_length == expected_flow_controlled_length
 
-        assert data_frame.pad_length == expected_data_frame_pad_length
+    if expect_padded_flag:
+        assert 'PADDED' in data_frame.flags
+    else:
+        assert 'PADDED' not in data_frame.flags
+
+    assert data_frame.pad_length == expected_data_frame_pad_length
