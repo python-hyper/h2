@@ -1707,10 +1707,8 @@ def sanity_check_data_frame(data_frame,
 
     assert isinstance(data_frame, hyperframe.frame.DataFrame)
 
-    assert(
-        (data_frame.flow_controlled_length ==
-            expected_flow_controlled_length)
-    )
+    assert data_frame.flow_controlled_length == expected_flow_controlled_length
+
     if expect_padded_flag:
         assert 'PADDED' in data_frame.flags
     else:
