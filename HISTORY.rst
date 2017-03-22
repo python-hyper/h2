@@ -1,8 +1,17 @@
 Release History
 ===============
 
-2.7.0dev0
+3.0.0dev0
 ---------
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- By default, hyper-h2 now joins together received cookie header fields, per
+  RFC 7540 Section 8.1.2.5.
+- Added a ``normalize_inbound_headers`` flag to the ``H2Configuration`` object
+  that defaults to ``True``. Setting this to ``False`` changes the behaviour
+  from the previous point back to the v2 behaviour.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
