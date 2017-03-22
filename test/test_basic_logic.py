@@ -882,15 +882,11 @@ class TestBasicClient(object):
         assert len(events) == 1
         e = events[0]
 
-        cookie_field_count = sum(1 for n, _ in e.headers if n == 'cookie')
-        assert cookie_field_count == 1
+        cookie_fields = [(n, v) for n, v in e.headers if n == 'cookie']
+        assert len(cookie_fields) == 1
 
-        for n, v in e.headers:
-            if n == 'cookie':
-                assert v == expected
-                break
-        else:
-            pytest.mark.fail("Unable to check cookie header")
+        _, v = cookie_fields[0]
+        assert v == expected
 
     def test_cookies_arent_joined_without_normalization(self, frame_factory):
         """
@@ -923,10 +919,8 @@ class TestBasicClient(object):
         assert len(events) == 1
         e = events[0]
 
-        cookie_field_count = sum(1 for n, _ in e.headers if n == 'cookie')
-        assert cookie_field_count == 3
-
         received_cookies = [(n, v) for n, v in e.headers if n == 'cookie']
+        assert len(received_cookies) == 3
         assert cookie_headers == received_cookies
 
 
@@ -1796,15 +1790,11 @@ class TestBasicServer(object):
         assert len(events) == 1
         e = events[0]
 
-        cookie_field_count = sum(1 for n, _ in e.headers if n == 'cookie')
-        assert cookie_field_count == 1
+        cookie_fields = [(n, v) for n, v in e.headers if n == 'cookie']
+        assert len(cookie_fields) == 1
 
-        for n, v in e.headers:
-            if n == 'cookie':
-                assert v == expected
-                break
-        else:
-            pytest.mark.fail("Unable to check cookie header")
+        _, v = cookie_fields[0]
+        assert v == expected
 
     def test_cookies_arent_joined_without_normalization(self, frame_factory):
         """
@@ -1835,10 +1825,8 @@ class TestBasicServer(object):
         assert len(events) == 1
         e = events[0]
 
-        cookie_field_count = sum(1 for n, _ in e.headers if n == 'cookie')
-        assert cookie_field_count == 3
-
         received_cookies = [(n, v) for n, v in e.headers if n == 'cookie']
+        assert len(received_cookies) == 3
         assert cookie_headers == received_cookies
 
     def test_stream_repr(self):
