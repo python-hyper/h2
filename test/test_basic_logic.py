@@ -1687,6 +1687,46 @@ class TestBasicServer(object):
 
         assert not c.data_to_send()
 
+    def test_cookies_are_joined(self, frame_factory):
+        """
+        RFC 7540 Section 8.1.2.5 requires that we join multiple Cookie headers
+        in a header block together.
+        """
+        # This is a moderately varied set of cookie headers: some combined,
+        # some split.
+        cookie_headers = [
+            ('cookie',
+                'username=John Doe; expires=Thu, 18 Dec 2013 12:00:00 UTC'),
+            ('cookie', 'path=1'),
+            ('cookie', 'test1=val1; test2=val2')
+        ]
+        expected = (
+            'username=John Doe; expires=Thu, 18 Dec 2013 12:00:00 UTC; '
+            'path=1; test1=val1; test2=val2'
+        )
+
+        c = h2.connection.H2Connection(client_side=False)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_headers_frame(
+            self.example_request_headers + cookie_headers
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        e = events[0]
+
+        cookie_field_count = sum(1 for n, _ in e.headers if n == 'cookie')
+        assert cookie_field_count == 1
+
+        for n, v in e.headers:
+            if n == 'cookie':
+                assert v == expected
+                break
+        else:
+            pytest.mark.fail("Unable to check cookie header")
+
     def test_stream_repr(self):
         """
         Ensure stream string representation is appropriate.
