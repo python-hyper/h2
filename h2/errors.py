@@ -71,4 +71,5 @@ def _error_code_from_int(code):
     except ValueError:
         return code
 
+
 __all__ = ['ErrorCodes']

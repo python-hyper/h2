@@ -148,7 +148,9 @@ class TestSettings(object):
 
         changes = s.acknowledge()
         assert len(changes) == 1
-        assert list(changes.keys()) == [h2.settings.SettingCodes.INITIAL_WINDOW_SIZE]
+        assert list(changes.keys()) == [
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE
+        ]
 
     def test_deleting_values_deletes_all_of_them(self):
         """

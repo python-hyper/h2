@@ -5,8 +5,6 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
-import warnings
-
 from enum import Enum, IntEnum
 from hpack import HeaderTuple
 from hyperframe.frame import (
