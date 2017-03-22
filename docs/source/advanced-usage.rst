@@ -207,15 +207,11 @@ field name begins with a ``:`` character. The special header fields defined in
 - ``:authority``
 
 `RFC 7540`_ **mandates** that all of these header fields appear *first* in the
-header block, before the ordinary header fields. This can cause difficulty if
-you call the :meth:`send_headers <h2.connection.H2Connection.send_headers>`
-method with a plain ``dict`` for the ``headers`` argument, because ``dict``
-objects are unordered.
-
-For this reason, passing a ``dict`` to ``send_headers`` is *deprecated* as of
-the 2.1 series of releases. This functionality will be removed entirely in
-version 3.0 of hyper-h2.
-
+header block, before the ordinary header fields. This could cause difficulty if
+the :meth:`send_headers <h2.connection.H2Connection.send_headers>` method
+accepted a plain ``dict`` for the ``headers`` argument, because ``dict``
+objects are unordered. For this reason, we require that you provide a list of
+two-tuples.
 
 .. _RFC 7540: https://tools.ietf.org/html/rfc7540
 .. _an implementation: http://python-hyper.org/projects/priority/en/latest/

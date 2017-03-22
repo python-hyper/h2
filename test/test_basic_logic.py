@@ -546,23 +546,6 @@ class TestBasicClient(object):
         headers = list(buffer)[0]
         assert isinstance(headers, hyperframe.frame.HeadersFrame)
 
-    def test_dict_headers(self):
-        """
-        Sending headers using dict is deprecated but still valid.
-        """
-        # One of the steps in the outbound header validation logic checks
-        # that we don't send a pseudo-header after we've sent a regular
-        # header.  We can't guarantee that if you send headers as a dict,
-        # because dicts are unordered.
-        config = h2.config.H2Configuration(
-            validate_outbound_headers=False
-        )
-
-        test_headers = {':authority': 'example.com', 'key': 'value'}
-        c = h2.connection.H2Connection(config=config)
-
-        pytest.deprecated_call(c.send_headers, 1, test_headers)
-
     def test_handle_stream_reset(self, frame_factory):
         """
         Streams being remotely reset fires a StreamReset event.
