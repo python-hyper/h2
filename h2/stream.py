@@ -1314,7 +1314,7 @@ class H2Stream(object):
                                   header_validation_flags,
                                   header_encoding):
         """
-        When headers have been received from the remote peer, runs a processing
+        When headers have been received from the remote peer, run a processing
         pipeline on them to transform them into the appropriate form for
         attaching to an event.
         """
