@@ -1754,7 +1754,7 @@ class TestBasicServer(object):
             'path=1; test1=val1; test2=val2'
         )
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
