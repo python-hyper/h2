@@ -296,7 +296,7 @@ class TestBasicClient(object):
         assert event.headers == self.bytes_example_response_headers
 
         c.send_headers(3, self.example_request_headers, end_stream=True)
-        c.header_encoding = 'utf-8'
+        c.config.header_encoding = 'utf-8'
         f = frame_factory.build_headers_frame(
             self.example_response_headers,
             stream_id=3,
