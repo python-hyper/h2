@@ -27,7 +27,7 @@ from .exceptions import (
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
     validate_headers, validate_outbound_headers, normalize_outbound_headers,
-    HeaderValidationFlags, extract_method_header
+    HeaderValidationFlags, extract_method_header, normalize_inbound_headers
 )
 from .windows import WindowManager
 
@@ -1055,8 +1055,12 @@ class H2Stream(object):
         )
         events[0].pushed_stream_id = promised_stream_id
 
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+
+        if self.config.normalize_inbound_headers:
+            headers = normalize_inbound_headers(headers, hdr_validation_flags)
+
         if self.config.validate_inbound_headers:
-            hdr_validation_flags = self._build_hdr_validation_flags(events)
             headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
@@ -1105,8 +1109,12 @@ class H2Stream(object):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
 
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+
+        if self.config.normalize_inbound_headers:
+            headers = normalize_inbound_headers(headers, hdr_validation_flags)
+
         if self.config.validate_inbound_headers:
-            hdr_validation_flags = self._build_hdr_validation_flags(events)
             headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
