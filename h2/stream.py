@@ -1064,8 +1064,9 @@ class H2Stream(object):
             headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
-            headers = list(_decode_headers(headers, header_encoding))
-        events[0].headers = headers
+            headers = _decode_headers(headers, header_encoding)
+
+        events[0].headers = list(headers)
         return [], events
 
     def remotely_pushed(self, pushed_headers):
@@ -1118,9 +1119,11 @@ class H2Stream(object):
             headers = validate_headers(headers, hdr_validation_flags)
 
         if header_encoding:
-            headers = list(_decode_headers(headers, header_encoding))
+            headers = _decode_headers(headers, header_encoding)
 
-        events[0].headers = headers
+        # The above steps are all generators, so we need to concretize the
+        # headers now.
+        events[0].headers = list(headers)
         return [], events
 
     def receive_data(self, data, end_stream, flow_control_len):

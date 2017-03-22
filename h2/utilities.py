@@ -210,7 +210,7 @@ def validate_headers(headers, hdr_validation_flags):
         headers, hdr_validation_flags
     )
 
-    return list(headers)
+    return headers
 
 
 def _reject_uppercase_header_fields(headers, hdr_validation_flags):
