@@ -36,7 +36,7 @@ class TestStreamReset(object):
         """
         A stream that has been reset still affects the header decoder.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
         c.reset_stream(stream_id=1)
@@ -73,7 +73,7 @@ class TestStreamReset(object):
         A stream that has been reset still affects the connection flow control
         window.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
         c.send_headers(stream_id=3, headers=self.example_request_headers)
@@ -111,7 +111,7 @@ class TestStreamReset(object):
         Resetting a stream causes RST_STREAM frames to be automatically emitted
         to close any streams pushed after the reset.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
         c.reset_stream(stream_id=1)

@@ -7,6 +7,7 @@ Test the priority logic of Hyper-h2.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -28,12 +29,13 @@ class TestPriority(object):
         (':status', '200'),
         ('server', 'pytest-h2'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_receiving_priority_emits_priority_update(self, frame_factory):
         """
         Receiving a priority frame emits a PriorityUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -59,7 +61,7 @@ class TestPriority(object):
         Receiving a HEADERS frame with priority information on it emits a
         PriorityUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -88,7 +90,7 @@ class TestPriority(object):
         """
         A stream adjusted to depend on itself causes a Protocol Error.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -319,7 +321,7 @@ class TestPriority(object):
         """
         Server stacks are not allowed to call ``prioritize()``.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -337,7 +339,7 @@ class TestPriority(object):
         """
         Server stacks are not allowed to prioritize on headers either.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()

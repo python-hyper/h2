@@ -8,6 +8,7 @@ they fail appropriately.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -29,6 +30,7 @@ class TestInvalidFrameSequences(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_cannot_send_on_closed_stream(self):
         """
@@ -45,7 +47,7 @@ class TestInvalidFrameSequences(object):
         """
         Server side connections require the preamble.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         encoded_headers_frame = (
             b'\x00\x00\r\x01\x04\x00\x00\x00\x01'
             b'A\x88/\x91\xd3]\x05\\\x87\xa7\x84\x87\x82'
@@ -58,7 +60,7 @@ class TestInvalidFrameSequences(object):
         """
         Servers do not allow clients to initiate even-numbered streams.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -90,7 +92,7 @@ class TestInvalidFrameSequences(object):
         """
         Frames with invalid padding cause connection teardown.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -114,7 +116,7 @@ class TestInvalidFrameSequences(object):
         """
         Frames with not enough data cause connection teardown.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -136,7 +138,7 @@ class TestInvalidFrameSequences(object):
         When a stream is not open to the remote peer, we reject receiving data
         frames from them.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -161,7 +163,7 @@ class TestInvalidFrameSequences(object):
         CONTINUATION frames received on closed streams cause stream errors of
         type STREAM_CLOSED.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -188,7 +190,7 @@ class TestInvalidFrameSequences(object):
         Receiving too many CONTINUATION frames in one block causes a protocol
         error.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -234,7 +236,7 @@ class TestInvalidFrameSequences(object):
         When a SETTINGS frame is received with invalid settings values it
         causes connection teardown with the appropriate error code.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -253,7 +255,7 @@ class TestInvalidFrameSequences(object):
         When invalid frame headers are received they cause ProtocolErrors to be
         raised.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -277,7 +279,7 @@ class TestInvalidFrameSequences(object):
         """
         When hyper-h2 resets a stream automatically, a StreamReset event fires.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -311,7 +313,7 @@ class TestInvalidFrameSequences(object):
         When hyper-h2 resets a stream automatically, a StreamReset event fires,
         but only for the first reset: the others are silent.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -346,7 +348,7 @@ class TestInvalidFrameSequences(object):
         """
         When an invalid content-length is received, a ProtocolError is thrown.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -368,7 +370,7 @@ class TestInvalidFrameSequences(object):
         """
         If an invalid header block is received, we raise a ProtocolError.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -393,7 +395,7 @@ class TestInvalidFrameSequences(object):
         If an invalid header block is received on a PUSH_PROMISE, we raise a
         ProtocolError.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
         c.clear_outbound_data_buffer()
@@ -459,7 +461,7 @@ class TestInvalidFrameSequences(object):
         If a user tries to send a PUSH_PROMISE frame with the parent stream ID
         being a pushed stream, this is rejected with a PROTOCOL_ERROR.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(

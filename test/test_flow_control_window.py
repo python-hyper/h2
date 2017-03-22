@@ -10,6 +10,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import integers
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -27,6 +28,7 @@ class TestFlowControl(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     DEFAULT_FLOW_WINDOW = 65535
 
@@ -74,7 +76,7 @@ class TestFlowControl(object):
         When data is received on a stream, the remote flow control window
         should drop.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data')
@@ -89,7 +91,7 @@ class TestFlowControl(object):
         When padded data is received on a stream, the remote flow control
         window drops by an amount that includes the padding.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data', padding_len=10)
@@ -119,7 +121,7 @@ class TestFlowControl(object):
         The remote flow control window is limited by the flow control of the
         connection.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data')
@@ -273,7 +275,7 @@ class TestFlowControl(object):
         WindowUpdate frames received without streams fire an appropriate
         WindowUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_window_update_frame(
@@ -294,7 +296,7 @@ class TestFlowControl(object):
         WindowUpdate frames received with streams fire an appropriate
         WindowUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
@@ -355,7 +357,7 @@ class TestFlowControl(object):
         The user can set a low flow control window, which leads to connection
         teardown if violated.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # Change the flow control window to 80 bytes.
@@ -641,6 +643,7 @@ class TestAutomaticFlowControl(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     DEFAULT_FLOW_WINDOW = 65535
 
@@ -649,7 +652,7 @@ class TestAutomaticFlowControl(object):
         Setup a server-side H2Connection and send a headers frame, and then
         clear the outbound data buffer. Also increase the maximum frame size.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 

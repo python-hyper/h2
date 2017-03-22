@@ -10,6 +10,7 @@ import pytest
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
+import h2.config
 import h2.connection
 
 
@@ -78,6 +79,8 @@ class TestHeaderIndexing(object):
         NeverIndexedHeaderTuple(b'secure', b'you-bet'),
     ]
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     @pytest.mark.parametrize(
         'headers', (
             example_request_headers,
@@ -114,7 +117,7 @@ class TestHeaderIndexing(object):
         Providing HeaderTuple and HeaderTuple subclasses to push promises
         preserves metadata about indexing.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # We can use normal headers for the request.
@@ -156,9 +159,10 @@ class TestHeaderIndexing(object):
         The indexing status of the header is preserved when emitting
         RequestReceived events.
         """
-        c = h2.connection.H2Connection(
+        config = h2.config.H2Configuration(
             client_side=False, header_encoding=encoding
         )
+        c = h2.connection.H2Connection(config=config)
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(headers)
@@ -187,7 +191,10 @@ class TestHeaderIndexing(object):
         The indexing status of the header is preserved when emitting
         ResponseReceived events.
         """
-        c = h2.connection.H2Connection(header_encoding=encoding)
+        config = h2.config.H2Configuration(
+            header_encoding=encoding
+        )
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -225,7 +232,10 @@ class TestHeaderIndexing(object):
         else:
             headers[0] = HeaderTuple(b':status', b'100')
 
-        c = h2.connection.H2Connection(header_encoding=encoding)
+        config = h2.config.H2Configuration(
+            header_encoding=encoding
+        )
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -260,7 +270,10 @@ class TestHeaderIndexing(object):
         # headers.
         headers = headers[1:]
 
-        c = h2.connection.H2Connection(header_encoding=encoding)
+        config = h2.config.H2Configuration(
+            header_encoding=encoding
+        )
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
         f = frame_factory.build_headers_frame(self.example_response_headers)
@@ -293,7 +306,10 @@ class TestHeaderIndexing(object):
         The indexing status of the header is preserved when emitting
         PushedStreamReceived events.
         """
-        c = h2.connection.H2Connection(header_encoding=encoding)
+        config = h2.config.H2Configuration(
+            header_encoding=encoding
+        )
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -404,6 +420,8 @@ class TestSecureHeaders(object):
         HeaderTuple(b'Cookie', b'twenty byte cookie!!'),
     ]
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     @pytest.mark.parametrize(
         'headers', (example_request_headers, bytes_example_request_headers)
     )
@@ -450,7 +468,7 @@ class TestSecureHeaders(object):
             NeverIndexedHeaderTuple(auth_header[0].lower(), auth_header[1])
         ]
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # We can use normal headers for the request.
@@ -522,7 +540,7 @@ class TestSecureHeaders(object):
             NeverIndexedHeaderTuple(cookie_header[0].lower(), cookie_header[1])
         ]
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # We can use normal headers for the request.
@@ -592,7 +610,7 @@ class TestSecureHeaders(object):
             HeaderTuple(cookie_header[0].lower(), cookie_header[1])
         ]
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # We can use normal headers for the request.

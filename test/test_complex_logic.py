@@ -12,6 +12,7 @@ hide it in the other parts of the test suite.
 import pytest
 
 import h2
+import h2.config
 import h2.connection
 
 
@@ -37,7 +38,7 @@ class TestComplexClient(object):
         """
         # This test makes no sense unless you do both inbound and outbound,
         # because it's important to confirm that we count them correctly.
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         expected_inbound_streams = expected_outbound_streams = 0
 
@@ -118,6 +119,7 @@ class TestComplexServer(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_correctly_count_server_streams(self, frame_factory):
         """
@@ -126,7 +128,7 @@ class TestComplexServer(object):
         """
         # This test makes no sense unless you do both inbound and outbound,
         # because it's important to confirm that we count them correctly.
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         expected_inbound_streams = expected_outbound_streams = 0
 
@@ -197,6 +199,7 @@ class TestContinuationFrames(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def _build_continuation_sequence(self, headers, block_size, frame_factory):
         f = frame_factory.build_headers_frame(headers)
@@ -219,7 +222,7 @@ class TestContinuationFrames(object):
         Test that we correctly decode a header block split across continuation
         frames.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -248,7 +251,7 @@ class TestContinuationFrames(object):
         """
         We cannot interleave a new headers block with a CONTINUATION sequence.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -277,7 +280,7 @@ class TestContinuationFrames(object):
         """
         We cannot interleave a data frame with a CONTINUATION sequence.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -305,7 +308,7 @@ class TestContinuationFrames(object):
         """
         We cannot interleave an unknown frame with a CONTINUATION sequence.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -335,7 +338,7 @@ class TestContinuationFrames(object):
         Test that we correctly decode several header blocks split across
         continuation frames.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -401,7 +404,7 @@ class TestContinuationFramesPushPromise(object):
         Test that we correctly decode a header block split across continuation
         frames when that header block is initiated with a PUSH_PROMISE.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -429,7 +432,7 @@ class TestContinuationFramesPushPromise(object):
         We cannot interleave a new headers block with a CONTINUATION sequence
         when the headers block is based on a PUSH_PROMISE frame.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -458,7 +461,7 @@ class TestContinuationFramesPushPromise(object):
         We cannot interleave a data frame with a CONTINUATION sequence when
         that sequence began with a PUSH_PROMISE frame.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -486,7 +489,7 @@ class TestContinuationFramesPushPromise(object):
         We cannot interleave an unknown frame with a CONTINUATION sequence when
         that sequence began with a PUSH_PROMISE frame.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -518,7 +521,7 @@ class TestContinuationFramesPushPromise(object):
         Streams closed normally by the remote peer disallow PUSH_PROMISE
         frames, and cause a GOAWAY.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -560,7 +563,7 @@ class TestContinuationFramesPushPromise(object):
         frames when those header block is initiated with a PUSH_PROMISE, for
         more than one pushed stream.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
 

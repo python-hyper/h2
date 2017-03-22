@@ -6,6 +6,7 @@ test_related_events.py
 Specific tests to validate the "related events" logic used by certain events
 inside hyper-h2.
 """
+import h2.config
 import h2.connection
 import h2.events
 
@@ -35,12 +36,14 @@ class TestRelatedEvents(object):
         ('another', 'field'),
     ]
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     def test_request_received_related_all(self, frame_factory):
         """
         RequestReceived has two possible related events: PriorityUpdated and
         StreamEnded, all fired when a single HEADERS frame is received.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -68,7 +71,7 @@ class TestRelatedEvents(object):
         """
         RequestReceived can be related to PriorityUpdated.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -95,7 +98,7 @@ class TestRelatedEvents(object):
         """
         RequestReceived can be related to StreamEnded.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 

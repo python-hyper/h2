@@ -7,6 +7,7 @@ Tests for the various utility functions provided by hyper-h2.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -34,6 +35,7 @@ class TestGetNextAvailableStreamID(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_returns_correct_sequence_for_clients(self, frame_factory):
         """
@@ -48,7 +50,7 @@ class TestGetNextAvailableStreamID(object):
         # Make sure that the streams get cleaned up: 8k streams floating
         # around would make this test memory-hard, and it's not supposed to be
         # a test of how much RAM your machine has.
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         initial_sequence = range(1, 2**13, 2)
 
@@ -94,7 +96,7 @@ class TestGetNextAvailableStreamID(object):
         # Make sure that the streams get cleaned up: 8k streams floating
         # around would make this test memory-hard, and it's not supposed to be
         # a test of how much RAM your machine has.
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(
