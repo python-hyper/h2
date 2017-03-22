@@ -39,25 +39,15 @@ class SettingCodes(enum.IntEnum):
     #: flow control.
     INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
 
-    try:  # Platform-specific: Hyperframe < 4.0.0
-        _max_frame_size = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
-    except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-        _max_frame_size = SettingsFrame.MAX_FRAME_SIZE
-
     #: Indicates the size of the largest frame payload that the sender is
     #: willing to receive, in octets.
-    MAX_FRAME_SIZE = _max_frame_size
-
-    try:  # Platform-specific: Hyperframe < 4.0.0
-        _max_header_list_size = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
-    except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-        _max_header_list_size = SettingsFrame.MAX_HEADER_LIST_SIZE
+    MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
 
     #: This advisory setting informs a peer of the maximum size of header list
     #: that the sender is prepared to accept, in octets.  The value is based on
     #: the uncompressed size of header fields, including the length of the name
     #: and value in octets plus an overhead of 32 octets for each header field.
-    MAX_HEADER_LIST_SIZE = _max_header_list_size
+    MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
 
 
 def _setting_code_from_int(code):

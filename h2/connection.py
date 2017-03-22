@@ -13,10 +13,10 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
-    ContinuationFrame, AltSvcFrame
+    ContinuationFrame, AltSvcFrame, ExtensionFrame
 )
 from hpack.hpack import Encoder, Decoder
-from hpack.exceptions import HPACKError
+from hpack.exceptions import HPACKError, OversizedHeaderListError
 
 from .config import H2Configuration
 from .errors import ErrorCodes, _error_code_from_int
@@ -35,23 +35,6 @@ from .settings import Settings, SettingCodes
 from .stream import H2Stream, StreamClosedBy
 from .utilities import guard_increment_window
 from .windows import WindowManager
-
-try:
-    from hpack.exceptions import OversizedHeaderListError
-except ImportError:  # Platform-specific: HPACK < 2.3.0
-    # If the exception doesn't exist, it cannot possibly be thrown. Define a
-    # placeholder name, but don't otherwise worry about it.
-    class OversizedHeaderListError(Exception):
-        pass
-
-
-try:
-    from hyperframe.frame import ExtensionFrame
-except ImportError:  # Platform-specific: Hyperframe < 5.0.0
-    # If the frame doesn't exist, that's just fine: we'll define it ourselves
-    # and the method will just never be called.
-    class ExtensionFrame(object):
-        pass
 
 
 class ConnectionState(Enum):
