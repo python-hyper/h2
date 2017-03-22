@@ -469,6 +469,29 @@ def _check_sent_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
+def _combine_cookie_fields(headers, hdr_validation_flags):
+    """
+    RFC 7540 § 8.1.2.5 allows HTTP/2 clients to split the Cookie header field,
+    which must normally appear only once, into multiple fields for better
+    compression. However, they MUST be joined back up again when received.
+    This normalization step applies that transform. The side-effect is that
+    all cookie fields now appear *last* in the header block.
+    """
+    # There is a problem here about header indexing. Specifically, it's
+    # possible that all these cookies are sent with different header indexing
+    # values. At this point it shouldn't matter too much, so we apply our own
+    # logic and make them never-indexed.
+    cookies = []
+    for header in headers:
+        if header[0] == b'cookie':
+            cookies.append(header[1])
+        else:
+            yield header
+    if cookies:
+        cookie_val = b'; '.join(cookies)
+        yield NeverIndexedHeaderTuple(b'cookie', cookie_val)
+
+
 def normalize_outbound_headers(headers, hdr_validation_flags):
     """
     Normalizes a header sequence that we are about to send.
@@ -481,6 +504,17 @@ def normalize_outbound_headers(headers, hdr_validation_flags):
     headers = _strip_connection_headers(headers, hdr_validation_flags)
     headers = _secure_headers(headers, hdr_validation_flags)
 
+    return headers
+
+
+def normalize_inbound_headers(headers, hdr_validation_flags):
+    """
+    Normalizes a header sequence that we have received.
+
+    :param headers: The HTTP header set.
+    :param hdr_validation_flags: An instance of HeaderValidationFlags
+    """
+    headers = _combine_cookie_fields(headers, hdr_validation_flags)
     return headers
 
 
