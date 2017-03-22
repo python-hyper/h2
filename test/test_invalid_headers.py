@@ -632,7 +632,7 @@ class TestOversizedHeaders(object):
 
         # Now, send a settings change. It's un-ACKed at this time. A new
         # request arrives, also without incident.
-        c.update_settings({h2.settings.MAX_HEADER_LIST_SIZE: 50})
+        c.update_settings({h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 50})
         c.clear_outbound_data_buffer()
         f = frame_factory.build_headers_frame(
             stream_id=3,

@@ -60,7 +60,9 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert isinstance(events[1], h2.events.RemoteSettingsChanged)
             changed = events[1].changed_settings
             assert (
-                changed[h2.settings.MAX_CONCURRENT_STREAMS].new_value == 100
+                changed[
+                    h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS
+                ].new_value == 100
             )
 
             # Send a request.
@@ -88,7 +90,9 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert isinstance(events[0], h2.events.RemoteSettingsChanged)
             changed = events[0].changed_settings
             assert (
-                changed[h2.settings.MAX_CONCURRENT_STREAMS].new_value == 100
+                changed[
+                    h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS
+                ].new_value == 100
             )
 
             # Send our preamble back.

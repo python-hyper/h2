@@ -199,7 +199,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 1280}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280}
         )
         c.receive_data(f.serialize())
 
@@ -223,7 +223,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -241,7 +241,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -255,7 +255,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -360,7 +360,7 @@ class TestFlowControl(object):
 
         # Change the flow control window to 80 bytes.
         c.update_settings(
-            {h2.settings.INITIAL_WINDOW_SIZE: 80}
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 80}
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -393,7 +393,7 @@ class TestFlowControl(object):
 
         assert c.remote_flow_control_window(1) == 65535
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 1280})
+        c.update_settings({h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280})
 
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -413,7 +413,9 @@ class TestFlowControl(object):
 
         assert c.remote_flow_control_window(1) == 65535
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
+        c.update_settings(
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+        )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
 
@@ -426,7 +428,9 @@ class TestFlowControl(object):
         """
         c = h2.connection.H2Connection()
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
+        c.update_settings(
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+        )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
 
@@ -550,7 +554,8 @@ class TestFlowControl(object):
         # Receive an increment to the initial window size.
         f = frame_factory.build_settings_frame(
             settings={
-                h2.settings.INITIAL_WINDOW_SIZE: self.DEFAULT_FLOW_WINDOW + 1
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                    self.DEFAULT_FLOW_WINDOW + 1
             }
         )
         c.clear_outbound_data_buffer()
@@ -586,7 +591,8 @@ class TestFlowControl(object):
         # Receive an increment to the initial window size.
         f = frame_factory.build_settings_frame(
             settings={
-                h2.settings.INITIAL_WINDOW_SIZE: self.DEFAULT_FLOW_WINDOW + 1
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                    self.DEFAULT_FLOW_WINDOW + 1
             }
         )
         c.clear_outbound_data_buffer()
@@ -648,7 +654,7 @@ class TestAutomaticFlowControl(object):
         c.receive_data(frame_factory.preamble())
 
         c.update_settings(
-            {h2.settings.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
+            {h2.settings.SettingCodes.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
         )
         settings_frame = frame_factory.build_settings_frame(
             settings={}, ack=True
