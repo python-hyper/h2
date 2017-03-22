@@ -28,7 +28,8 @@ class TestH2Config(object):
         'client_side',
         'validate_outbound_headers',
         'normalize_outbound_headers',
-        'validate_inbound_headers'
+        'validate_inbound_headers',
+        'normalize_inbound_headers',
     ]
 
     @pytest.mark.parametrize('option_name', boolean_config_options)

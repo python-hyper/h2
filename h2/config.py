@@ -89,6 +89,15 @@ class H2Configuration(object):
         according to RFC 7540. Defaults to ``True``.
     :type validate_inbound_headers: ``bool``
 
+    :param normalize_inbound_headers: Controls whether the headers received by
+        this object are normalized according to the rules of RFC 7540.
+        Disabling this setting may lead to hyper-h2 emitting header blocks that
+        some RFCs forbid, e.g. with multiple cookie fields.
+
+        .. versionadded:: 3.0.0
+
+    :type normalize_inbound_headers: ``bool``
+
     :param logger: A logger that conforms to the requirements for this module,
         those being no I/O and no context switches, which is needed in order
         to run in asynchronous operation.
@@ -107,6 +116,9 @@ class H2Configuration(object):
     validate_inbound_headers = _BooleanConfigOption(
         'validate_inbound_headers'
     )
+    normalize_inbound_headers = _BooleanConfigOption(
+        'normalize_inbound_headers'
+    )
 
     def __init__(self,
                  client_side=True,
@@ -114,12 +126,14 @@ class H2Configuration(object):
                  validate_outbound_headers=True,
                  normalize_outbound_headers=True,
                  validate_inbound_headers=True,
+                 normalize_inbound_headers=True,
                  logger=None):
         self.client_side = client_side
         self.header_encoding = header_encoding
         self.validate_outbound_headers = validate_outbound_headers
         self.normalize_outbound_headers = normalize_outbound_headers
         self.validate_inbound_headers = validate_inbound_headers
+        self.normalize_inbound_headers = normalize_inbound_headers
         self.logger = logger or DummyLogger(__name__)
 
     @property

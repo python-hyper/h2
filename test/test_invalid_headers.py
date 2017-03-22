@@ -455,7 +455,7 @@ class TestFilter(object):
     def test_invalid_pseudo_headers(self, hdr_validation_flags):
         headers = [(b':custom', b'value')]
         with pytest.raises(h2.exceptions.ProtocolError):
-            h2.utilities.validate_headers(headers, hdr_validation_flags)
+            list(h2.utilities.validate_headers(headers, hdr_validation_flags))
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize(
@@ -475,9 +475,9 @@ class TestFilter(object):
             (b':method', b'GET'),
             (b'host', b'example.com'),
         ]
-        assert headers == h2.utilities.validate_headers(
+        assert headers == list(h2.utilities.validate_headers(
             headers, hdr_validation_flags
-        )
+        ))
 
     @pytest.mark.parametrize(
         'hdr_validation_flags', hdr_validation_response_headers
@@ -485,7 +485,7 @@ class TestFilter(object):
     def test_response_header_without_status(self, hdr_validation_flags):
         headers = [(b'content-length', b'42')]
         with pytest.raises(h2.exceptions.ProtocolError):
-            h2.utilities.validate_headers(headers, hdr_validation_flags)
+            list(h2.utilities.validate_headers(headers, hdr_validation_flags))
 
 
 class TestOversizedHeaders(object):

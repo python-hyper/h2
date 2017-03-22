@@ -27,7 +27,7 @@ from .exceptions import (
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
     validate_headers, validate_outbound_headers, normalize_outbound_headers,
-    HeaderValidationFlags, extract_method_header
+    HeaderValidationFlags, extract_method_header, normalize_inbound_headers
 )
 from .windows import WindowManager
 
@@ -1044,13 +1044,10 @@ class H2Stream(object):
         )
         events[0].pushed_stream_id = promised_stream_id
 
-        if self.config.validate_inbound_headers:
-            hdr_validation_flags = self._build_hdr_validation_flags(events)
-            headers = validate_headers(headers, hdr_validation_flags)
-
-        if header_encoding:
-            headers = list(_decode_headers(headers, header_encoding))
-        events[0].headers = headers
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+        events[0].headers = self._process_received_headers(
+            headers, hdr_validation_flags, header_encoding
+        )
         return [], events
 
     def remotely_pushed(self, pushed_headers):
@@ -1094,14 +1091,10 @@ class H2Stream(object):
             if not end_stream:
                 raise ProtocolError("Trailers must have END_STREAM set")
 
-        if self.config.validate_inbound_headers:
-            hdr_validation_flags = self._build_hdr_validation_flags(events)
-            headers = validate_headers(headers, hdr_validation_flags)
-
-        if header_encoding:
-            headers = list(_decode_headers(headers, header_encoding))
-
-        events[0].headers = headers
+        hdr_validation_flags = self._build_hdr_validation_flags(events)
+        events[0].headers = self._process_received_headers(
+            headers, hdr_validation_flags, header_encoding
+        )
         return [], events
 
     def receive_data(self, data, end_stream, flow_control_len):
@@ -1304,6 +1297,30 @@ class H2Stream(object):
 
         frames[-1].flags.add('END_HEADERS')
         return frames
+
+    def _process_received_headers(self,
+                                  headers,
+                                  header_validation_flags,
+                                  header_encoding):
+        """
+        When headers have been received from the remote peer, run a processing
+        pipeline on them to transform them into the appropriate form for
+        attaching to an event.
+        """
+        if self.config.normalize_inbound_headers:
+            headers = normalize_inbound_headers(
+                headers, header_validation_flags
+            )
+
+        if self.config.validate_inbound_headers:
+            headers = validate_headers(headers, header_validation_flags)
+
+        if header_encoding:
+            headers = _decode_headers(headers, header_encoding)
+
+        # The above steps are all generators, so we need to concretize the
+        # headers now.
+        return list(headers)
 
     def _initialize_content_length(self, headers):
         """
