@@ -11,6 +11,7 @@ import base64
 
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -154,12 +155,13 @@ class TestServerUpgrade(object):
         (u':status', u'200'),
         (u'server', u'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_returns_nothing(self, frame_factory):
         """
         Calling initiate_upgrade_connection returns nothing.
         """
-        conn = h2.connection.H2Connection(client_side=False)
+        conn = h2.connection.H2Connection(config=self.server_config)
         curl_header = b"AAMAAABkAAQAAP__"
         data = conn.initiate_upgrade_connection(curl_header)
         assert data is None
@@ -168,7 +170,7 @@ class TestServerUpgrade(object):
         """
         Calling initiate_upgrade_connection emits the connection preamble.
         """
-        conn = h2.connection.H2Connection(client_side=False)
+        conn = h2.connection.H2Connection(config=self.server_config)
         conn.initiate_upgrade_connection()
 
         data = conn.data_to_send()
@@ -181,7 +183,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we can safely send a response.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_upgrade_connection()
         c.clear_outbound_data_buffer()
 
@@ -205,7 +207,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we can safely push a stream.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_upgrade_connection()
         c.clear_outbound_data_buffer()
 
@@ -226,7 +228,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we cannot receive headers on stream 1.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_upgrade_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -247,7 +249,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we cannot receive data on stream 1.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_upgrade_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -269,8 +271,8 @@ class TestServerUpgrade(object):
         The settings provided by the client are applied and immediately
         ACK'ed.
         """
-        server = h2.connection.H2Connection(client_side=False)
-        client = h2.connection.H2Connection(client_side=True)
+        server = h2.connection.H2Connection(config=self.server_config)
+        client = h2.connection.H2Connection()
 
         # As a precaution, let's confirm that the server and client, at the
         # start of the connection, do not agree on their initial settings

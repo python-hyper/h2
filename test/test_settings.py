@@ -25,10 +25,10 @@ class TestSettings(object):
         """
         s = h2.settings.Settings(client=True)
 
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 4096
-        assert s[h2.settings.ENABLE_PUSH] == 1
-        assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
-        assert s[h2.settings.MAX_FRAME_SIZE] == 16384
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
+        assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 1
+        assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
+        assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
 
     def test_settings_defaults_server(self):
         """
@@ -36,10 +36,10 @@ class TestSettings(object):
         """
         s = h2.settings.Settings(client=False)
 
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 4096
-        assert s[h2.settings.ENABLE_PUSH] == 0
-        assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
-        assert s[h2.settings.MAX_FRAME_SIZE] == 16384
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
+        assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 0
+        assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
+        assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
 
     @pytest.mark.parametrize('client', [True, False])
     def test_can_set_initial_values(self, client):
@@ -48,30 +48,30 @@ class TestSettings(object):
         defaults.
         """
         overrides = {
-            h2.settings.HEADER_TABLE_SIZE: 8080,
-            h2.settings.MAX_FRAME_SIZE: 16388,
-            h2.settings.MAX_CONCURRENT_STREAMS: 100,
-            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 8080,
+            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16388,
+            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 100,
+            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
         }
         s = h2.settings.Settings(client=client, initial_values=overrides)
 
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 8080
-        assert s[h2.settings.ENABLE_PUSH] == bool(client)
-        assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
-        assert s[h2.settings.MAX_FRAME_SIZE] == 16388
-        assert s[h2.settings.MAX_CONCURRENT_STREAMS] == 100
-        assert s[h2.settings.MAX_HEADER_LIST_SIZE] == 2**16
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 8080
+        assert s[h2.settings.SettingCodes.ENABLE_PUSH] == bool(client)
+        assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
+        assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16388
+        assert s[h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS] == 100
+        assert s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE] == 2**16
 
     @pytest.mark.parametrize(
         'setting,value',
         [
-            (h2.settings.ENABLE_PUSH, 2),
-            (h2.settings.ENABLE_PUSH, -1),
-            (h2.settings.INITIAL_WINDOW_SIZE, -1),
-            (h2.settings.INITIAL_WINDOW_SIZE, 2**34),
-            (h2.settings.MAX_FRAME_SIZE, 1),
-            (h2.settings.MAX_FRAME_SIZE, 2**30),
-            (h2.settings.MAX_HEADER_LIST_SIZE, -1),
+            (h2.settings.SettingCodes.ENABLE_PUSH, 2),
+            (h2.settings.SettingCodes.ENABLE_PUSH, -1),
+            (h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, -1),
+            (h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**34),
+            (h2.settings.SettingCodes.MAX_FRAME_SIZE, 1),
+            (h2.settings.SettingCodes.MAX_FRAME_SIZE, 2**30),
+            (h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE, -1),
         ]
     )
     def test_cannot_set_invalid_initial_values(self, setting, value):
@@ -90,9 +90,9 @@ class TestSettings(object):
         take effect.
         """
         s = h2.settings.Settings(client=True)
-        s[h2.settings.HEADER_TABLE_SIZE] == 8000
+        s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 8000
 
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 4096
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
     def test_acknowledging_values(self):
         """
@@ -102,10 +102,10 @@ class TestSettings(object):
         old_settings = dict(s)
 
         new_settings = {
-            h2.settings.HEADER_TABLE_SIZE: 4000,
-            h2.settings.ENABLE_PUSH: 0,
-            h2.settings.INITIAL_WINDOW_SIZE: 60,
-            h2.settings.MAX_FRAME_SIZE: 16385,
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 4000,
+            h2.settings.SettingCodes.ENABLE_PUSH: 0,
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 60,
+            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16385,
         }
         s.update(new_settings)
 
@@ -118,20 +118,24 @@ class TestSettings(object):
         Acknowledging settings returns the changes.
         """
         s = h2.settings.Settings(client=True)
-        s[h2.settings.HEADER_TABLE_SIZE] = 8000
-        s[h2.settings.ENABLE_PUSH] = 0
+        s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] = 8000
+        s[h2.settings.SettingCodes.ENABLE_PUSH] = 0
 
         changes = s.acknowledge()
         assert len(changes) == 2
 
-        table_size_change = changes[h2.settings.HEADER_TABLE_SIZE]
-        push_change = changes[h2.settings.ENABLE_PUSH]
+        table_size_change = (
+            changes[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
+        )
+        push_change = changes[h2.settings.SettingCodes.ENABLE_PUSH]
 
-        assert table_size_change.setting == h2.settings.HEADER_TABLE_SIZE
+        assert table_size_change.setting == (
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE
+        )
         assert table_size_change.original_value == 4096
         assert table_size_change.new_value == 8000
 
-        assert push_change.setting == h2.settings.ENABLE_PUSH
+        assert push_change.setting == h2.settings.SettingCodes.ENABLE_PUSH
         assert push_change.original_value == 1
         assert push_change.new_value == 0
 
@@ -140,23 +144,25 @@ class TestSettings(object):
         Acknowledging settings does not return unchanged settings.
         """
         s = h2.settings.Settings(client=True)
-        s[h2.settings.INITIAL_WINDOW_SIZE] = 70
+        s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] = 70
 
         changes = s.acknowledge()
         assert len(changes) == 1
-        assert list(changes.keys()) == [h2.settings.INITIAL_WINDOW_SIZE]
+        assert list(changes.keys()) == [
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE
+        ]
 
     def test_deleting_values_deletes_all_of_them(self):
         """
         When we delete a key we lose all state about it.
         """
         s = h2.settings.Settings(client=True)
-        s[h2.settings.HEADER_TABLE_SIZE] == 8000
+        s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 8000
 
-        del s[h2.settings.HEADER_TABLE_SIZE]
+        del s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
 
         with pytest.raises(KeyError):
-            s[h2.settings.HEADER_TABLE_SIZE]
+            s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
 
     def test_length_correctly_reported(self):
         """
@@ -165,13 +171,13 @@ class TestSettings(object):
         s = h2.settings.Settings(client=True)
         assert len(s) == 4
 
-        s[h2.settings.HEADER_TABLE_SIZE] == 8000
+        s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 8000
         assert len(s) == 4
 
         s.acknowledge()
         assert len(s) == 4
 
-        del s[h2.settings.HEADER_TABLE_SIZE]
+        del s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
         assert len(s) == 3
 
     def test_new_values_work(self):
@@ -205,10 +211,10 @@ class TestSettings(object):
         When acknowledged, unchanged settings remain unchanged.
         """
         s = h2.settings.Settings(client=True)
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 4096
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
         s.acknowledge()
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 4096
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
     def test_settings_getters(self):
         """
@@ -216,10 +222,14 @@ class TestSettings(object):
         """
         s = h2.settings.Settings(client=True)
 
-        assert s.header_table_size == s[h2.settings.HEADER_TABLE_SIZE]
-        assert s.enable_push == s[h2.settings.ENABLE_PUSH]
-        assert s.initial_window_size == s[h2.settings.INITIAL_WINDOW_SIZE]
-        assert s.max_frame_size == s[h2.settings.MAX_FRAME_SIZE]
+        assert s.header_table_size == (
+            s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
+        )
+        assert s.enable_push == s[h2.settings.SettingCodes.ENABLE_PUSH]
+        assert s.initial_window_size == (
+            s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE]
+        )
+        assert s.max_frame_size == s[h2.settings.SettingCodes.MAX_FRAME_SIZE]
         assert s.max_concurrent_streams == 2**32 + 1  # A sensible default.
         assert s.max_header_list_size is None
 
@@ -237,12 +247,12 @@ class TestSettings(object):
         s.max_header_list_size = 2**16
 
         s.acknowledge()
-        assert s[h2.settings.HEADER_TABLE_SIZE] == 0
-        assert s[h2.settings.ENABLE_PUSH] == 1
-        assert s[h2.settings.INITIAL_WINDOW_SIZE] == 2
-        assert s[h2.settings.MAX_FRAME_SIZE] == 16385
-        assert s[h2.settings.MAX_CONCURRENT_STREAMS] == 4
-        assert s[h2.settings.MAX_HEADER_LIST_SIZE] == 2**16
+        assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 0
+        assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 1
+        assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 2
+        assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16385
+        assert s[h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS] == 4
+        assert s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE] == 2**16
 
     @given(integers())
     def test_cannot_set_invalid_values_for_enable_push(self, val):
@@ -260,11 +270,11 @@ class TestSettings(object):
         assert s.enable_push == 1
 
         with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
-            s[h2.settings.ENABLE_PUSH] = val
+            s[h2.settings.SettingCodes.ENABLE_PUSH] = val
 
         s.acknowledge()
         assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
-        assert s[h2.settings.ENABLE_PUSH] == 1
+        assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 1
 
     @given(integers())
     def test_cannot_set_invalid_vals_for_initial_window_size(self, val):
@@ -289,13 +299,13 @@ class TestSettings(object):
             assert s.initial_window_size == 65535
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
-                s[h2.settings.INITIAL_WINDOW_SIZE] = val
+                s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] = val
 
             s.acknowledge()
             assert (
                 e.value.error_code == h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
             )
-            assert s[h2.settings.INITIAL_WINDOW_SIZE] == 65535
+            assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
 
     @given(integers())
     def test_cannot_set_invalid_values_for_max_frame_size(self, val):
@@ -317,11 +327,11 @@ class TestSettings(object):
             assert s.max_frame_size == 16384
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
-                s[h2.settings.MAX_FRAME_SIZE] = val
+                s[h2.settings.SettingCodes.MAX_FRAME_SIZE] = val
 
             s.acknowledge()
             assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
-            assert s[h2.settings.MAX_FRAME_SIZE] == 16384
+            assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
 
     @given(integers())
     def test_cannot_set_invalid_values_for_max_header_list_size(self, val):
@@ -343,13 +353,13 @@ class TestSettings(object):
             assert s.max_header_list_size is None
 
             with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
-                s[h2.settings.MAX_HEADER_LIST_SIZE] = val
+                s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE] = val
 
             s.acknowledge()
             assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
 
             with pytest.raises(KeyError):
-                s[h2.settings.MAX_HEADER_LIST_SIZE]
+                s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE]
 
 
 class TestSettingsEquality(object):
@@ -364,10 +374,10 @@ class TestSettingsEquality(object):
         each other.
         """
         overrides = {
-            h2.settings.HEADER_TABLE_SIZE: 0,
-            h2.settings.MAX_FRAME_SIZE: 16384,
-            h2.settings.MAX_CONCURRENT_STREAMS: 4,
-            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 0,
+            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16384,
+            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 4,
+            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
         }
         return h2.settings.Settings(client=True, initial_values=overrides)
 
@@ -379,10 +389,10 @@ class TestSettingsEquality(object):
         each other (they will not be compared against each other).
         """
         overrides = {
-            h2.settings.HEADER_TABLE_SIZE: 8080,
-            h2.settings.MAX_FRAME_SIZE: 16388,
-            h2.settings.MAX_CONCURRENT_STREAMS: 100,
-            h2.settings.MAX_HEADER_LIST_SIZE: 2**16,
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 8080,
+            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16388,
+            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 100,
+            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
         }
         return h2.settings.Settings(client=False, initial_values=overrides)
 

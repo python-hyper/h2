@@ -8,6 +8,7 @@ they fail appropriately.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -30,13 +31,14 @@ class TestInvalidContentLengths(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_too_much_data(self, frame_factory):
         """
         Remote peers sending data in excess of content-length causes Protocol
         Errors.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -68,7 +70,7 @@ class TestInvalidContentLengths(object):
         Remote peers sending less data than content-length causes Protocol
         Errors.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -103,7 +105,7 @@ class TestInvalidContentLengths(object):
         Remote peers sending less data than content-length where the last data
         frame is empty causes Protocol Errors.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 

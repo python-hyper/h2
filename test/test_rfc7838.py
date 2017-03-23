@@ -7,6 +7,7 @@ Test the RFC 7838 ALTSVC support.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.events
 import h2.exceptions
@@ -284,12 +285,14 @@ class TestRFC7838Server(object):
         (u'server', u'fake-serv/0.1.0')
     ]
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     def test_receiving_altsvc_as_server_stream_zero(self, frame_factory):
         """
         When an ALTSVC frame is received on stream zero and we are a server,
         we ignore it.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -307,7 +310,7 @@ class TestRFC7838Server(object):
         When an ALTSVC frame is received on a stream and we are a server, we
         ignore it.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -329,7 +332,7 @@ class TestRFC7838Server(object):
         """
         A server can send an explicit alternative service.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -348,7 +351,7 @@ class TestRFC7838Server(object):
         """
         A server can send an implicit alternative service.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -374,7 +377,7 @@ class TestRFC7838Server(object):
         If headers haven't been received yet, the server forbids sending an
         implicit alternative service.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
@@ -391,7 +394,7 @@ class TestRFC7838Server(object):
         If the server has sent response headers, hyper-h2 forbids sending an
         implicit alternative service.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -413,7 +416,7 @@ class TestRFC7838Server(object):
         The user cannot provide both the origin and stream_id arguments when
         advertising alternative services.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(
@@ -433,7 +436,7 @@ class TestRFC7838Server(object):
         The user cannot provide the field value for alternative services as a
         unicode string.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 

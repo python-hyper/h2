@@ -10,6 +10,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import integers
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -27,6 +28,7 @@ class TestFlowControl(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     DEFAULT_FLOW_WINDOW = 65535
 
@@ -74,7 +76,7 @@ class TestFlowControl(object):
         When data is received on a stream, the remote flow control window
         should drop.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data')
@@ -89,7 +91,7 @@ class TestFlowControl(object):
         When padded data is received on a stream, the remote flow control
         window drops by an amount that includes the padding.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data', padding_len=10)
@@ -119,7 +121,7 @@ class TestFlowControl(object):
         The remote flow control window is limited by the flow control of the
         connection.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_data_frame(b'some data')
@@ -199,7 +201,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 1280}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280}
         )
         c.receive_data(f.serialize())
 
@@ -223,7 +225,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -241,7 +243,7 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -255,7 +257,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
         )
         c.receive_data(f.serialize())
 
@@ -273,7 +275,7 @@ class TestFlowControl(object):
         WindowUpdate frames received without streams fire an appropriate
         WindowUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_window_update_frame(
@@ -294,7 +296,7 @@ class TestFlowControl(object):
         WindowUpdate frames received with streams fire an appropriate
         WindowUpdated event.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
@@ -355,12 +357,12 @@ class TestFlowControl(object):
         The user can set a low flow control window, which leads to connection
         teardown if violated.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         # Change the flow control window to 80 bytes.
         c.update_settings(
-            {h2.settings.INITIAL_WINDOW_SIZE: 80}
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 80}
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -393,7 +395,7 @@ class TestFlowControl(object):
 
         assert c.remote_flow_control_window(1) == 65535
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 1280})
+        c.update_settings({h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280})
 
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -413,7 +415,9 @@ class TestFlowControl(object):
 
         assert c.remote_flow_control_window(1) == 65535
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
+        c.update_settings(
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+        )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
 
@@ -426,7 +430,9 @@ class TestFlowControl(object):
         """
         c = h2.connection.H2Connection()
 
-        c.update_settings({h2.settings.INITIAL_WINDOW_SIZE: 128000})
+        c.update_settings(
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+        )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
 
@@ -550,7 +556,8 @@ class TestFlowControl(object):
         # Receive an increment to the initial window size.
         f = frame_factory.build_settings_frame(
             settings={
-                h2.settings.INITIAL_WINDOW_SIZE: self.DEFAULT_FLOW_WINDOW + 1
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                    self.DEFAULT_FLOW_WINDOW + 1
             }
         )
         c.clear_outbound_data_buffer()
@@ -586,7 +593,8 @@ class TestFlowControl(object):
         # Receive an increment to the initial window size.
         f = frame_factory.build_settings_frame(
             settings={
-                h2.settings.INITIAL_WINDOW_SIZE: self.DEFAULT_FLOW_WINDOW + 1
+                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                    self.DEFAULT_FLOW_WINDOW + 1
             }
         )
         c.clear_outbound_data_buffer()
@@ -635,6 +643,7 @@ class TestAutomaticFlowControl(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     DEFAULT_FLOW_WINDOW = 65535
 
@@ -643,12 +652,12 @@ class TestAutomaticFlowControl(object):
         Setup a server-side H2Connection and send a headers frame, and then
         clear the outbound data buffer. Also increase the maximum frame size.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
         c.update_settings(
-            {h2.settings.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
+            {h2.settings.SettingCodes.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
         )
         settings_frame = frame_factory.build_settings_frame(
             settings={}, ack=True

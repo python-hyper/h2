@@ -13,10 +13,10 @@ from hyperframe.exceptions import InvalidPaddingError
 from hyperframe.frame import (
     GoAwayFrame, WindowUpdateFrame, HeadersFrame, DataFrame, PingFrame,
     PushPromiseFrame, SettingsFrame, RstStreamFrame, PriorityFrame,
-    ContinuationFrame, AltSvcFrame
+    ContinuationFrame, AltSvcFrame, ExtensionFrame
 )
 from hpack.hpack import Encoder, Decoder
-from hpack.exceptions import HPACKError
+from hpack.exceptions import HPACKError, OversizedHeaderListError
 
 from .config import H2Configuration
 from .errors import ErrorCodes, _error_code_from_int
@@ -35,23 +35,6 @@ from .settings import Settings, SettingCodes
 from .stream import H2Stream, StreamClosedBy
 from .utilities import guard_increment_window
 from .windows import WindowManager
-
-try:
-    from hpack.exceptions import OversizedHeaderListError
-except ImportError:  # Platform-specific: HPACK < 2.3.0
-    # If the exception doesn't exist, it cannot possibly be thrown. Define a
-    # placeholder name, but don't otherwise worry about it.
-    class OversizedHeaderListError(Exception):
-        pass
-
-
-try:
-    from hyperframe.frame import ExtensionFrame
-except ImportError:  # Platform-specific: Hyperframe < 5.0.0
-    # If the frame doesn't exist, that's just fine: we'll define it ourselves
-    # and the method will just never be called.
-    class ExtensionFrame(object):
-        pass
 
 
 class ConnectionState(Enum):
@@ -272,29 +255,10 @@ class H2Connection(object):
        Added the ``config`` keyword argument. Deprecated the ``client_side``
        and ``header_encoding`` parameters.
 
-    :param client_side: Whether this object is to be used on the client side of
-        a connection, or on the server side. Affects the logic used by the
-        state machine, the default settings values, the allowable stream IDs,
-        and several other properties. Defaults to ``True``.
+    .. versionchanged:: 3.0.0
+       Removed deprecated parameters and properties.
 
-        .. deprecated:: 2.5.0
-
-    :type client_side: ``bool``
-
-    :param header_encoding: Controls whether the headers emitted by this object
-        in events are transparently decoded to ``unicode`` strings, and what
-        encoding is used to do that decoding. For historical reason, this
-        defaults to ``'utf-8'``. To prevent the decoding of headers (that is,
-        to force them to be returned as bytestrings), this can be set to
-        ``False`` or the empty string.
-
-        .. deprecated:: 2.5.0
-
-    :type header_encoding: ``str`` or ``False``
-
-    :param config: The configuration for the HTTP/2 connection. If provided,
-        supersedes the deprecated ``client_side`` and ``header_encoding``
-        values.
+    :param config: The configuration for the HTTP/2 connection.
 
         .. versionadded:: 2.5.0
 
@@ -317,7 +281,7 @@ class H2Connection(object):
     # The initial default value of SETTINGS_MAX_HEADER_LIST_SIZE.
     DEFAULT_MAX_HEADER_LIST_SIZE = 2**16
 
-    def __init__(self, client_side=True, header_encoding='utf-8', config=None):
+    def __init__(self, config=None):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
         self.highest_inbound_stream_id = 0
@@ -335,8 +299,8 @@ class H2Connection(object):
         self.config = config
         if self.config is None:
             self.config = H2Configuration(
-                client_side=client_side,
-                header_encoding=header_encoding,
+                client_side=True,
+                header_encoding='utf-8',
             )
 
         # Objects that store settings, including defaults.
@@ -457,43 +421,6 @@ class H2Connection(object):
         """
         inbound_numbers = int(not self.config.client_side)
         return self._open_streams(inbound_numbers)
-
-    @property
-    def header_encoding(self):
-        """
-        Controls whether the headers emitted by this object in events are
-        transparently decoded to ``unicode`` strings, and what encoding is used
-        to do that decoding. For historical reason, this defaults to
-        ``'utf-8'``. To prevent the decoding of headers (that is, to force them
-        to be returned as bytestrings), this can be set to ``False`` or the
-        empty string.
-
-        .. versionadded:: 2.3.0
-
-        .. deprecated:: 2.5.0
-           Use :data:`config <h2.connection.H2Connection.config>` instead.
-        """
-        return self.config.header_encoding
-
-    @header_encoding.setter
-    def header_encoding(self, value):
-        """
-        Setter for header encoding config value.
-        """
-        self.config.header_encoding = value
-
-    @property
-    def client_side(self):
-        """
-        Whether this object is to be used on the client side of a connection,
-        or on the server side. Affects the logic used by the state machine, the
-        default settings values, the allowable stream IDs, and several other
-        properties. Defaults to ``True``.
-
-        .. deprecated:: 2.5.0
-           Use :data:`config <h2.connection.H2Connection.config>` instead.
-        """
-        return self.config.client_side
 
     @property
     def inbound_flow_control_window(self):
@@ -773,10 +700,6 @@ class H2Connection(object):
         .. warning:: In HTTP/2, it is mandatory that all the HTTP/2 special
             headers (that is, ones whose header keys begin with ``:``) appear
             at the start of the header block, before any normal headers.
-            If you pass a dictionary to the ``headers`` parameter, it is
-            unlikely that they will iterate in that order, and your connection
-            may fail. For this reason, passing a ``dict`` to ``headers`` is
-            *deprecated*, and will be removed in 3.0.
 
         .. versionchanged:: 2.3.0
            Added support for using :class:`HeaderTuple

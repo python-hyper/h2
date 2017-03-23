@@ -164,20 +164,3 @@ Settings
 
 .. autoclass:: h2.settings.ChangedSetting
    :members:
-
-Known Settings
-~~~~~~~~~~~~~~
-
-.. versionadded:: 2.0.0
-
-.. autodata:: h2.settings.HEADER_TABLE_SIZE
-
-.. autodata:: h2.settings.ENABLE_PUSH
-
-.. autodata:: h2.settings.MAX_CONCURRENT_STREAMS
-
-.. autodata:: h2.settings.INITIAL_WINDOW_SIZE
-
-.. autodata:: h2.settings.MAX_FRAME_SIZE
-
-.. autodata:: h2.settings.MAX_HEADER_LIST_SIZE

@@ -39,25 +39,15 @@ class SettingCodes(enum.IntEnum):
     #: flow control.
     INITIAL_WINDOW_SIZE = SettingsFrame.INITIAL_WINDOW_SIZE
 
-    try:  # Platform-specific: Hyperframe < 4.0.0
-        _max_frame_size = SettingsFrame.SETTINGS_MAX_FRAME_SIZE
-    except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-        _max_frame_size = SettingsFrame.MAX_FRAME_SIZE
-
     #: Indicates the size of the largest frame payload that the sender is
     #: willing to receive, in octets.
-    MAX_FRAME_SIZE = _max_frame_size
-
-    try:  # Platform-specific: Hyperframe < 4.0.0
-        _max_header_list_size = SettingsFrame.SETTINGS_MAX_HEADER_LIST_SIZE
-    except AttributeError:  # Platform-specific: Hyperframe >= 4.0.0
-        _max_header_list_size = SettingsFrame.MAX_HEADER_LIST_SIZE
+    MAX_FRAME_SIZE = SettingsFrame.MAX_FRAME_SIZE
 
     #: This advisory setting informs a peer of the maximum size of header list
     #: that the sender is prepared to accept, in octets.  The value is based on
     #: the uncompressed size of header fields, including the length of the name
     #: and value in octets plus an overhead of 32 octets for each header field.
-    MAX_HEADER_LIST_SIZE = _max_header_list_size
+    MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
 
 
 def _setting_code_from_int(code):
@@ -70,59 +60,6 @@ def _setting_code_from_int(code):
         return SettingCodes(code)
     except ValueError:
         return code
-
-
-# Aliases for all the settings values.
-
-#: Allows the sender to inform the remote endpoint of the maximum size of the
-#: header compression table used to decode header blocks, in octets.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.HEADER_TABLE_SIZE
-#:    <h2.settings.SettingCodes.HEADER_TABLE_SIZE>`.
-HEADER_TABLE_SIZE = SettingCodes.HEADER_TABLE_SIZE
-
-#: This setting can be used to disable server push. To disable server push on
-#: a client, set this to 0.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.ENABLE_PUSH
-#:    <h2.settings.SettingCodes.ENABLE_PUSH>`.
-ENABLE_PUSH = SettingCodes.ENABLE_PUSH
-
-#: Indicates the maximum number of concurrent streams that the sender will
-#: allow.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.MAX_CONCURRENT_STREAMS
-#:    <h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS>`.
-MAX_CONCURRENT_STREAMS = SettingCodes.MAX_CONCURRENT_STREAMS
-
-#: Indicates the sender's initial window size (in octets) for stream-level flow
-#: control.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.INITIAL_WINDOW_SIZE
-#:    <h2.settings.SettingCodes.INITIAL_WINDOW_SIZE>`.
-INITIAL_WINDOW_SIZE = SettingCodes.INITIAL_WINDOW_SIZE
-
-#: Indicates the size of the largest frame payload that the sender is willing
-#: to receive, in octets.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.MAX_FRAME_SIZE
-#:    <h2.settings.SettingCodes.MAX_FRAME_SIZE>`.
-MAX_FRAME_SIZE = SettingCodes.MAX_FRAME_SIZE
-
-#: This advisory setting informs a peer of the maximum size of header list that
-#: the sender is prepared to accept, in octets.  The value is based on the
-#: uncompressed size of header fields, including the length of the name and
-#: value in octets plus an overhead of 32 octets for each header field.
-#:
-#: .. deprecated:: 2.6.0
-#:    Deprecated in favour of :data:`SettingCodes.MAX_HEADER_LIST_SIZE
-#:    <h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE>`.
-MAX_HEADER_LIST_SIZE = SettingCodes.MAX_HEADER_LIST_SIZE
 
 
 class ChangedSetting:

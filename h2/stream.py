@@ -5,8 +5,6 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
-import warnings
-
 from enum import Enum, IntEnum
 from hpack import HeaderTuple
 from hyperframe.frame import (
@@ -880,17 +878,6 @@ class H2Stream(object):
         or trailers.
         """
         self.config.logger.debug("Send headers %s on %r", headers, self)
-        # Convert headers to two-tuples.
-        # FIXME: The fallback for dictionary headers is to be removed in 3.0.
-        try:
-            headers = headers.items()
-            warnings.warn(
-                "Implicit conversion of dictionaries to two-tuples for "
-                "headers is deprecated and will be removed in 3.0.",
-                DeprecationWarning
-            )
-        except AttributeError:
-            headers = headers
 
         # Because encoding headers makes an irreversible change to the header
         # compression context, we make the state transition before we encode

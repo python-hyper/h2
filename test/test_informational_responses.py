@@ -8,6 +8,7 @@ responses in its state machine.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.events
 import h2.exceptions
@@ -42,7 +43,7 @@ class TestReceivingInformationalResponses(object):
         When receiving a informational response, the appropriate event is
         signaled.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -69,7 +70,7 @@ class TestReceivingInformationalResponses(object):
         At least three header blocks can be received: informational, headers,
         trailers.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -115,7 +116,7 @@ class TestReceivingInformationalResponses(object):
         """
         More than one informational response is allowed.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -151,7 +152,7 @@ class TestReceivingInformationalResponses(object):
         Receiving provisional responses with END_STREAM set causes
         ProtocolErrors.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -181,7 +182,7 @@ class TestReceivingInformationalResponses(object):
         When receiving a informational response after the actual response
         headers we consider it a ProtocolError and raise it.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
@@ -236,6 +237,7 @@ class TestSendingInformationalResponses(object):
     example_trailers = [
         ('trailer', 'you-bet'),
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize(
         'hdrs', (unicode_informational_headers, bytes_informational_headers),
@@ -249,7 +251,7 @@ class TestSendingInformationalResponses(object):
         When sending a informational response, the appropriate frames are
         emitted.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         flags = ['END_STREAM'] if end_stream else []
@@ -285,7 +287,7 @@ class TestSendingInformationalResponses(object):
         At least three header blocks can be sent: informational, headers,
         trailers.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         flags = ['END_STREAM'] if end_stream else []
@@ -343,7 +345,7 @@ class TestSendingInformationalResponses(object):
         """
         More than one informational response is allowed.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         flags = ['END_STREAM'] if end_stream else []
@@ -389,7 +391,7 @@ class TestSendingInformationalResponses(object):
         Sending provisional responses with END_STREAM set causes
         ProtocolErrors.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         flags = ['END_STREAM'] if end_stream else []
@@ -419,7 +421,7 @@ class TestSendingInformationalResponses(object):
         When sending an informational response after the actual response
         headers we consider it a ProtocolError and raise it.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         flags = ['END_STREAM'] if end_stream else []

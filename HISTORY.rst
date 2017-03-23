@@ -12,6 +12,13 @@ API Changes (Backward-Incompatible)
 - Added a ``normalize_inbound_headers`` flag to the ``H2Configuration`` object
   that defaults to ``True``. Setting this to ``False`` changes the behaviour
   from the previous point back to the v2 behaviour.
+- Removed deprecated fields from ``h2.errors`` module.
+- Removed deprecated fields from ``h2.settings`` module.
+- Removed deprecated ``client_side`` and ``header_encoding`` arguments from
+  ``H2Connection``.
+- Removed deprecated ``client_side`` and ``header_encoding`` properties from
+  ``H2Connection``.
+- ``dict`` objects are no longer allowed for user-supplied headers.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

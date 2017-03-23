@@ -7,6 +7,7 @@ Tests that we handle closed streams correctly.
 """
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -24,6 +25,7 @@ class TestClosedStreams(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     def test_can_receive_multiple_rst_stream_frames(self, frame_factory):
         """
@@ -53,7 +55,7 @@ class TestClosedStreams(object):
         The remote peer creating a stream with a lower ID than one we've seen
         causes a GOAWAY frame.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
@@ -86,7 +88,7 @@ class TestClosedStreams(object):
         When streams have been closed, they get removed from the streams
         dictionary the next time we count the open streams.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
@@ -117,6 +119,7 @@ class TestStreamsClosedByEndStream(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize(
         "frame",
@@ -137,7 +140,7 @@ class TestStreamsClosedByEndStream(object):
         A stream that is closed by receiving END_STREAM raises
         ProtocolError when it receives an unexpected frame.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
@@ -187,7 +190,7 @@ class TestStreamsClosedByEndStream(object):
         A stream that is closed by sending END_STREAM raises
         ProtocolError when it receives an unexpected frame.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers,
                        end_stream=True)
@@ -228,7 +231,7 @@ class TestStreamsClosedByEndStream(object):
         A stream that is closed by sending END_STREAM will raise
         ProtocolError when received unexpected frame.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
@@ -261,6 +264,7 @@ class TestStreamsClosedByRstStream(object):
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize(
         "frame",
@@ -280,7 +284,7 @@ class TestStreamsClosedByRstStream(object):
         A stream that is closed by receive RST_STREAM can receive further
         frames: it simply sends RST_STREAM for it.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 
@@ -340,7 +344,7 @@ class TestStreamsClosedByRstStream(object):
         A stream that is closed by sent RST_STREAM can receive further frames:
         it simply sends RST_STREAM for it.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.initiate_connection()
 

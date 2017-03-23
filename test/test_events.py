@@ -201,8 +201,10 @@ class TestEventReprs(object):
         """
         e = h2.events.RemoteSettingsChanged()
         e.changed_settings = {
-            h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
-                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                h2.settings.ChangedSetting(
+                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15
+                ),
         }
 
         assert repr(e) == (
@@ -267,8 +269,10 @@ class TestEventReprs(object):
         """
         e = h2.events.SettingsAcknowledged()
         e.changed_settings = {
-            h2.settings.INITIAL_WINDOW_SIZE: h2.settings.ChangedSetting(
-                h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15),
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                h2.settings.ChangedSetting(
+                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15
+                ),
         }
 
         assert repr(e) == (

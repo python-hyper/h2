@@ -10,6 +10,7 @@ import itertools
 
 import pytest
 
+import h2.config
 import h2.connection
 import h2.errors
 import h2.events
@@ -54,13 +55,14 @@ class TestInvalidFrameSequences(object):
         [header for header in base_request_headers
          if header[0] != ':authority'],
     ]
+    server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event(self, frame_factory, headers):
         """
         Test invalid headers are rejected with PROTOCOL_ERROR.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
@@ -81,7 +83,7 @@ class TestInvalidFrameSequences(object):
         If a PUSH_PROMISE header frame is received with an invalid header block
         it is rejected with a PROTOCOL_ERROR.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1, headers=self.base_request_headers, end_stream=True
@@ -162,7 +164,7 @@ class TestInvalidFrameSequences(object):
             self.base_request_headers + [('te', 'trailers')]
         )
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(headers)
@@ -179,7 +181,7 @@ class TestInvalidFrameSequences(object):
         """
         trailers = [(':path', '/'), ('extra', 'value')]
 
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
@@ -234,6 +236,8 @@ class TestSendingInvalidFrameSequences(object):
     ]
     all_header_blocks = invalid_header_blocks + strippable_header_blocks
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event(self, frame_factory, headers):
         """
@@ -252,7 +256,7 @@ class TestSendingInvalidFrameSequences(object):
         """
         Sending invalid headers in a push promise raises a ProtocolError.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
@@ -515,12 +519,14 @@ class TestOversizedHeaders(object):
     # number 62 (0x3e), leading to a repeat of the byte 0xbe.
     second_header_block = b'\xbe' * 2**14
 
+    server_config = h2.config.H2Configuration(client_side=False)
+
     def test_hpack_bomb_request(self, frame_factory):
         """
         A HPACK bomb request causes the connection to be torn down with the
         error code ENHANCE_YOUR_CALM.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
@@ -549,7 +555,7 @@ class TestOversizedHeaders(object):
         A HPACK bomb response causes the connection to be torn down with the
         error code ENHANCE_YOUR_CALM.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1, headers=self.request_header_block
@@ -584,7 +590,7 @@ class TestOversizedHeaders(object):
         A HPACK bomb push causes the connection to be torn down with the
         error code ENHANCE_YOUR_CALM.
         """
-        c = h2.connection.H2Connection(client_side=True)
+        c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
             stream_id=1, headers=self.request_header_block
@@ -618,7 +624,7 @@ class TestOversizedHeaders(object):
         When we've shrunk the header list size, we reject new header blocks
         that violate the new size.
         """
-        c = h2.connection.H2Connection(client_side=False)
+        c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
@@ -632,7 +638,7 @@ class TestOversizedHeaders(object):
 
         # Now, send a settings change. It's un-ACKed at this time. A new
         # request arrives, also without incident.
-        c.update_settings({h2.settings.MAX_HEADER_LIST_SIZE: 50})
+        c.update_settings({h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 50})
         c.clear_outbound_data_buffer()
         f = frame_factory.build_headers_frame(
             stream_id=3,
