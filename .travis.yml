@@ -29,13 +29,14 @@ matrix:
       env: TOXENV=docs
     - python: "2.7"
       env: TOXENV=packaging
+    - python: "3.6"
+      env: TOXENV=h2spec
 
     # Test we haven't broken our major dependencies.
     - python: "2.7"
       env: TOXENV=py27-twistedMaster
 
 install:
-  - "pip install -U pip setuptools"
-  - "pip install -U tox"
+  - _travis/install.sh
 script:
   - tox -- --hypothesis-profile travis
