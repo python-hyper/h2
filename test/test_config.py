@@ -21,7 +21,7 @@ class TestH2Config(object):
         """
         config = h2.config.H2Configuration()
         assert config.client_side
-        assert config.header_encoding == 'utf-8'
+        assert config.header_encoding is None
         assert isinstance(config.logger, h2.config.DummyLogger)
 
     boolean_config_options = [

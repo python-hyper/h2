@@ -110,14 +110,14 @@ class TestComplexServer(object):
     Complex tests for server-side stacks.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -194,10 +194,10 @@ class TestContinuationFrames(object):
     Tests for the relatively complex CONTINUATION frame logic.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -371,14 +371,14 @@ class TestContinuationFramesPushPromise(object):
     PUSH_PROMISE frames.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
 
     def _build_continuation_sequence(self, headers, block_size, frame_factory):
