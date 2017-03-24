@@ -13,6 +13,7 @@ IProtocolNegotiationFactory).
 
 This code requires Python 3.5 or later.
 """
+import h2.config
 import h2.connection
 import socket
 import ssl
@@ -100,7 +101,8 @@ def main():
     tls_connection = negotiate_tls(connection, context)
 
     # Step 4: Create a server-side H2 connection.
-    http2_connection = h2.connection.H2Connection(client_side=False)
+    config = h2.config.H2Configuration(client_side=False)
+    http2_connection = h2.connection.H2Connection(config=config)
 
     # Step 5: Initiate the connection
     http2_connection.initiate_connection()

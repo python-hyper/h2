@@ -11,6 +11,7 @@ import json
 import eventlet
 
 from eventlet.green.OpenSSL import SSL, crypto
+from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived
 
@@ -20,8 +21,9 @@ class ConnectionManager(object):
     An object that manages a single HTTP/2 connection.
     """
     def __init__(self, sock):
+        config = H2Configuration(client_side=False)
         self.sock = sock
-        self.conn = H2Connection(client_side=False)
+        self.conn = H2Connection(config=config)
 
     def run_forever(self):
         self.conn.initiate_connection()

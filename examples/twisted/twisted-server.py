@@ -15,6 +15,7 @@ from OpenSSL import crypto
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet import endpoints, reactor, ssl
+from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import (
     RequestReceived, DataReceived, WindowUpdated
@@ -30,7 +31,8 @@ READ_CHUNK_SIZE = 8192
 
 class H2Protocol(Protocol):
     def __init__(self, root):
-        self.conn = H2Connection(client_side=False)
+        config = H2Configuration(client_side=False)
+        self.conn = H2Connection(config=config)
         self.known_proto = None
         self.root = root
 
@@ -58,9 +60,9 @@ class H2Protocol(Protocol):
 
     def requestReceived(self, headers, stream_id):
         headers = dict(headers)  # Invalid conversion, fix later.
-        assert headers[':method'] == 'GET'
+        assert headers[b':method'] == b'GET'
 
-        path = headers[':path'].lstrip('/')
+        path = headers[b':path'].lstrip(b'/')
         full_path = os.path.join(self.root, path)
 
         if not os.path.exists(full_path):

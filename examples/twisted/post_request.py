@@ -103,7 +103,7 @@ class H2Protocol(Protocol):
         Handle the response by printing the response headers.
         """
         for name, value in response_headers:
-            print("%s: %s" % (name, value))
+            print("%s: %s" % (name.decode('utf-8'), value.decode('utf-8')))
 
         print("")
 

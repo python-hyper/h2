@@ -65,6 +65,7 @@ import ssl
 import sys
 import threading
 
+from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import (
     DataReceived, RequestReceived, WindowUpdated, StreamEnded, StreamReset
@@ -86,8 +87,10 @@ APPLICATION = None
 
 class H2Protocol(asyncio.Protocol):
     def __init__(self):
+        config = H2Configuration(client_side=False, header_encoding='utf-8')
+
         # Our server-side state machine.
-        self.conn = H2Connection(client_side=False)
+        self.conn = H2Connection(config=config)
 
         # The backing transport.
         self.transport = None
