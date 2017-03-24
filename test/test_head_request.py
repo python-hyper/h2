@@ -10,16 +10,16 @@ import pytest
 class TestHeadRequest(object):
 
         example_request_headers = [
-            (u':authority', u'example.com'),
-            (u':path', u'/'),
-            (u':scheme', u'https'),
-            (u':method', u'HEAD'),
+            (b':authority', b'example.com'),
+            (b':path', b'/'),
+            (b':scheme', b'https'),
+            (b':method', b'HEAD'),
         ]
 
         example_response_headers = [
-            (u':status', u'200'),
-            (u'server', u'fake-serv/0.1.0'),
-            (u'content_length', u'1'),
+            (b':status', b'200'),
+            (b'server', b'fake-serv/0.1.0'),
+            (b'content_length', b'1'),
         ]
 
         def test_non_zero_content_and_no_body(self, frame_factory):

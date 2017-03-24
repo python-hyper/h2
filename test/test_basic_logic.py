@@ -232,7 +232,8 @@ class TestBasicClient(object):
         """
         When receiving a response, the ResponseReceived event fires.
         """
-        c = h2.connection.H2Connection()
+        config = h2.config.H2Configuration(header_encoding='utf-8')
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
@@ -346,7 +347,8 @@ class TestBasicClient(object):
         Pushed streams fire a PushedStreamReceived event, followed by
         ResponseReceived when the response headers are received.
         """
-        c = h2.connection.H2Connection()
+        config = h2.config.H2Configuration(header_encoding='utf-8')
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=False)
 
@@ -660,7 +662,8 @@ class TestBasicClient(object):
         When two HEADERS blocks are received in the same stream from a
         server, the second set are trailers.
         """
-        c = h2.connection.H2Connection()
+        config = h2.config.H2Configuration(header_encoding='utf-8')
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers)
         f = frame_factory.build_headers_frame(self.example_response_headers)
@@ -842,7 +845,8 @@ class TestBasicClient(object):
             'path=1; test1=val1; test2=val2'
         )
 
-        c = h2.connection.H2Connection()
+        config = h2.config.H2Configuration(header_encoding='utf-8')
+        c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers, end_stream=True)
 
@@ -877,7 +881,9 @@ class TestBasicClient(object):
         ]
 
         config = h2.config.H2Configuration(
-            client_side=True, normalize_inbound_headers=False
+            client_side=True,
+            normalize_inbound_headers=False,
+            header_encoding='utf-8'
         )
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()
@@ -918,7 +924,9 @@ class TestBasicServer(object):
         (':status', '200'),
         ('server', 'hyper-h2/0.1.0')
     ]
-    server_config = h2.config.H2Configuration(client_side=False)
+    server_config = h2.config.H2Configuration(
+        client_side=False, header_encoding='utf-8'
+    )
 
     def test_ignores_preamble(self):
         """
@@ -1787,7 +1795,9 @@ class TestBasicServer(object):
         ]
 
         config = h2.config.H2Configuration(
-            client_side=False, normalize_inbound_headers=False
+            client_side=False,
+            normalize_inbound_headers=False,
+            header_encoding='utf-8'
         )
         c = h2.connection.H2Connection(config=config)
         c.initiate_connection()

@@ -23,14 +23,14 @@ class TestClientUpgrade(object):
     Tests of the client-side of the HTTP/2 upgrade dance.
     """
     example_request_headers = [
-        (u':authority', u'example.com'),
-        (u':path', u'/'),
-        (u':scheme', u'https'),
-        (u':method', u'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
-        (u':status', u'200'),
-        (u'server', u'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
 
     def test_returns_http2_settings(self, frame_factory):
@@ -146,14 +146,14 @@ class TestServerUpgrade(object):
     Tests of the server-side of the HTTP/2 upgrade dance.
     """
     example_request_headers = [
-        (u':authority', u'example.com'),
-        (u':path', u'/'),
-        (u':scheme', u'https'),
-        (u':method', u'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
-        (u':status', u'200'),
-        (u'server', u'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 

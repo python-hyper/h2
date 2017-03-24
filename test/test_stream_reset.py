@@ -21,15 +21,15 @@ class TestStreamReset(object):
     Tests for resetting streams.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0'),
-        ('content-length', '0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0'),
+        (b'content-length', b'0')
     ]
 
     def test_reset_stream_keeps_header_state_correct(self, frame_factory):

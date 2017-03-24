@@ -37,16 +37,16 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
         A request issued by hyper-h2 can be responded to by hyper-h2.
         """
         request_headers = [
-            (':method', 'GET'),
-            (':path', '/'),
-            (':authority', 'example.com'),
-            (':scheme', 'https'),
-            ('user-agent', 'test-client/0.1.0'),
+            (b':method', b'GET'),
+            (b':path', b'/'),
+            (b':authority', b'example.com'),
+            (b':scheme', b'https'),
+            (b'user-agent', b'test-client/0.1.0'),
         ]
         response_headers = [
-            (':status', '204'),
-            ('server', 'test-server/0.1.0'),
-            ('content-length', '0'),
+            (b':status', b'204'),
+            (b'server', b'test-server/0.1.0'),
+            (b'content-length', b'0'),
         ]
 
         def client():

@@ -19,22 +19,22 @@ class TestReceivingInformationalResponses(object):
     Tests for receiving informational responses.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
-        ('expect', '100-continue'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+        (b'expect', b'100-continue'),
     ]
     example_informational_headers = [
-        (':status', '100'),
-        ('server', 'fake-serv/0.1.0')
+        (b':status', b'100'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     example_trailers = [
-        ('trailer', 'you-bet'),
+        (b'trailer', b'you-bet'),
     ]
 
     @pytest.mark.parametrize('end_stream', (True, False))
@@ -141,7 +141,7 @@ class TestReceivingInformationalResponses(object):
         assert events[0].stream_id == 1
 
         assert isinstance(events[1], h2.events.InformationalResponseReceived)
-        assert events[1].headers == [(':status', '101')]
+        assert events[1].headers == [(b':status', b'101')]
         assert events[1].stream_id == 1
 
     @pytest.mark.parametrize('end_stream', (True, False))
@@ -216,11 +216,11 @@ class TestSendingInformationalResponses(object):
     Tests for sending informational responses.
     """
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
-        ('expect', '100-continue'),
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+        (b'expect', b'100-continue'),
     ]
     unicode_informational_headers = [
         (u':status', u'100'),
@@ -231,11 +231,11 @@ class TestSendingInformationalResponses(object):
         (b'server', b'fake-serv/0.1.0')
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (b':status', b'200'),
+        (b'server', b'fake-serv/0.1.0')
     ]
     example_trailers = [
-        ('trailer', 'you-bet'),
+        (b'trailer', b'you-bet'),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 

@@ -62,10 +62,14 @@ class H2Configuration(object):
 
     :param header_encoding: Controls whether the headers emitted by this object
         in events are transparently decoded to ``unicode`` strings, and what
-        encoding is used to do that decoding. For historical reasons, this
-        defaults to ``'utf-8'``. To prevent the decoding of headers (that is,
-        to force them to be returned as bytestrings), this can be set to
-        ``False`` or the empty string.
+        encoding is used to do that decoding. This defaults to ``None``,
+        meaning that headers will be returned as bytes. To automatically
+        decode headers (that is, to return them as unicode strings), this can
+        be set to the string name of any encoding, e.g. ``'utf-8'``.
+
+        .. versionchanged:: 3.0.0
+           Changed default value from ``'utf-8'`` to ``None``
+
     :type header_encoding: ``str``, ``False``, or ``None``
 
     :param validate_outbound_headers: Controls whether the headers emitted
@@ -122,7 +126,7 @@ class H2Configuration(object):
 
     def __init__(self,
                  client_side=True,
-                 header_encoding='utf-8',
+                 header_encoding=None,
                  validate_outbound_headers=True,
                  normalize_outbound_headers=True,
                  validate_inbound_headers=True,
@@ -141,10 +145,10 @@ class H2Configuration(object):
         """
         Controls whether the headers emitted by this object in events are
         transparently decoded to ``unicode`` strings, and what encoding is used
-        to do that decoding. For historical reasons, this defaults to
-        ``'utf-8'``. To prevent the decoding of headers (that is, to force them
-        to be returned as bytestrings), this can be set to ``False`` or the
-        empty string.
+        to do that decoding. This defaults to ``None``, meaning that headers
+        will be returned as bytes. To automatically decode headers (that is, to
+        return them as unicode strings), this can be set to the string name of
+        any encoding, e.g. ``'utf-8'``.
         """
         return self._header_encoding
 

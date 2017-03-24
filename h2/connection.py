@@ -300,7 +300,6 @@ class H2Connection(object):
         if self.config is None:
             self.config = H2Configuration(
                 client_side=True,
-                header_encoding='utf-8',
             )
 
         # Objects that store settings, including defaults.

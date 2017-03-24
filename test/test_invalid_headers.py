@@ -55,7 +55,9 @@ class TestInvalidFrameSequences(object):
         [header for header in base_request_headers
          if header[0] != ':authority'],
     ]
-    server_config = h2.config.H2Configuration(client_side=False)
+    server_config = h2.config.H2Configuration(
+        client_side=False, header_encoding='utf-8'
+    )
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event(self, frame_factory, headers):
@@ -113,7 +115,8 @@ class TestInvalidFrameSequences(object):
         """
         config = h2.config.H2Configuration(
             client_side=True,
-            validate_inbound_headers=False
+            validate_inbound_headers=False,
+            header_encoding='utf-8'
         )
 
         c = h2.connection.H2Connection(config=config)
@@ -143,7 +146,9 @@ class TestInvalidFrameSequences(object):
         """
         config = h2.config.H2Configuration(
             client_side=False,
-            validate_inbound_headers=False)
+            validate_inbound_headers=False,
+            header_encoding='utf-8'
+        )
 
         c = h2.connection.H2Connection(config=config)
         c.receive_data(frame_factory.preamble())
