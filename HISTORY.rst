@@ -1,8 +1,8 @@
 Release History
 ===============
 
-3.0.0dev0
----------
+3.0.0 (2017-03-24)
+------------------
 
 API Changes (Backward-Incompatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,6 +34,8 @@ API Changes (Backward-Compatible)
 
 Bugfixes
 ~~~~~~~~
+
+None
 
 
 2.6.1 (2017-03-16)
