@@ -42,9 +42,10 @@ matrix:
     - python: "3.7"
       dist: xenial
       env: TOXENV=packaging
+    - python: "3.6"
+      env: TOXENV=h2spec
 
 install:
-  - "pip install -U pip setuptools"
-  - "pip install -U tox"
+  - _travis/install.sh
 script:
   - tox -- --hypothesis-profile travis
