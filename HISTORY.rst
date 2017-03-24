@@ -19,6 +19,10 @@ API Changes (Backward-Incompatible)
 - Removed deprecated ``client_side`` and ``header_encoding`` properties from
   ``H2Connection``.
 - ``dict`` objects are no longer allowed for user-supplied headers.
+- The default header encoding is now ``None``, not ``utf-8``: this means that
+  all events that carry headers now return those headers as byte strings by
+  default. The header encoding can be set back to ``utf-8`` to restore the old
+  behaviour.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
