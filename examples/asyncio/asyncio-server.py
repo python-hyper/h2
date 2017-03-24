@@ -20,6 +20,7 @@ import ssl
 import collections
 from typing import List, Tuple
 
+from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import (
     ConnectionTerminated, DataReceived, RequestReceived, StreamEnded
@@ -33,7 +34,8 @@ RequestData = collections.namedtuple('RequestData', ['headers', 'data'])
 
 class H2Protocol(asyncio.Protocol):
     def __init__(self):
-        self.conn = H2Connection(client_side=False)
+        config = H2Configuration(client_side=False, header_encoding='utf-8')
+        self.conn = H2Connection(config=config)
         self.transport = None
         self.stream_data = {}
 

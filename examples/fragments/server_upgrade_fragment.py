@@ -11,6 +11,7 @@ HTTP/1.1 server library if possible.
 
 This code requires Python 3.5 or later.
 """
+import h2.config
 import h2.connection
 import re
 import socket
@@ -81,7 +82,8 @@ def main():
 
     # Step 3: Create a H2Connection object in server mode, and pass it the
     # value of the HTTP2-Settings header field.
-    h2_connection = h2.connection.H2Connection(client_side=False)
+    config = h2.config.H2Configuration(client_side=False)
+    h2_connection = h2.connection.H2Connection(config=config)
     h2_connection.initiate_upgrade_connection(
         settings_header=settings_header_value
     )

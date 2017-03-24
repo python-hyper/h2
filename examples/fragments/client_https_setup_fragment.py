@@ -99,8 +99,8 @@ def main():
     # Step 3: Wrap the connection in TLS and validate that we negotiated HTTP/2
     tls_connection = negotiate_tls(connection, context)
 
-    # Step 4: Create a server-side H2 connection.
-    http2_connection = h2.connection.H2Connection(client_side=True)
+    # Step 4: Create a client-side H2 connection.
+    http2_connection = h2.connection.H2Connection()
 
     # Step 5: Initiate the connection
     http2_connection.initiate_connection()

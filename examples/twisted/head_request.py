@@ -75,7 +75,7 @@ class H2Protocol(Protocol):
 
     def handleResponse(self, response_headers, stream_id):
         for name, value in response_headers:
-            print("%s: %s" % (name, value))
+            print("%s: %s" % (name.decode('utf-8'), value.decode('utf-8')))
 
         print("")
 
