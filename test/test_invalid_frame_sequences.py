@@ -158,8 +158,8 @@ class TestInvalidFrameSequences(object):
 
     def test_unexpected_continuation_on_closed_stream(self, frame_factory):
         """
-        CONTINUATION frames received on closed streams cause stream errors of
-        type STREAM_CLOSED.
+        CONTINUATION frames received on closed streams cause connection errors
+        of type PROTOCOL_ERROR.
         """
         c = h2.connection.H2Connection(client_side=False)
         c.initiate_connection()
@@ -175,11 +175,13 @@ class TestInvalidFrameSequences(object):
         bad_frame = frame_factory.build_continuation_frame(
             header_block=b'hello'
         )
-        c.receive_data(bad_frame.serialize())
 
-        expected_frame = frame_factory.build_rst_stream_frame(
-            stream_id=1,
-            error_code=0x5,
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(bad_frame.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+            last_stream_id=1
         )
         assert c.data_to_send() == expected_frame.serialize()
 
