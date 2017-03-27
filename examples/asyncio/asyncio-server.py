@@ -20,7 +20,7 @@ from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import (
     ConnectionTerminated, DataReceived, RequestReceived, StreamEnded,
-    StreamReset
+    StreamReset, WindowUpdated
 )
 from h2.errors import ErrorCodes
 from h2.exceptions import ProtocolError, StreamClosedError
@@ -66,6 +66,8 @@ class H2Protocol(asyncio.Protocol):
                     self.transport.close()
                 elif isinstance(event, StreamReset):
                     self.stream_reset(event.stream_id)
+                elif isinstance(event, WindowUpdated):
+                    self.window_updated(event.stream_id, event.delta)
 
                 self.transport.write(self.conn.data_to_send())
 
