@@ -209,6 +209,7 @@ def validate_headers(headers, hdr_validation_flags):
     headers = _check_host_authority_header(
         headers, hdr_validation_flags
     )
+    headers = _check_path_header(headers, hdr_validation_flags)
 
     return list(headers)
 
@@ -430,6 +431,32 @@ def _check_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
+def _check_path_header(headers, hdr_validation_flags):
+    """
+    Raise a ProtocolError if a header block arrives or is sent that contains an
+    empty :path header.
+    """
+    def inner():
+        for header in headers:
+            if header[0] in (b':path', u':path'):
+                if not header[1]:
+                    raise ProtocolError("An empty :path header is forbidden")
+
+            yield header
+
+    # We only expect to see :authority and Host headers on request header
+    # blocks that aren't trailers, so skip this validation if this is a
+    # response header or we're looking at trailer blocks.
+    skip_validation = (
+        hdr_validation_flags.is_response_header or
+        hdr_validation_flags.is_trailer
+    )
+    if skip_validation:
+        return headers
+    else:
+        return inner()
+
+
 def _lowercase_header_names(headers, hdr_validation_flags):
     """
     Given an iterable of header two-tuples, rebuilds that iterable with the
@@ -505,5 +532,6 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     headers = _check_sent_host_authority_header(
         headers, hdr_validation_flags
     )
+    headers = _check_path_header(headers, hdr_validation_flags)
 
     return headers
