@@ -1,6 +1,18 @@
 Release History
 ===============
 
+3.0.1dev0
+---------
+
+Bugfixes
+~~~~~~~~
+
+- CONTINUATION frames sent on closed streams previously caused stream errors
+  of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
+  errors of type PROTOCOL_ERROR, and so this release changes to match that
+  behaviour.
+
+
 3.0.0 (2017-03-24)
 ------------------
 
