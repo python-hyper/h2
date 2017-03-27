@@ -20,7 +20,7 @@ from .events import (
     _ResponseSent, _RequestSent, _TrailersSent, _PushedRequestSent
 )
 from .exceptions import (
-    ProtocolError, StreamClosedError, InvalidBodyLengthError
+    ProtocolError, StreamClosedError, InvalidBodyLengthError, FlowControlError
 )
 from .utilities import (
     guard_increment_window, is_informational_response, authority_from_headers,
@@ -1129,15 +1129,30 @@ class H2Stream(object):
         events = self.state_machine.process_input(
             StreamInputs.RECV_WINDOW_UPDATE
         )
+        frames = []
 
+        # If we encounter a problem with incrementing the flow control window,
+        # this should be treated as a *stream* error, not a *connection* error.
+        # That means we need to catch the error and forcibly close the stream.
         if events:
             events[0].delta = increment
-            self.outbound_flow_control_window = guard_increment_window(
-                self.outbound_flow_control_window,
-                increment
-            )
+            try:
+                self.outbound_flow_control_window = guard_increment_window(
+                    self.outbound_flow_control_window,
+                    increment
+                )
+            except FlowControlError:
+                # Ok, this is bad. We're going to need to perform a local
+                # reset.
+                event = StreamReset()
+                event.stream_id = self.stream_id
+                event.error_code = ErrorCodes.FLOW_CONTROL_ERROR
+                event.remote_reset = False
 
-        return [], events
+                events = [event]
+                frames = self.reset_stream(event.error_code)
+
+        return frames, events
 
     def receive_continuation(self):
         """
