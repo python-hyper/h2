@@ -430,6 +430,61 @@ class TestFilter(object):
         if not (flags.is_trailer or flags.is_response_header)
     ]
 
+    invalid_request_header_blocks_bytes = (
+        # First, missing :method
+        (
+            (b':authority', b'google.com'),
+            (b':path', b'/'),
+            (b':scheme', b'https'),
+        ),
+        # Next, missing :path
+        (
+            (b':authority', b'google.com'),
+            (b':method', b'GET'),
+            (b':scheme', b'https'),
+        ),
+        # Next, missing :scheme
+        (
+            (b':authority', b'google.com'),
+            (b':method', b'GET'),
+            (b':path', b'/'),
+        ),
+        # Finally, path present but empty.
+        (
+            (b':authority', b'google.com'),
+            (b':method', b'GET'),
+            (b':scheme', b'https'),
+            (b':path', b''),
+        ),
+    )
+    invalid_request_header_blocks_unicode = (
+        # First, missing :method
+        (
+            (u':authority', u'google.com'),
+            (u':path', u'/'),
+            (u':scheme', u'https'),
+        ),
+        # Next, missing :path
+        (
+            (u':authority', u'google.com'),
+            (u':method', u'GET'),
+            (u':scheme', u'https'),
+        ),
+        # Next, missing :scheme
+        (
+            (u':authority', u'google.com'),
+            (u':method', u'GET'),
+            (u':path', u'/'),
+        ),
+        # Finally, path present but empty.
+        (
+            (u':authority', u'google.com'),
+            (u':method', u'GET'),
+            (u':scheme', u'https'),
+            (u':path', u''),
+        ),
+    )
+
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
     @given(headers=HEADERS_STRATEGY)
@@ -482,6 +537,42 @@ class TestFilter(object):
         headers = [(b'content-length', b'42')]
         with pytest.raises(h2.exceptions.ProtocolError):
             h2.utilities.validate_headers(headers, hdr_validation_flags)
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
+    )
+    @pytest.mark.parametrize(
+        'header_block',
+        (
+            invalid_request_header_blocks_bytes +
+            invalid_request_header_blocks_unicode
+        )
+    )
+    def test_outbound_req_header_missing_pseudo_headers(self,
+                                                        hdr_validation_flags,
+                                                        header_block):
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(
+                h2.utilities.validate_outbound_headers(
+                    header_block, hdr_validation_flags
+                )
+            )
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
+    )
+    @pytest.mark.parametrize(
+        'header_block', invalid_request_header_blocks_bytes
+    )
+    def test_inbound_req_header_missing_pseudo_headers(self,
+                                                       hdr_validation_flags,
+                                                       header_block):
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(
+                h2.utilities.validate_headers(
+                    header_block, hdr_validation_flags
+                )
+            )
 
 
 class TestOversizedHeaders(object):
