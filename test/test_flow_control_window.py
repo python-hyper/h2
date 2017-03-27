@@ -538,7 +538,7 @@ class TestFlowControl(object):
         assert not event.remote_reset
 
         expected_frame = frame_factory.build_rst_stream_frame(
-            stream_id=0,
+            stream_id=1,
             error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
