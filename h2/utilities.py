@@ -288,6 +288,18 @@ def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
         return test_string.startswith(unicode_prefix)
 
 
+def _assert_header_in_set(string_header, bytes_header, header_set):
+    """
+    Given a set of header names, checks whether the string or byte version of
+    the header name is present. Raises a Protocol error with the appropriate
+    error if it's missing.
+    """
+    if not (string_header in header_set or bytes_header in header_set):
+        raise ProtocolError(
+            "Header block missing mandatory %s header" % string_header
+        )
+
+
 def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
@@ -331,18 +343,26 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
             seen_pseudo_header_fields
         )
 
-    # If ':status' pseudo-header is not there in a response header, reject it
+    # If ':status' pseudo-header is not there in a response header, reject it.
+    # Similarly, if ':path', ':method', or ':scheme' are not there in a request
+    # header, reject it.
     # Relevant RFC section: RFC 7540 § 8.1.2.4
     # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
     if hdr_validation_flags.is_response_header:
-        seen_status_field = (
-            b':status' in seen_pseudo_header_fields or
-            u':status' in seen_pseudo_header_fields
+        _assert_header_in_set(
+            u':status', b':status', seen_pseudo_header_fields
         )
-        if not seen_status_field:
-            raise ProtocolError(
-                "Response header block does not have a :status header"
-            )
+    elif (not hdr_validation_flags.is_response_header and
+          not hdr_validation_flags.is_trailer):
+        # This is a request, so we need to have seen :path, :method, and
+        # :scheme.
+        _assert_header_in_set(u':path', b':path', seen_pseudo_header_fields)
+        _assert_header_in_set(
+            u':method', b':method', seen_pseudo_header_fields
+        )
+        _assert_header_in_set(
+            u':scheme', b':scheme', seen_pseudo_header_fields
+        )
 
 
 def _validate_host_authority_header(headers):
