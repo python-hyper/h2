@@ -492,6 +492,9 @@ class TestBasicClient(object):
         )
         test_headers = [
             (':authority', 'example.com'),
+            (':path', '/'),
+            (':method', 'GET'),
+            (':scheme', 'https'),
             ('key', large_binary_string)
         ]
         c = h2.connection.H2Connection()
@@ -1169,7 +1172,13 @@ class TestBasicServer(object):
         c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         headers_frame = frame_factory.build_headers_frame(
-            [(':authority', 'example.com')], stream_id=23)
+            [
+                (':authority', 'example.com'),
+                (':path', '/'),
+                (':scheme', 'https'),
+                (':method', 'GET'),
+            ],
+            stream_id=23)
         c.receive_data(headers_frame.serialize())
 
         f = frame_factory.build_goaway_frame(
