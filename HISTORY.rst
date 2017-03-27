@@ -10,6 +10,10 @@ API Changes (Backward-Compatible)
 Bugfixes
 ~~~~~~~~
 
+- Remote peers incrementing their inbound connection window beyond the maximum
+  allowed value now cause stream-level errors, rather than connection-level
+  errors, allowing connections to stay up longer.
+
 
 3.0.0 (2017-03-24)
 ------------------
