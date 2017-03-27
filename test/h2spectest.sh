@@ -16,4 +16,4 @@ popd
 sleep 2
 
 # Go go go!
-h2spec -k -t -v -p 8443
+h2spec -k -t -v -p 8443 $@
