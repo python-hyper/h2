@@ -42,6 +42,18 @@ _SECURE_HEADERS = frozenset([
     b'proxy-authorization', u'proxy-authorization',
 ])
 
+
+_REQUEST_ONLY_HEADERS = frozenset([
+    b':scheme', u':scheme',
+    b':path', u':path',
+    b':authority', u':authority',
+    b':method', u':method'
+])
+
+
+_RESPONSE_ONLY_HEADERS = frozenset([b':status', u':status'])
+
+
 if sys.version_info[0] == 2:  # Python 2.X
     _WHITESPACE = frozenset(whitespace)
 else:  # Python 3.3+
@@ -337,33 +349,51 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
 
         yield header
 
+    # Check the pseudo-headers we got to confirm they're acceptable.
+    _check_pseudo_header_field_acceptability(
+        seen_pseudo_header_fields, hdr_validation_flags
+    )
+
+
+def _check_pseudo_header_field_acceptability(pseudo_headers,
+                                             hdr_validation_flags):
+    """
+    Given the set of pseudo-headers present in a header block and the
+    validation flags, confirms that RFC 7540 allows them.
+    """
     # Pseudo-header fields MUST NOT appear in trailers - RFC 7540 § 8.1.2.1
-    if hdr_validation_flags.is_trailer and seen_pseudo_header_fields:
+    if hdr_validation_flags.is_trailer and pseudo_headers:
         raise ProtocolError(
-            "Received pseudo-header in trailer %s" %
-            seen_pseudo_header_fields
+            "Received pseudo-header in trailer %s" % pseudo_headers
         )
 
     # If ':status' pseudo-header is not there in a response header, reject it.
     # Similarly, if ':path', ':method', or ':scheme' are not there in a request
-    # header, reject it.
+    # header, reject it. Additionally, if a response contains any request-only
+    # headers or vice-versa, reject it.
     # Relevant RFC section: RFC 7540 § 8.1.2.4
     # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
     if hdr_validation_flags.is_response_header:
-        _assert_header_in_set(
-            u':status', b':status', seen_pseudo_header_fields
-        )
+        _assert_header_in_set(u':status', b':status', pseudo_headers)
+        invalid_response_headers = pseudo_headers & _REQUEST_ONLY_HEADERS
+        if invalid_response_headers:
+            raise ProtocolError(
+                "Encountered request-only headers %s" %
+                invalid_response_headers
+            )
     elif (not hdr_validation_flags.is_response_header and
           not hdr_validation_flags.is_trailer):
         # This is a request, so we need to have seen :path, :method, and
         # :scheme.
-        _assert_header_in_set(u':path', b':path', seen_pseudo_header_fields)
-        _assert_header_in_set(
-            u':method', b':method', seen_pseudo_header_fields
-        )
-        _assert_header_in_set(
-            u':scheme', b':scheme', seen_pseudo_header_fields
-        )
+        _assert_header_in_set(u':path', b':path', pseudo_headers)
+        _assert_header_in_set(u':method', b':method', pseudo_headers)
+        _assert_header_in_set(u':scheme', b':scheme', pseudo_headers)
+        invalid_request_headers = pseudo_headers & _RESPONSE_ONLY_HEADERS
+        if invalid_request_headers:
+            raise ProtocolError(
+                "Encountered response-only headers %s" %
+                invalid_request_headers
+            )
 
 
 def _validate_host_authority_header(headers):
