@@ -686,8 +686,6 @@ _transitions = {
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
-    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
-        (H2StreamStateMachine.reset_stream_on_error, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.send_informational_response,
             StreamState.HALF_CLOSED_REMOTE),
@@ -740,8 +738,6 @@ _transitions = {
     (StreamState.CLOSED, StreamInputs.RECV_HEADERS):
         (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_DATA):
-        (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
         (H2StreamStateMachine.recv_on_closed_stream, StreamState.CLOSED),
 
     # > WINDOW_UPDATE or RST_STREAM frames can be received in this state
