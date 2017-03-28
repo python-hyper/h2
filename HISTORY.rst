@@ -10,6 +10,10 @@ API Changes (Backward-Compatible)
 Bugfixes
 ~~~~~~~~
 
+- CONTINUATION frames sent on closed streams previously caused stream errors
+  of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
+  errors of type PROTOCOL_ERROR, and so this release changes to match that
+  behaviour.
 - h2 now rejects receiving and sending request header blocks that are missing
   any of the mandatory pseudo-header fields (:path, :scheme, and :method).
 - h2 now rejects receiving and sending request header blocks that have an empty
