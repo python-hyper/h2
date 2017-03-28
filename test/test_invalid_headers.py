@@ -494,6 +494,16 @@ class TestFilter(object):
         ),
     )
 
+    # All headers that are forbidden from either request or response blocks.
+    forbidden_request_headers_bytes = (b':status',)
+    forbidden_request_headers_unicode = (u':status',)
+    forbidden_response_headers_bytes = (
+        b':path', b':scheme', b':authority', b':method'
+    )
+    forbidden_response_headers_unicode = (
+        u':path', u':scheme', u':authority', u':method'
+    )
+
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
     @given(headers=HEADERS_STRATEGY)
@@ -582,6 +592,100 @@ class TestFilter(object):
                     header_block, hdr_validation_flags
                 )
             )
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
+    )
+    @pytest.mark.parametrize(
+        'invalid_header',
+        forbidden_request_headers_bytes + forbidden_request_headers_unicode
+    )
+    def test_outbound_req_header_extra_pseudo_headers(self,
+                                                      hdr_validation_flags,
+                                                      invalid_header):
+        """
+        Outbound request header blocks containing the forbidden request headers
+        fail validation.
+        """
+        headers = [
+            (b':path', b'/'),
+            (b':scheme', b'https'),
+            (b':authority', b'google.com'),
+            (b':method', b'GET'),
+        ]
+        headers.append((invalid_header, b'some value'))
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(
+                h2.utilities.validate_outbound_headers(
+                    headers, hdr_validation_flags
+                )
+            )
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_request_headers_no_trailer
+    )
+    @pytest.mark.parametrize(
+        'invalid_header',
+        forbidden_request_headers_bytes
+    )
+    def test_inbound_req_header_extra_pseudo_headers(self,
+                                                     hdr_validation_flags,
+                                                     invalid_header):
+        """
+        Inbound request header blocks containing the forbidden request headers
+        fail validation.
+        """
+        headers = [
+            (b':path', b'/'),
+            (b':scheme', b'https'),
+            (b':authority', b'google.com'),
+            (b':method', b'GET'),
+        ]
+        headers.append((invalid_header, b'some value'))
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(h2.utilities.validate_headers(headers, hdr_validation_flags))
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_response_headers
+    )
+    @pytest.mark.parametrize(
+        'invalid_header',
+        forbidden_response_headers_bytes + forbidden_response_headers_unicode
+    )
+    def test_outbound_resp_header_extra_pseudo_headers(self,
+                                                       hdr_validation_flags,
+                                                       invalid_header):
+        """
+        Outbound response header blocks containing the forbidden response
+        headers fail validation.
+        """
+        headers = [(b':status', b'200')]
+        headers.append((invalid_header, b'some value'))
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(
+                h2.utilities.validate_outbound_headers(
+                    headers, hdr_validation_flags
+                )
+            )
+
+    @pytest.mark.parametrize(
+        'hdr_validation_flags', hdr_validation_response_headers
+    )
+    @pytest.mark.parametrize(
+        'invalid_header',
+        forbidden_response_headers_bytes
+    )
+    def test_inbound_resp_header_extra_pseudo_headers(self,
+                                                      hdr_validation_flags,
+                                                      invalid_header):
+        """
+        Inbound response header blocks containing the forbidden response
+        headers fail validation.
+        """
+        headers = [(b':status', b'200')]
+        headers.append((invalid_header, b'some value'))
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(h2.utilities.validate_headers(headers, hdr_validation_flags))
 
 
 class TestOversizedHeaders(object):
