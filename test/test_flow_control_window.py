@@ -505,11 +505,17 @@ class TestFlowControl(object):
             stream_id=1, increment=increment
         )
 
-        with pytest.raises(h2.exceptions.FlowControlError):
-            c.receive_data(f.serialize())
+        events = c.receive_data(f.serialize())
+        assert len(events) == 1
 
-        expected_frame = frame_factory.build_goaway_frame(
-            last_stream_id=0,
+        event = events[0]
+        assert isinstance(event, h2.events.StreamReset)
+        assert event.stream_id == 1
+        assert event.error_code == h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
+        assert not event.remote_reset
+
+        expected_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
             error_code=h2.errors.ErrorCodes.FLOW_CONTROL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()

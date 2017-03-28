@@ -11,6 +11,9 @@ Bugfixes
   of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
   errors of type PROTOCOL_ERROR, and so this release changes to match that
   behaviour.
+- Remote peers incrementing their inbound connection window beyond the maximum
+  allowed value now cause stream-level errors, rather than connection-level
+  errors, allowing connections to stay up longer.
 
 
 2.5.3 (2017-03-16)
