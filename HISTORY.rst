@@ -13,6 +13,16 @@ Bugfixes
 - Remote peers incrementing their inbound connection window beyond the maximum
   allowed value now cause stream-level errors, rather than connection-level
   errors, allowing connections to stay up longer.
+- CONTINUATION frames sent on closed streams previously caused stream errors
+  of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
+  errors of type PROTOCOL_ERROR, and so this release changes to match that
+  behaviour.
+- h2 now rejects receiving and sending request header blocks that are missing
+  any of the mandatory pseudo-header fields (:path, :scheme, and :method).
+- h2 now rejects receiving and sending request header blocks that have an empty
+  :path pseudo-header value.
+- h2 now rejects receiving and sending request header blocks that contain
+  response-only pseudo-headers, and vice versa.
 
 
 3.0.0 (2017-03-24)
