@@ -10,6 +10,9 @@ API Changes (Backward-Compatible)
 Bugfixes
 ~~~~~~~~
 
+- Remote peers incrementing their inbound connection window beyond the maximum
+  allowed value now cause stream-level errors, rather than connection-level
+  errors, allowing connections to stay up longer.
 - CONTINUATION frames sent on closed streams previously caused stream errors
   of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
   errors of type PROTOCOL_ERROR, and so this release changes to match that
