@@ -587,8 +587,6 @@ _transitions = {
             StreamState.HALF_CLOSED_REMOTE),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_PUSH_PROMISE):
         (H2StreamStateMachine.send_reset, StreamState.CLOSED),
-    (StreamState.HALF_CLOSED_REMOTE, StreamInputs.RECV_CONTINUATION):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
     (StreamState.HALF_CLOSED_REMOTE, StreamInputs.SEND_INFORMATIONAL_HEADERS):
         (H2StreamStateMachine.send_informational_response,
             StreamState.HALF_CLOSED_REMOTE),
@@ -643,8 +641,6 @@ _transitions = {
         (H2StreamStateMachine.push_on_closed_stream, StreamState.CLOSED),
     (StreamState.CLOSED, StreamInputs.RECV_END_STREAM):
         (None, StreamState.CLOSED),
-    (StreamState.CLOSED, StreamInputs.RECV_CONTINUATION):
-        (H2StreamStateMachine.send_reset, StreamState.CLOSED),
 
     # Also, users should be forbidden from sending on closed streams.
     (StreamState.CLOSED, StreamInputs.SEND_HEADERS):
