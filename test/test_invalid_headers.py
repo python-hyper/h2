@@ -491,3 +491,86 @@ class TestOversizedHeaders(object):
             last_stream_id=3, error_code=h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_headers_when_table_size_shrunk(self, frame_factory):
+        """
+        When we've shrunk the header table size, we reject header blocks that
+        do not respect the change.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        # Receive the first request, which causes no problem.
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.request_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Now, send a settings change. It's un-ACKed at this time. A new
+        # request arrives, also without incident.
+        c.update_settings({h2.settings.SettingCodes.HEADER_TABLE_SIZE: 128})
+        c.clear_outbound_data_buffer()
+        f = frame_factory.build_headers_frame(
+            stream_id=3,
+            headers=self.request_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # We get a SETTINGS ACK.
+        f = frame_factory.build_settings_frame({}, ack=True)
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Now a third request comes in. This explodes, as it does not contain
+        # a dynamic table size update.
+        f = frame_factory.build_headers_frame(
+            stream_id=5,
+            headers=self.request_header_block
+        )
+        data = f.serialize()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=3, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_reject_headers_exceeding_table_size(self, frame_factory):
+        """
+        When the remote peer sends a dynamic table size update that exceeds our
+        setting, we reject it.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        # Receive the first request, which causes no problem.
+        f = frame_factory.build_headers_frame(
+            stream_id=1,
+            headers=self.request_header_block
+        )
+        data = f.serialize()
+        c.receive_data(data)
+
+        # Now a second request comes in that sets the table size too high.
+        # This explodes.
+        frame_factory.change_table_size(c.local_settings.header_table_size + 1)
+        f = frame_factory.build_headers_frame(
+            stream_id=5,
+            headers=self.request_header_block
+        )
+        data = f.serialize()
+
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR
+        )
+        assert c.data_to_send() == expected_frame.serialize()
