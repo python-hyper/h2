@@ -23,6 +23,9 @@ Bugfixes
   :path pseudo-header value.
 - h2 now rejects receiving and sending request header blocks that contain
   response-only pseudo-headers, and vice versa.
+- h2 now correct respects user-initiated changes to the HEADER_TABLE_SIZE
+  local setting, and ensures that if users shrink or increase the header
+  table size it is policed appropriately.
 
 
 3.0.0 (2017-03-24)
