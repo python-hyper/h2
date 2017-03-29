@@ -14,6 +14,10 @@ Bugfixes
 - Remote peers incrementing their inbound connection window beyond the maximum
   allowed value now cause stream-level errors, rather than connection-level
   errors, allowing connections to stay up longer.
+- h2 now rejects receiving and sending request header blocks that are missing
+  any of the mandatory pseudo-header fields (:path, :scheme, and :method).
+- h2 now rejects receiving and sending request header blocks that have an empty
+  :path pseudo-header value.
 
 
 3.0.0 (2017-03-24)
