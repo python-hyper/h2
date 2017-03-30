@@ -12,7 +12,7 @@ if [ $TOXENV = "h2spec" ]; then
     # binary. Happily, the binary is always called "h2spec" so we don't need
     # even more shenanigans to get this to work.
     TARBALL=$(curl -s https://api.github.com/repos/summerwind/h2spec/releases/latest | jq --raw-output '.assets[] | .browser_download_url | select(endswith("linux_amd64.tar.gz"))')
-    curl -LO "$TARBALL"
-    tar xvf $TARBALL
+    curl -L "$TARBALL" -o h2spec.tgz
+    tar xvf h2spec.tgz
     mv h2spec /usr/local/bin
 fi
