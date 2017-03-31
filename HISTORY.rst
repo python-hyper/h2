@@ -14,6 +14,9 @@ Bugfixes
 - Remote peers incrementing their inbound connection window beyond the maximum
   allowed value now cause stream-level errors, rather than connection-level
   errors, allowing connections to stay up longer.
+- h2 now correct respects user-initiated changes to the HEADER_TABLE_SIZE
+  local setting, and ensures that if users shrink or increase the header
+  table size it is policed appropriately.
 
 
 2.5.3 (2017-03-16)
