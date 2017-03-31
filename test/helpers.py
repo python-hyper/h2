@@ -167,3 +167,10 @@ class FrameFactory(object):
         f.origin = origin
         f.field = field
         return f
+
+    def change_table_size(self, new_size):
+        """
+        Causes the encoder to send a dynamic size update in the next header
+        block it sends.
+        """
+        self.encoder.header_table_size = new_size
