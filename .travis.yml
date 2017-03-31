@@ -39,4 +39,5 @@ matrix:
 install:
   - _travis/install.sh
 script:
+  - export PATH=$PATH:$PWD/bin/
   - tox -- --hypothesis-profile travis
