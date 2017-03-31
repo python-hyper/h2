@@ -7,6 +7,7 @@ pip install -U pip setuptools
 pip install -U tox
 
 if [ $TOXENV = "h2spec" ]; then
+    echo $(curl -s https://api.github.com/repos/summerwind/h2spec/releases/latest)
     # We want to get the latest release of h2spec. We do that by asking the
     # Github API for it, and then parsing the JSON for the appropriate kind of
     # binary. Happily, the binary is always called "h2spec" so we don't need
