@@ -497,7 +497,7 @@ class TestOversizedHeaders(object):
         When we've shrunk the header table size, we reject header blocks that
         do not respect the change.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
+        c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
@@ -511,7 +511,7 @@ class TestOversizedHeaders(object):
 
         # Now, send a settings change. It's un-ACKed at this time. A new
         # request arrives, also without incident.
-        c.update_settings({h2.settings.SettingCodes.HEADER_TABLE_SIZE: 128})
+        c.update_settings({h2.settings.HEADER_TABLE_SIZE: 128})
         c.clear_outbound_data_buffer()
         f = frame_factory.build_headers_frame(
             stream_id=3,
@@ -546,7 +546,7 @@ class TestOversizedHeaders(object):
         When the remote peer sends a dynamic table size update that exceeds our
         setting, we reject it.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
+        c = h2.connection.H2Connection(client_side=False)
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 

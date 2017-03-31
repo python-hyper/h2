@@ -1867,8 +1867,8 @@ class H2Connection(object):
             setting = changes[MAX_FRAME_SIZE]
             self.max_inbound_frame_size = setting.new_value
 
-        if SettingCodes.HEADER_TABLE_SIZE in changes:
-            setting = changes[SettingCodes.HEADER_TABLE_SIZE]
+        if HEADER_TABLE_SIZE in changes:
+            setting = changes[HEADER_TABLE_SIZE]
             # This is safe across all hpack versions: some versions just won't
             # respect it.
             self.decoder.max_allowed_table_size = setting.new_value
