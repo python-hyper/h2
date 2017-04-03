@@ -25,6 +25,24 @@ Bugfixes
   table size it is policed appropriately.
 
 
+2.5.4 (2017-04-03)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- CONTINUATION frames sent on closed streams previously caused stream errors
+  of type STREAM_CLOSED. RFC 7540 § 6.10 requires that these be connection
+  errors of type PROTOCOL_ERROR, and so this release changes to match that
+  behaviour.
+- Remote peers incrementing their inbound connection window beyond the maximum
+  allowed value now cause stream-level errors, rather than connection-level
+  errors, allowing connections to stay up longer.
+- h2 now correct respects user-initiated changes to the HEADER_TABLE_SIZE
+  local setting, and ensures that if users shrink or increase the header
+  table size it is policed appropriately.
+
+
 2.6.1 (2017-03-16)
 ------------------
 
