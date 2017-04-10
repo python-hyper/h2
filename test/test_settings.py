@@ -12,7 +12,9 @@ import h2.exceptions
 import h2.settings
 
 from hypothesis import given, assume
-from hypothesis.strategies import integers
+from hypothesis.strategies import (
+    integers, booleans, fixed_dictionaries, builds
+)
 
 
 class TestSettings(object):
@@ -367,125 +369,69 @@ class TestSettingsEquality(object):
     A class defining tests for the standard implementation of == and != .
     """
 
-    def an_instance(self):
-        """
-        Return an instance of the class under test.  Each call to this method
-        must return a different object.  All objects returned must be equal to
-        each other.
-        """
-        overrides = {
-            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 0,
-            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16384,
-            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 4,
-            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
-        }
-        return h2.settings.Settings(client=True, initial_values=overrides)
+    SettingsStrategy = builds(
+        h2.settings.Settings,
+        client=booleans(),
+        initial_values=fixed_dictionaries({
+            h2.settings.SettingCodes.HEADER_TABLE_SIZE:
+                integers(0, 2**32 - 1),
+            h2.settings.SettingCodes.ENABLE_PUSH: integers(0, 1),
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
+                integers(0, 2**31 - 1),
+            h2.settings.SettingCodes.MAX_FRAME_SIZE:
+                integers(2**14, 2**24 - 1),
+            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS:
+                integers(0, 2**32 - 1),
+            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE:
+                integers(0, 2**32 - 1),
+        })
+    )
 
-    def another_instance(self):
+    @given(settings=SettingsStrategy)
+    def test_equality_reflexive(self, settings):
         """
-        Return an instance of the class under test.  Each call to this method
-        must return a different object.  The objects must not be equal to the
-        objects returned by an_instance.  They may or may not be equal to
-        each other (they will not be compared against each other).
+        An object compares equal to itself using the == operator and the !=
+        operator.
         """
-        overrides = {
-            h2.settings.SettingCodes.HEADER_TABLE_SIZE: 8080,
-            h2.settings.SettingCodes.MAX_FRAME_SIZE: 16388,
-            h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 100,
-            h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
-        }
-        return h2.settings.Settings(client=False, initial_values=overrides)
+        assert (settings == settings)
+        assert not (settings != settings)
 
-    def test_identical_eq(self):
+    @given(settings=SettingsStrategy, o_settings=SettingsStrategy)
+    def test_equality_multiple(self, settings, o_settings):
         """
-        An object compares equal to itself using the == operator.
+        Two objects compare themselves using the == operator and the !=
+        operator.
         """
-        o = self.an_instance()
-        assert (o == o)
+        if settings == o_settings:
+            assert settings == o_settings
+            assert not (settings != o_settings)
+        else:
+            assert settings != o_settings
+            assert not (settings == o_settings)
 
-    def test_identical_ne(self):
-        """
-        An object doesn't compare not equal to itself using the != operator.
-        """
-        o = self.an_instance()
-        assert not (o != o)
-
-    def test_same_eq(self):
-        """
-        Two objects that are equal to each other compare equal to each other
-        using the == operator.
-        """
-        a = self.an_instance()
-        b = self.an_instance()
-        assert (a == b)
-
-    def test_same_ne(self):
-        """
-        Two objects that are equal to each other do not compare not equal to
-        each other using the != operator.
-        """
-        a = self.an_instance()
-        b = self.an_instance()
-        assert not (a != b)
-
-    def test_different_eq(self):
-        """
-        Two objects that are not equal to each other do not compare equal to
-        each other using the == operator.
-        """
-        a = self.an_instance()
-        b = self.another_instance()
-        assert not (a == b)
-
-    def test_different_ne(self):
-        """
-        Two objects that are not equal to each other compare not equal to each
-        other using the != operator.
-        """
-        a = self.an_instance()
-        b = self.another_instance()
-        assert (a != b)
-
-    def test_another_type_eq(self):
+    @given(settings=SettingsStrategy)
+    def test_another_type_equality(self, settings):
         """
         The object does not compare equal to an object of an unrelated type
         (which does not implement the comparison) using the == operator.
         """
-        a = self.an_instance()
-        b = object()
-        assert not (a == b)
+        obj = object()
+        assert (settings != obj)
+        assert not (settings == obj)
 
-    def test_another_type_ne(self):
+    @given(settings=SettingsStrategy)
+    def test_delegated_eq(self, settings):
         """
-        The object compares not equal to an object of an unrelated type (which
-        does not implement the comparison) using the != operator.
-        """
-        a = self.an_instance()
-        b = object()
-        assert (a != b)
-
-    def test_delegated_eq(self):
-        """
-        The result of comparison using == is delegated to the right-hand
-        operand if it is of an unrelated type.
+        The result of comparison is delegated to the right-hand operand if
+        it is of an unrelated type.
         """
         class Delegate(object):
             def __eq__(self, other):
                 return [self]
 
-        a = self.an_instance()
-        b = Delegate()
-        assert (a == b) == [b]
-
-    def test_delegate_ne(self):
-        """
-        The result of comparison using != is delegated to the right-hand
-        operand if it is of an unrelated type.
-        """
-        class Delegate(object):
             def __ne__(self, other):
                 return [self]
 
-        a = self.an_instance()
-        b = Delegate()
-        assert (a != b) == [b]
+        delg = Delegate()
+        assert (settings == delg) == [delg]
+        assert (settings != delg) == [delg]
