@@ -1,6 +1,11 @@
 sudo: false
 language: python
 
+branches:
+  only:
+    - master
+    - /^\d+\.\d+\.X$/
+
 cache:
   directories:
     - $HOME/.cache/pip
