@@ -62,7 +62,7 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=[
-        'hyperframe>=5.0, <6',
+        'hyperframe>=5.1.0, <6',
         'hpack>=2.3,<4',
     ],
     extras_require={
