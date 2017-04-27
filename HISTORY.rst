@@ -7,6 +7,9 @@ Release History
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- ``h2.connection.H2Connection.send_data`` now supports ``data`` parameter
+  being a ``memoryview`` object.
+
 Bugfixes
 ~~~~~~~~
 
