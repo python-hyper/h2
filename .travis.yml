@@ -1,5 +1,10 @@
 language: python
 
+branches:
+  only:
+    - master
+    - /^\d+\.\d+\.X$/
+
 python:
   - "2.7"
   - "3.3"
