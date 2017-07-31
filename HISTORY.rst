@@ -9,6 +9,11 @@ API Changes (Backward-Compatible)
 
 - ``h2.connection.H2Connection.send_data`` now supports ``data`` parameter
   being a ``memoryview`` object.
+- Refactor ping-related events: a ``h2.events.PingReceived`` event is fired
+  when a PING frame is received and a ``h2.events.PingAckReceived`` event is
+  fired when a PING frame with an ACK flag is received.
+  ``h2.events.PingAcknowledged`` is deprecated in favour of the identical
+  ``h2.events.PingAckReceived``.
 
 Bugfixes
 ~~~~~~~~

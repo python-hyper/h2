@@ -21,7 +21,7 @@ from hpack.exceptions import HPACKError, OversizedHeaderListError
 from .config import H2Configuration
 from .errors import ErrorCodes, _error_code_from_int
 from .events import (
-    WindowUpdated, RemoteSettingsChanged, PingAcknowledged,
+    WindowUpdated, RemoteSettingsChanged, PingReceived, PingAckReceived,
     SettingsAcknowledged, ConnectionTerminated, PriorityUpdated,
     AlternativeServiceAvailable, UnknownFrameReceived
 )
@@ -1717,14 +1717,18 @@ class H2Connection(object):
         flags = []
 
         if 'ACK' in frame.flags:
-            evt = PingAcknowledged()
-            evt.ping_data = frame.opaque_data
-            events.append(evt)
+            evt = PingAckReceived()
         else:
+            evt = PingReceived()
+
+            # automatically ACK the PING with the same 'opaque data'
             f = PingFrame(0)
             f.flags = {'ACK'}
             f.opaque_data = frame.opaque_data
             flags.append(f)
+
+        evt.ping_data = frame.opaque_data
+        events.append(evt)
 
         return flags, events
 
