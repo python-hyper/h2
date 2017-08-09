@@ -10,6 +10,7 @@ settings.register_profile(
     settings(suppress_health_check=[HealthCheck.too_slow])
 )
 
+
 @pytest.fixture
 def frame_factory():
     return helpers.FrameFactory()
