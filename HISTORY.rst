@@ -4,6 +4,12 @@ Release History
 3.1.0dev0
 ---------
 
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``h2.connection.H2Connection.data_to_send`` first and only argument ``amt``
+  was renamed to ``amount``.
+
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
