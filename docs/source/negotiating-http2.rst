@@ -14,6 +14,10 @@ This method is the simplest to use once the TLS connection is established. To us
 
 At this point, you're free to use all the HTTP/2 functionality provided by Hyper-h2.
 
+.. note::
+   Although Hyper-h2 is not concerned with negotiating protocol versions, it is important to note that support for `NPN`_ and `ALPN`_ extensions is not available in the standard library of Python versions < 2.7.9.
+   As a consequence, clients may encounter various errors due to protocol versions mismatch.
+
 Server Setup Example
 ~~~~~~~~~~~~~~~~~~~~
 
