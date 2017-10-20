@@ -909,16 +909,21 @@ class H2Connection(object):
             frames = stream.increase_flow_control_window(
                 increment
             )
+
+            self.config.logger.debug(
+                "Increase stream ID %d flow control window by %d",
+                stream_id, increment
+            )
         else:
             self._inbound_flow_control_window_manager.window_opened(increment)
             f = WindowUpdateFrame(0)
             f.window_increment = increment
             frames = [f]
 
-        self.config.logger.debug(
-            "Increase stream ID %d flow control window by %d",
-            stream_id, increment
-        )
+            self.config.logger.debug(
+                "Increase connection flow control window by %d", increment
+            )
+
         self._prepare_for_sending(frames)
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
