@@ -1923,7 +1923,7 @@ class H2Connection(object):
         if stream_id in self.streams:
             return self.streams[stream_id].closed_by
         if stream_id in self._closed_streams:
-            return self._closed_streams[stream_id]
+            return self._closed_streams.pop(stream_id)
         return None
 
     def _stream_is_closed_by_reset(self, stream_id):
