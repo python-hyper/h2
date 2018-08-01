@@ -282,7 +282,7 @@ class H2Connection(object):
     DEFAULT_MAX_HEADER_LIST_SIZE = 2**16
 
     # Keep in memory limited amount of results for streams closes
-    MAX_CLOSED_STREAMS = 2**31
+    MAX_CLOSED_STREAMS = 2**16
 
     def __init__(self, config=None):
         self.state_machine = H2ConnectionStateMachine()
