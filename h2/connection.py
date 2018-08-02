@@ -266,7 +266,7 @@ class H2Connection(object):
     """
     # The initial maximum outbound frame size. This can be changed by receiving
     # a settings frame.
-    DEFAULT_MAX_OUTBOUND_FRAME_SIZE = 2**16 - 1
+    DEFAULT_MAX_OUTBOUND_FRAME_SIZE = 65535
 
     # The initial maximum inbound frame size. This is somewhat arbitrarily
     # chosen.
