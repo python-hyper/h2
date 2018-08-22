@@ -328,7 +328,7 @@ class H2Connection(object):
         )
         self.remote_settings = Settings(client=not self.config.client_side)
 
-        # The curent value of the connection flow control windows on the
+        # The current value of the connection flow control windows on the
         # connection.
         self.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
