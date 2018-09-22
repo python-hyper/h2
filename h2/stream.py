@@ -788,7 +788,7 @@ class H2Stream(object):
         self.max_outbound_frame_size = None
         self.request_method = None
 
-        # The curent value of the outbound stream flow control window
+        # The current value of the outbound stream flow control window
         self.outbound_flow_control_window = outbound_window_size
 
         # The flow control manager.
