@@ -1272,28 +1272,31 @@ class H2Stream(object):
         """
         Helper method to build headers or push promise frames.
         """
-        # We need to lowercase the header names, and to ensure that secure
-        # header fields are kept out of compression contexts.
-        if self.config.normalize_outbound_headers:
-            headers = normalize_outbound_headers(
-                headers, hdr_validation_flags
-            )
-        if self.config.validate_outbound_headers:
-            headers = validate_outbound_headers(
-                headers, hdr_validation_flags
-            )
+        if headers:
+            # We need to lowercase the header names, and to ensure that secure
+            # header fields are kept out of compression contexts.
+            if self.config.normalize_outbound_headers:
+                headers = normalize_outbound_headers(
+                    headers, hdr_validation_flags
+                )
+            if self.config.validate_outbound_headers:
+                headers = validate_outbound_headers(
+                    headers, hdr_validation_flags
+                )
 
-        encoded_headers = encoder.encode(headers)
+            encoded_headers = encoder.encode(headers)
 
-        # Slice into blocks of max_outbound_frame_size. Be careful with this:
-        # it only works right because we never send padded frames or priority
-        # information on the frames. Revisit this if we do.
-        header_blocks = [
-            encoded_headers[i:i+self.max_outbound_frame_size]
-            for i in range(
-                0, len(encoded_headers), self.max_outbound_frame_size
-            )
-        ]
+            # Slice into blocks of max_outbound_frame_size. Be careful with this:
+            # it only works right because we never send padded frames or priority
+            # information on the frames. Revisit this if we do.
+            header_blocks = [
+                encoded_headers[i:i+self.max_outbound_frame_size]
+                for i in range(
+                    0, len(encoded_headers), self.max_outbound_frame_size
+                )
+            ]
+        else:
+            header_blocks = [b""]
 
         frames = []
         first_frame.data = header_blocks[0]
@@ -1316,6 +1319,9 @@ class H2Stream(object):
         pipeline on them to transform them into the appropriate form for
         attaching to an event.
         """
+        if not headers:
+            return headers
+
         if self.config.normalize_inbound_headers:
             headers = normalize_inbound_headers(
                 headers, header_validation_flags
