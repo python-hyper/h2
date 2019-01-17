@@ -15,6 +15,12 @@ from hyperframe.frame import SettingsFrame
 from h2.errors import ErrorCodes
 from h2.exceptions import InvalidSettingsValueError
 
+try:
+    from collections.abc import MutableMapping
+except ImportError:  # pragma: no cover
+    # Python 2.7 compatibility
+    from collections import MutableMapping
+
 
 class SettingCodes(enum.IntEnum):
     """
@@ -88,7 +94,7 @@ class ChangedSetting:
         )
 
 
-class Settings(collections.MutableMapping):
+class Settings(MutableMapping):
     """
     An object that encapsulates HTTP/2 settings state.
 
