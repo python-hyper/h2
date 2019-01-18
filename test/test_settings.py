@@ -31,6 +31,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 1
         assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
+        assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
     def test_settings_defaults_server(self):
         """
@@ -42,6 +43,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 0
         assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
+        assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
     @pytest.mark.parametrize('client', [True, False])
     def test_can_set_initial_values(self, client):
@@ -54,6 +56,7 @@ class TestSettings(object):
             h2.settings.SettingCodes.MAX_FRAME_SIZE: 16388,
             h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: 100,
             h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE: 2**16,
+            h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL: 1,
         }
         s = h2.settings.Settings(client=client, initial_values=overrides)
 
@@ -63,6 +66,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16388
         assert s[h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS] == 100
         assert s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE] == 2**16
+        assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 1
 
     @pytest.mark.parametrize(
         'setting,value',
@@ -74,6 +78,7 @@ class TestSettings(object):
             (h2.settings.SettingCodes.MAX_FRAME_SIZE, 1),
             (h2.settings.SettingCodes.MAX_FRAME_SIZE, 2**30),
             (h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE, -1),
+            (h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL, -1),
         ]
     )
     def test_cannot_set_invalid_initial_values(self, setting, value):
@@ -108,6 +113,7 @@ class TestSettings(object):
             h2.settings.SettingCodes.ENABLE_PUSH: 0,
             h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 60,
             h2.settings.SettingCodes.MAX_FRAME_SIZE: 16385,
+            h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL: 1,
         }
         s.update(new_settings)
 
@@ -171,16 +177,16 @@ class TestSettings(object):
         Length is related only to the number of keys.
         """
         s = h2.settings.Settings(client=True)
-        assert len(s) == 4
+        assert len(s) == 5
 
         s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 8000
-        assert len(s) == 4
+        assert len(s) == 5
 
         s.acknowledge()
-        assert len(s) == 4
+        assert len(s) == 5
 
         del s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
-        assert len(s) == 3
+        assert len(s) == 4
 
     def test_new_values_work(self):
         """
@@ -234,6 +240,9 @@ class TestSettings(object):
         assert s.max_frame_size == s[h2.settings.SettingCodes.MAX_FRAME_SIZE]
         assert s.max_concurrent_streams == 2**32 + 1  # A sensible default.
         assert s.max_header_list_size is None
+        assert s.enable_connect_protocol == s[
+            h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL
+        ]
 
     def test_settings_setters(self):
         """
@@ -247,6 +256,7 @@ class TestSettings(object):
         s.max_frame_size = 16385
         s.max_concurrent_streams = 4
         s.max_header_list_size = 2**16
+        s.enable_connect_protocol = 1
 
         s.acknowledge()
         assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 0
@@ -255,6 +265,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16385
         assert s[h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS] == 4
         assert s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE] == 2**16
+        assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 1
 
     @given(integers())
     def test_cannot_set_invalid_values_for_enable_push(self, val):
@@ -362,6 +373,28 @@ class TestSettings(object):
 
             with pytest.raises(KeyError):
                 s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE]
+
+    @given(integers())
+    def test_cannot_set_invalid_values_for_enable_connect_protocol(self, val):
+        """
+        SETTINGS_ENABLE_CONNECT_PROTOCOL only allows two values: 0, 1.
+        """
+        assume(val not in (0, 1))
+        s = h2.settings.Settings()
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            s.enable_connect_protocol = val
+
+        s.acknowledge()
+        assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
+        assert s.enable_connect_protocol == 0
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] = val
+
+        s.acknowledge()
+        assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
+        assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
 
 class TestSettingsEquality(object):

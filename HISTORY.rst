@@ -20,6 +20,7 @@ API Changes (Backward-Compatible)
   fired when a PING frame with an ACK flag is received.
   ``h2.events.PingAcknowledged`` is deprecated in favour of the identical
   ``h2.events.PingAckReceived``.
+- Added ``ENABLE_CONNECT_PROTOCOL`` to ``h2.settings.SettingCodes``.
 
 Bugfixes
 ~~~~~~~~

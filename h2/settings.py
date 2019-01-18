@@ -55,6 +55,10 @@ class SettingCodes(enum.IntEnum):
     #: and value in octets plus an overhead of 32 octets for each header field.
     MAX_HEADER_LIST_SIZE = SettingsFrame.MAX_HEADER_LIST_SIZE
 
+    #: This setting can be used to enable the connect protocol. To enable on a
+    #: client set this to 1.
+    ENABLE_CONNECT_PROTOCOL = SettingsFrame.ENABLE_CONNECT_PROTOCOL
+
 
 def _setting_code_from_int(code):
     """
@@ -141,6 +145,7 @@ class Settings(MutableMapping):
             SettingCodes.ENABLE_PUSH: collections.deque([int(client)]),
             SettingCodes.INITIAL_WINDOW_SIZE: collections.deque([65535]),
             SettingCodes.MAX_FRAME_SIZE: collections.deque([16384]),
+            SettingCodes.ENABLE_CONNECT_PROTOCOL: collections.deque([0]),
         }
         if initial_values is not None:
             for key, value in initial_values.items():
@@ -249,6 +254,18 @@ class Settings(MutableMapping):
     def max_header_list_size(self, value):
         self[SettingCodes.MAX_HEADER_LIST_SIZE] = value
 
+    @property
+    def enable_connect_protocol(self):
+        """
+        The current value of the :data:`ENABLE_CONNECT_PROTOCOL
+        <h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL>` setting.
+        """
+        return self[SettingCodes.ENABLE_CONNECT_PROTOCOL]
+
+    @enable_connect_protocol.setter
+    def enable_connect_protocol(self, value):
+        self[SettingCodes.ENABLE_CONNECT_PROTOCOL] = value
+
     # Implement the MutableMapping API.
     def __getitem__(self, key):
         val = self._settings[key][0]
@@ -298,7 +315,7 @@ class Settings(MutableMapping):
             return NotImplemented
 
 
-def _validate_setting(setting, value):
+def _validate_setting(setting, value):  # noqa: C901
     """
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
@@ -314,6 +331,9 @@ def _validate_setting(setting, value):
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == SettingCodes.MAX_HEADER_LIST_SIZE:
         if value < 0:
+            return ErrorCodes.PROTOCOL_ERROR
+    elif setting == SettingCodes.ENABLE_CONNECT_PROTOCOL:
+        if value not in (0, 1):
             return ErrorCodes.PROTOCOL_ERROR
 
     return 0
