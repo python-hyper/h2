@@ -33,7 +33,7 @@ from .exceptions import (
 from .frame_buffer import FrameBuffer
 from .settings import Settings, SettingCodes
 from .stream import H2Stream, StreamClosedBy
-from .utilities import guard_increment_window
+from .utilities import SizeLimitDict, guard_increment_window
 from .windows import WindowManager
 
 
@@ -281,6 +281,9 @@ class H2Connection(object):
     # The initial default value of SETTINGS_MAX_HEADER_LIST_SIZE.
     DEFAULT_MAX_HEADER_LIST_SIZE = 2**16
 
+    # Keep in memory limited amount of results for streams closes
+    MAX_CLOSED_STREAMS = 2**16
+
     def __init__(self, config=None):
         self.state_machine = H2ConnectionStateMachine()
         self.streams = {}
@@ -325,7 +328,7 @@ class H2Connection(object):
         )
         self.remote_settings = Settings(client=not self.config.client_side)
 
-        # The curent value of the connection flow control windows on the
+        # The current value of the connection flow control windows on the
         # connection.
         self.outbound_flow_control_window = (
             self.remote_settings.initial_window_size
@@ -355,7 +358,9 @@ class H2Connection(object):
         # Also used to determine whether we should consider a frame received
         # while a stream is closed as either a stream error or a connection
         # error.
-        self._closed_streams = {}
+        self._closed_streams = SizeLimitDict(
+            size_limit=self.MAX_CLOSED_STREAMS
+        )
 
         # The flow control window manager for the connection.
         self._inbound_flow_control_window_manager = WindowManager(
@@ -909,16 +914,21 @@ class H2Connection(object):
             frames = stream.increase_flow_control_window(
                 increment
             )
+
+            self.config.logger.debug(
+                "Increase stream ID %d flow control window by %d",
+                stream_id, increment
+            )
         else:
             self._inbound_flow_control_window_manager.window_opened(increment)
             f = WindowUpdateFrame(0)
             f.window_increment = increment
             frames = [f]
 
-        self.config.logger.debug(
-            "Increase stream ID %d flow control window by %d",
-            stream_id, increment
-        )
+            self.config.logger.debug(
+                "Increase connection flow control window by %d", increment
+            )
+
         self._prepare_for_sending(frames)
 
     def push_stream(self, stream_id, promised_stream_id, request_headers):
