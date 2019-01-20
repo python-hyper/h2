@@ -21,6 +21,8 @@ API Changes (Backward-Compatible)
   ``h2.events.PingAcknowledged`` is deprecated in favour of the identical
   ``h2.events.PingAckReceived``.
 - Added ``ENABLE_CONNECT_PROTOCOL`` to ``h2.settings.SettingCodes``.
+- Support ``CONNECT`` requests with a ``:protocol`` pseudo header
+  thereby supporting RFC 8441.
 
 Bugfixes
 ~~~~~~~~
