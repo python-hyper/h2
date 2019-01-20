@@ -54,6 +54,7 @@ class TestInvalidFrameSequences(object):
         base_request_headers + [('name', 'value with trailing space ')],
         [header for header in base_request_headers
          if header[0] != ':authority'],
+        [(':protocol', 'websocket')] + base_request_headers,
     ]
     server_config = h2.config.H2Configuration(
         client_side=False, header_encoding='utf-8'
