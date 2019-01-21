@@ -1337,7 +1337,7 @@ class H2Connection(object):
 
         self._prepare_for_sending(frames)
 
-    def data_to_send(self, amt=None):
+    def data_to_send(self, amount=None):
         """
         Returns some data for sending out of the internal data buffer.
 
@@ -1346,19 +1346,19 @@ class H2Connection(object):
         or less if that much data is not available. It does not perform any
         I/O, and so uses a different name.
 
-        :param amt: (optional) The maximum amount of data to return. If not
+        :param amount: (optional) The maximum amount of data to return. If not
             set, or set to ``None``, will return as much data as possible.
-        :type amt: ``int``
+        :type amount: ``int``
         :returns: A bytestring containing the data to send on the wire.
         :rtype: ``bytes``
         """
-        if amt is None:
+        if amount is None:
             data = self._data_to_send
             self._data_to_send = b''
             return data
         else:
-            data = self._data_to_send[:amt]
-            self._data_to_send = self._data_to_send[amt:]
+            data = self._data_to_send[:amount]
+            self._data_to_send = self._data_to_send[amount:]
             return data
 
     def clear_outbound_data_buffer(self):
