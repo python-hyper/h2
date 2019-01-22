@@ -1,14 +1,19 @@
 Release History
 ===============
 
-3.1.0dev0
+3.2.0dev0
 ---------
+
+
+3.1.0 (2019-01-22)
+------------------
 
 API Changes (Backward-Incompatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``h2.connection.H2Connection.data_to_send`` first and only argument ``amt``
   was renamed to ``amount``.
+- Support for Python 3.3 has been removed.
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -23,10 +28,14 @@ API Changes (Backward-Compatible)
 - Added ``ENABLE_CONNECT_PROTOCOL`` to ``h2.settings.SettingCodes``.
 - Support ``CONNECT`` requests with a ``:protocol`` pseudo header
   thereby supporting RFC 8441.
+- A limit to the number of closed streams kept in memory by the
+  connection is applied. It can be configured by
+  ``h2.connection.H2Connection.MAX_CLOSED_STREAMS``.
 
 Bugfixes
 ~~~~~~~~
 
+- Debug logging when stream_id is None is now fixed and no longer errors.
 
 3.0.1 (2017-04-03)
 ------------------
