@@ -6,6 +6,7 @@ h2/connection
 An implementation of a HTTP/2 connection.
 """
 import base64
+import logging
 
 from enum import Enum, IntEnum
 
@@ -486,7 +487,10 @@ class H2Connection(object):
         s.max_outbound_frame_size = self.max_outbound_frame_size
 
         self.streams[stream_id] = s
-        self.config.logger.debug("Current streams: %s", self.streams.keys())
+        # Disable this log if we're not in debug mode, as it can be expensive
+        # when there are many concurrently open streams
+        if self.config.logger.isEnabledFor(logging.DEBUG):
+            self.config.logger.debug("Current streams: %s", self.streams.keys())
 
         if outbound:
             self.highest_outbound_stream_id = stream_id

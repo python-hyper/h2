@@ -35,16 +35,16 @@ class TestConcurrentStreamOpenPerformance(object):
 
     def test_concurrent_stream_open_performance(self, frame_factory):
         """
-        Opening many concurrent streams does not take too long
+        Opening many concurrent streams is constant time operation
         """
+        num_concurrent_streams = 5000
         c = h2.connection.H2Connection()
         c.initiate_connection()
         start = time.time()
-        for i in xrange(5000):
+        for i in xrange(num_concurrent_streams):
             c.send_headers(1 + (2 * i), self.example_request_headers, end_stream=False)
             c.clear_outbound_data_buffer()
         end = time.time()
-
-        print end-start
-        assert end-start < 3
+        
+        assert end - start < 3
 

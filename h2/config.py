@@ -36,6 +36,12 @@ class DummyLogger(object):
     def __init__(self, *vargs):
         pass
 
+    def isEnabledFor(self, lvl):
+        """
+        Dummy logger, so nothing is enabled.
+        """
+        return False
+
     def debug(self, *vargs, **kwargs):
         """
         No-op logging. Only level needed for now.
