@@ -39,24 +39,26 @@ class TestConcurrentStreamOpenPerformance(object):
         Opening many concurrent streams is constant time operation
         """
         num_concurrent_streams = 10000
-        c = h2.connection.H2Connection()
-        c.initiate_connection()
-        start = time.time()
-        for i in xrange(num_concurrent_streams):
-            c.send_headers(1 + (2 * i), self.example_request_headers, end_stream=False)
-            c.clear_outbound_data_buffer()
-        end = time.time()
-        
-        run_time = end - start
-        assert run_time < 3
 
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.config.logger.setLevel(logging.DEBUG)
         start = time.time()
-        for i in xrange(num_concurrent_streams):
+        for i in range(num_concurrent_streams):
+            c.send_headers(1 + (2 * i), self.example_request_headers, end_stream=False)
+            c.clear_outbound_data_buffer()
+        end = time.time()
+
+        with_debug_logging = end-start
+        
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        start = time.time()
+        for i in range(num_concurrent_streams):
             c.send_headers(1 + (2 * i), self.example_request_headers, end_stream=False)
             c.clear_outbound_data_buffer()
         end = time.time()
         
-        assert end - start > run_time
+        run_time = end - start
+        assert run_time < 5
+        assert with_debug_logging > run_time
