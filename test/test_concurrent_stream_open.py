@@ -80,4 +80,3 @@ class TestConcurrentStreamOpen(object):
         c.send_headers(
             1, self.example_request_headers, end_stream=False)
         c.clear_outbound_data_buffer()
-
