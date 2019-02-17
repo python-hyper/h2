@@ -7,6 +7,7 @@ Tests of the flow control management in h2
 """
 import pytest
 import time
+import logging
 
 from hypothesis import given
 from hypothesis.strategies import integers
@@ -37,7 +38,7 @@ class TestConcurrentStreamOpenPerformance(object):
         """
         Opening many concurrent streams is constant time operation
         """
-        num_concurrent_streams = 5000
+        num_concurrent_streams = 10000
         c = h2.connection.H2Connection()
         c.initiate_connection()
         start = time.time()
@@ -46,5 +47,16 @@ class TestConcurrentStreamOpenPerformance(object):
             c.clear_outbound_data_buffer()
         end = time.time()
         
-        assert end - start < 3
+        run_time = end - start
+        assert run_time < 3
 
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.config.logger.setLevel(logging.DEBUG)
+        start = time.time()
+        for i in xrange(num_concurrent_streams):
+            c.send_headers(1 + (2 * i), self.example_request_headers, end_stream=False)
+            c.clear_outbound_data_buffer()
+        end = time.time()
+        
+        assert end - start > run_time

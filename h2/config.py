@@ -6,6 +6,8 @@ h2/config
 Objects for controlling the configuration of the HTTP/2 stack.
 """
 
+import logging
+
 
 class _BooleanConfigOption(object):
     """
@@ -34,13 +36,17 @@ class DummyLogger(object):
     logging functions when no logger is passed into the corresponding object.
     """
     def __init__(self, *vargs):
-        pass
+        # Disable all logging
+        self.lvl = logging.CRITICAL + 1
 
     def isEnabledFor(self, lvl):
         """
         Dummy logger, so nothing is enabled.
         """
-        return False
+        return lvl >= self.lvl
+
+    def setLevel(self, lvl):
+        self.lvl = lvl
 
     def debug(self, *vargs, **kwargs):
         """

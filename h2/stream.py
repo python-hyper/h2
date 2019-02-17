@@ -803,11 +803,6 @@ def sync_state_change(func):
                 # Clear callback so we only call this once per stream
                 self._decrement_open_stream_count_callback = None
 
-            if self._close_stream_callback:
-                self._close_stream_callback(self.stream_id)
-                # Clear callback so we only call this once per stream
-                self._close_stream_callback = None
-
         # If we were closed, but are now open, increment
         # the open stream count.
         elif started_closed and ended_open:

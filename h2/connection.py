@@ -293,9 +293,7 @@ class H2Connection(object):
         self.encoder = Encoder()
         self.decoder = Decoder()
 
-        self._open_outbound_stream_count = 0
-        self._open_inbound_stream_count = 0
-
+        self._open_stream_counts = {0 : 0, 1 : 0}
         # This won't always actually do anything: for versions of HPACK older
         # than 2.3.0 it does nothing. However, we have to try!
         self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
@@ -390,10 +388,8 @@ class H2Connection(object):
         }
 
     def _increment_open_streams(self, stream_id, incr):
-        if stream_id % 2 == 0:
-            self._open_inbound_stream_count += incr
-        elif stream_id % 2 == 1:
-            self._open_outbound_stream_count += incr
+        remainder = stream_id % 2
+        self._open_stream_counts[remainder] += incr
 
     def _close_stream(self, stream_id):
         self._streams_to_close.append(stream_id)
@@ -412,14 +408,11 @@ class H2Connection(object):
         """
         for stream_id in self._streams_to_close:
             stream = self.streams.pop(stream_id)
+            assert stream.closed
             self._closed_streams[stream_id] = stream.closed_by
         self._streams_to_close = list()
 
-        if remainder == 0:
-            return self._open_inbound_stream_count
-        elif remainder == 1:
-            return self._open_outbound_stream_count
-        return 0
+        return self._open_stream_counts[remainder]
 
     @property
     def open_outbound_streams(self):
