@@ -90,6 +90,7 @@ class H2StreamStateMachine(object):
     :param stream_id: The stream ID of this stream. This is stored primarily
         for logging purposes.
     """
+
     def __init__(self, stream_id):
         self.state = StreamState.IDLE
         self.stream_id = stream_id
@@ -771,6 +772,8 @@ _transitions = {
 Wraps a stream state change function to ensure that we keep
 the parent H2Connection's state in sync
 """
+
+
 def sync_state_change(func):
     def wrapper(self, *args, **kwargs):
         # Collect state at the beginning.
@@ -825,6 +828,7 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
+
     def __init__(self,
                  stream_id,
                  config,
@@ -845,7 +849,7 @@ class H2Stream(object):
 
         # Callback to increment open stream count for the H2Connection.
         self._increment_open_stream_count_callback = increment_open_stream_count_callback
-        
+
         # Callback to decrement open stream count for the H2Connection.
         self._decrement_open_stream_count_callback = increment_open_stream_count_callback
 

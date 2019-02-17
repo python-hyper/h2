@@ -293,7 +293,7 @@ class H2Connection(object):
         self.encoder = Encoder()
         self.decoder = Decoder()
 
-        self._open_stream_counts = {0 : 0, 1 : 0}
+        self._open_stream_counts = {0: 0, 1: 0}
         # This won't always actually do anything: for versions of HPACK older
         # than 2.3.0 it does nothing. However, we have to try!
         self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
@@ -483,7 +483,8 @@ class H2Connection(object):
         # Disable this log if we're not in debug mode, as it can be expensive
         # when there are many concurrently open streams
         if self.config.logger.isEnabledFor(logging.DEBUG):
-            self.config.logger.debug("Current streams: %s", self.streams.keys())
+            self.config.logger.debug(
+                "Current streams: %s", self.streams.keys())
 
         if outbound:
             self.highest_outbound_stream_id = stream_id
@@ -1034,7 +1035,6 @@ class H2Connection(object):
 
     def close_connection(self, error_code=0, additional_data=None,
                          last_stream_id=None):
-
         """
         Close a connection, emitting a GOAWAY frame.
 
