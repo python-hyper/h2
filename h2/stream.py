@@ -848,10 +848,12 @@ class H2Stream(object):
         self._inbound_window_manager = WindowManager(inbound_window_size)
 
         # Callback to increment open stream count for the H2Connection.
-        self._increment_open_stream_count_callback = increment_open_stream_count_callback
+        self._increment_open_stream_count_callback = \
+            increment_open_stream_count_callback
 
         # Callback to decrement open stream count for the H2Connection.
-        self._decrement_open_stream_count_callback = increment_open_stream_count_callback
+        self._decrement_open_stream_count_callback = \
+            increment_open_stream_count_callback
 
         # Callback to clean up state for the H2Connection once we're closed.
         self._close_stream_callback = close_stream_callback

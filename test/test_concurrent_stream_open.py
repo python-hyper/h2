@@ -54,21 +54,9 @@ class TestConcurrentStreamOpen(object):
 
     def test_concurrent_stream_open_performance(self, frame_factory):
         """
-        Opening many concurrent streams is constant time operation
+        Opening many concurrent streams isn't prohibitively expensive
         """
         num_concurrent_streams = 10000
-
-        c = h2.connection.H2Connection()
-        c.initiate_connection()
-        c.config.logger.setLevel(logging.DEBUG)
-        start = time.time()
-        for i in range(num_concurrent_streams):
-            c.send_headers(
-                1 + (2 * i), self.example_request_headers, end_stream=False)
-            c.clear_outbound_data_buffer()
-        end = time.time()
-
-        with_debug_logging = end-start
 
         c = h2.connection.H2Connection()
         c.initiate_connection()
@@ -81,4 +69,15 @@ class TestConcurrentStreamOpen(object):
 
         run_time = end - start
         assert run_time < 5
-        assert with_debug_logging > run_time
+
+    def test_stream_open_with_debug_logging(self, frame_factory):
+        """
+        Test that opening a stream with debug logging works
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.config.logger.setLevel(logging.DEBUG)
+        c.send_headers(
+            1, self.example_request_headers, end_stream=False)
+        c.clear_outbound_data_buffer()
+
