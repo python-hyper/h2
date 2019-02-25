@@ -350,7 +350,7 @@ class H2Connection(object):
         self._header_frames = []
 
         # Data that needs to be sent.
-        self._data_to_send = b''
+        self._data_to_send = bytearray()
 
         # Keeps track of how streams are closed.
         # Used to ensure that we don't blow up in the face of frames that were
@@ -1353,11 +1353,11 @@ class H2Connection(object):
         :rtype: ``bytes``
         """
         if amount is None:
-            data = self._data_to_send
-            self._data_to_send = b''
+            data = bytes(self._data_to_send)
+            self._data_to_send = bytearray()
             return data
         else:
-            data = self._data_to_send[:amount]
+            data = bytes(self._data_to_send[:amount])
             self._data_to_send = self._data_to_send[amount:]
             return data
 
@@ -1371,7 +1371,7 @@ class H2Connection(object):
         This method should not normally be used, but is made available to avoid
         exposing implementation details.
         """
-        self._data_to_send = b''
+        self._data_to_send = bytearray()
 
     def _acknowledge_settings(self):
         """
