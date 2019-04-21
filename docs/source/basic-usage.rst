@@ -221,13 +221,11 @@ shown below:
 
 .. code-block:: console
 
-    $ hyper GET http://http2bin.org/get
+    $ hyper GET https://nghttp2.org/httpbin/get
     {'args': {},
-     'headers': {'Connection': 'keep-alive',
-                 'Host': 'http2bin.org',
-                 'Via': '2 http2bin.org'},
+     'headers': {'Host': 'nghttp2.org'},
      'origin': '10.0.0.2',
-     'url': 'http://http2bin.org/get'}
+     'url': 'https://nghttp2.org/httpbin/get'}
 
 Assuming it works, you're now ready to start sending HTTP/2 data.
 
