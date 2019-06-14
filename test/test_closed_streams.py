@@ -107,6 +107,77 @@ class TestClosedStreams(object):
         # The streams dictionary should be empty.
         assert not c.streams
 
+    def test_receive_rst_stream_on_closed_stream(self, frame_factory):
+        """
+        RST_STREAM frame should be ignored if stream is in a closed state.
+        See RFC 7540 Section 5.1 (closed state)
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Client sends request
+        c.send_headers(1, self.example_request_headers)
+
+        # Some time passes and client sends DATA frame and closes stream,
+        # so it is in a half-closed state
+        c.send_data(1, b'some data', end_stream=True)
+
+        # Server received HEADERS frame but DATA frame is still on the way.
+        # Stream is in open state on the server-side. In this state server is
+        # allowed to end stream and reset it - this trick helps immediately
+        # close stream on the server-side.
+        headers_frame = frame_factory.build_headers_frame(
+            [(':status', '200')],
+            flags=['END_STREAM'],
+            stream_id=1,
+        )
+        events = c.receive_data(headers_frame.serialize())
+        assert len(events) == 2
+        response_received, stream_ended = events
+        assert isinstance(response_received, h2.events.ResponseReceived)
+        assert isinstance(stream_ended, h2.events.StreamEnded)
+
+        rst_stream_frame = frame_factory.build_rst_stream_frame(stream_id=1)
+        events = c.receive_data(rst_stream_frame.serialize())
+        assert not events
+
+    def test_receive_window_update_on_closed_stream(self, frame_factory):
+        """
+        WINDOW_UPDATE frame should be ignored if stream is in a closed state.
+        See RFC 7540 Section 5.1 (closed state)
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Client sends request
+        c.send_headers(1, self.example_request_headers)
+
+        # Some time passes and client sends DATA frame and closes stream,
+        # so it is in a half-closed state
+        c.send_data(1, b'some data', end_stream=True)
+
+        # Server received HEADERS frame but DATA frame is still on the way.
+        # Stream is in open state on the server-side. In this state server is
+        # allowed to end stream and after that acknowledge received data by
+        # sending WINDOW_UPDATE frames.
+        headers_frame = frame_factory.build_headers_frame(
+            [(':status', '200')],
+            flags=['END_STREAM'],
+            stream_id=1,
+        )
+        events = c.receive_data(headers_frame.serialize())
+        assert len(events) == 2
+        response_received, stream_ended = events
+        assert isinstance(response_received, h2.events.ResponseReceived)
+        assert isinstance(stream_ended, h2.events.StreamEnded)
+
+        window_update_frame = frame_factory.build_window_update_frame(
+            stream_id=1,
+            increment=1,
+        )
+        events = c.receive_data(window_update_frame.serialize())
+        assert not events
+
 
 class TestStreamsClosedByEndStream(object):
     example_request_headers = [
@@ -274,7 +345,6 @@ class TestStreamsClosedByRstStream(object):
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers, flags=['END_STREAM']),
             lambda self, ff: ff.build_data_frame(b'hello'),
-            lambda self, ff: ff.build_window_update_frame(1, 1),
         ]
     )
     def test_resets_further_frames_after_recv_reset(self,
@@ -334,7 +404,6 @@ class TestStreamsClosedByRstStream(object):
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers, flags=['END_STREAM']),
             lambda self, ff: ff.build_data_frame(b'hello'),
-            lambda self, ff: ff.build_window_update_frame(1, 1),
         ]
     )
     def test_resets_further_frames_after_send_reset(self,
