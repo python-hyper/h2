@@ -1,5 +1,5 @@
 pytest==4.6.3
 pytest-cov==2.7.1
 coverage==4.5.3
-pytest-xdist==1.28.0
+pytest-xdist==1.29.0
 hypothesis
