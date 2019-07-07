@@ -43,10 +43,6 @@ matrix:
       dist: xenial
       env: TOXENV=packaging
 
-    # Test we haven't broken our major dependencies.
-    - python: "2.7"
-      dist: trusty
-      env: TOXENV=py27-twistedMaster
 install:
   - "pip install -U pip setuptools"
   - "pip install -U tox"
