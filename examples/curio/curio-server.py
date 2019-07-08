@@ -150,7 +150,7 @@ class H2Server:
         Send the data portion of a file. Handles flow control rules.
         """
         while True:
-            while not self.conn.local_flow_control_window(stream_id):
+            while self.conn.local_flow_control_window(stream_id) < 1:
                 await self.wait_for_flow_control(stream_id)
 
             chunk_size = min(
