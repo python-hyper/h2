@@ -204,7 +204,7 @@ class TestInvalidFrameSequences(object):
         # Raise exception if pseudo header in trailer
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(trailer)
-        assert "pseudo-header in trailer" in str(e)
+        assert "pseudo-header in trailer" in str(e.value)
 
         # Test appropriate response frame is generated
         expected_frame = frame_factory.build_goaway_frame(
