@@ -1,8 +1,14 @@
 Release History
 ===============
 
-3.2.0dev0
----------
+3.1.1 (2019-08-02)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Ignore WINDOW_UPDATE and RST_STREAM frames received after stream
+  closure.
 
 
 3.1.0 (2019-01-22)
