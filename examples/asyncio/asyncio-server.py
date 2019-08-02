@@ -19,11 +19,12 @@ from typing import List, Tuple
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import (
-    ConnectionTerminated, DataReceived, RequestReceived, StreamEnded,
-    StreamReset, WindowUpdated
+    ConnectionTerminated, DataReceived, RemoteSettingsChanged,
+    RequestReceived, StreamEnded, StreamReset, WindowUpdated
 )
 from h2.errors import ErrorCodes
 from h2.exceptions import ProtocolError, StreamClosedError
+from h2.settings import SettingCodes
 
 
 RequestData = collections.namedtuple('RequestData', ['headers', 'data'])
@@ -68,6 +69,9 @@ class H2Protocol(asyncio.Protocol):
                     self.stream_reset(event.stream_id)
                 elif isinstance(event, WindowUpdated):
                     self.window_updated(event.stream_id, event.delta)
+                elif isinstance(event, RemoteSettingsChanged):
+                    if SettingCodes.INITIAL_WINDOW_SIZE in event.changed_settings:
+                        self.window_updated(None, 0)
 
                 self.transport.write(self.conn.data_to_send())
 
@@ -132,7 +136,7 @@ class H2Protocol(asyncio.Protocol):
         Send data according to the flow control rules.
         """
         while data:
-            while not self.conn.local_flow_control_window(stream_id):
+            while self.conn.local_flow_control_window(stream_id) < 1:
                 try:
                     await self.wait_for_flow_control(stream_id)
                 except asyncio.CancelledError:
