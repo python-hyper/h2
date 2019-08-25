@@ -1,4 +1,4 @@
-pytest==5.1.1
+pytest==5.1.1  # rq.filter < 5
 pytest-cov==2.7.1
 coverage==4.5.4
 pytest-xdist==1.29.0
