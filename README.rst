@@ -17,8 +17,10 @@ You use it like this:
 .. code-block:: python
 
     import h2.connection
+    import h2.config
 
-    conn = h2.connection.H2Connection()
+    config = h2.config.H2Configuration()
+    conn = h2.connection.H2Connection(config=config)
     conn.send_headers(stream_id=stream_id, headers=headers)
     conn.send_data(stream_id, data)
     socket.sendall(conn.data_to_send())

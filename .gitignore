@@ -9,3 +9,4 @@ __pycache__
 .hypothesis/
 .cache/
 _trial_temp/
+.idea/

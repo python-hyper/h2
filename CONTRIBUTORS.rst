@@ -113,3 +113,7 @@ In chronological order:
   - Added logging.
   - Enhance equality testing of ``h2.settings.Settings`` objects with
     ``hypothesis``.
+
+- Kevin Tewouda (@lewoudar)
+
+  - Added gevent example.
