@@ -1,5 +1,5 @@
 pytest==4.6.9  # rq.filter: < 5
 pytest-cov==2.8.1
-coverage==5.0.2
+coverage==5.0.3
 pytest-xdist==1.31.0
 hypothesis
