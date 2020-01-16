@@ -42,8 +42,8 @@ setup(
     author_email='cory@lukasa.co.uk',
     url='https://github.com/python-hyper/hyper-h2',
     project_urls={
-        'Documentation': 'https://python-hyper.org/projects/h2/',
-        'Source': 'https://github.com/python-hyper/hyper-h2/',
+        'Documentation': 'https://python-hyper.org/projects/h2',
+        'Source': 'https://github.com/python-hyper/hyper-h2',
     },
     packages=packages,
     package_data={'': ['LICENSE', 'README.rst', 'CONTRIBUTORS.rst', 'HISTORY.rst', 'NOTICES']},
