@@ -4,6 +4,19 @@ Release History
 3.1.1dev0
 ---------
 
+Bugfixes
+~~~~~~~~
+
+- Receiving DATA frames on closed (or reset) streams now properly emit a
+  WINDOW_UPDATE to keep the connection flow window topped up.
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``h2.config.logger`` now uses a `trace(...)` function, in addition
+  to `debug(...)`. If you defined a custom logger object, you need to handle
+  these new function calls.
+
 
 3.1.1 (2019-08-02)
 ------------------
