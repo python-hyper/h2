@@ -1450,7 +1450,7 @@ class H2Connection(object):
         :returns: A list of events that the remote peer triggered by sending
             this data.
         """
-        self.config.logger.debug(
+        self.config.logger.trace(
             "Process received data on connection. Received data: %r", data
         )
 
