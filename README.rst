@@ -61,5 +61,4 @@ License
 Authors
 =======
 
-``hyper-h2`` is maintained by Cory Benfield, with contributions from others. For
-more details about the contributors, please see ``CONTRIBUTORS.rst``.
+``hyper-h2`` is maintained by Cory Benfield, with contributions from others.
