@@ -58,18 +58,19 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=[
         'hyperframe>=5.2.0, <6',
-        'hpack>=2.3,<4',
+        'hpack>=3.0,<4',
     ],
     extras_require={
-        ':python_version == "2.7" or python_version == "3.3"': ['enum34>=1.1.6, <2'],
+        ':python_version == "2.7"': ['enum34>=1.1.6, <2'],
     }
 )
