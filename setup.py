@@ -26,10 +26,6 @@ if sys.argv[-1] == 'publish':
     os.system('python setup.py sdist upload')
     sys.exit()
 
-packages = [
-    'h2',
-]
-
 readme = codecs.open('README.rst', encoding='utf-8').read()
 history = codecs.open('HISTORY.rst', encoding='utf-8').read()
 
@@ -45,8 +41,8 @@ setup(
         'Documentation': 'https://python-hyper.org/projects/h2',
         'Source': 'https://github.com/python-hyper/hyper-h2',
     },
-    packages=packages,
-    package_data={'': ['LICENSE', 'README.rst', 'CONTRIBUTORS.rst', 'HISTORY.rst', 'NOTICES']},
+    packages=['h2'],
+    package_data={'': ['LICENSE', 'README.rst', 'HISTORY.rst']},
     package_dir={'h2': 'h2'},
     include_package_data=True,
     license='MIT License',
@@ -55,11 +51,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
@@ -67,10 +59,7 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=[
-        'hyperframe>=5.2.0, <6',
-        'hpack>=3.0,<4',
+        'hyperframe>=5.2.0,<6',
+        'hpack>=3.0.0,<4',
     ],
-    extras_require={
-        ':python_version == "2.7"': ['enum34>=1.1.6, <2'],
-    }
 )

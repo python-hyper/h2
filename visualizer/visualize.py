@@ -16,7 +16,6 @@ This module is very deliberately not shipped with the rest of hyper-h2. This is
 because it is of minimal value to users who are installing hyper-h2: its use
 is only really for the developers of hyper-h2.
 """
-from __future__ import print_function
 import argparse
 import collections
 import sys

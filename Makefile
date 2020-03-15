@@ -1,9 +1,7 @@
-.PHONY: publish test
+.PHONY: publish
 
 publish:
 	rm -rf dist/
-	python setup.py sdist bdist_wheel
+	pip3 install -U twine wheel pip setuptools
+	python3 setup.py sdist bdist_wheel
 	twine upload -s dist/*
-
-test:
-	py.test -n 4 --cov h2 test/

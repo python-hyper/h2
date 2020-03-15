@@ -1,6 +1,18 @@
 Release History
 ===============
 
+4.0.0.dev0
+------------------
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support for Python 2.7 has been removed.
+- Support for Python 3.4 has been removed.
+- Support for Python 3.5 has been removed.
+- Support for PyPy (Python 2.7 compatible) has been removed.
+
+
 3.2.0 (2020-02-08)
 ------------------
 
