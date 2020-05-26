@@ -186,6 +186,7 @@ class TestClosedStreams(object):
         events = c.receive_data(window_update_frame.serialize())
         assert not events
 
+
 class TestStreamsClosedByEndStream(object):
     example_request_headers = [
         (':authority', 'example.com'),
