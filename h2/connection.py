@@ -1733,10 +1733,13 @@ class H2Connection(object):
         )
 
         if frame.stream_id:
-            stream = self._get_stream_by_id(frame.stream_id)
-            frames, stream_events = stream.receive_window_update(
-                frame.window_increment
-            )
+            try:
+                stream = self._get_stream_by_id(frame.stream_id)
+                frames, stream_events = stream.receive_window_update(
+                    frame.window_increment
+                )
+            except StreamClosedError:
+                return [], []
         else:
             # Increment our local flow control window.
             self.outbound_flow_control_window = guard_increment_window(
