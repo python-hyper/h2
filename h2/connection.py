@@ -1739,7 +1739,7 @@ class H2Connection(object):
                     frame.window_increment
                 )
             except StreamClosedError:
-                return [], []
+                return [], events
         else:
             # Increment our local flow control window.
             self.outbound_flow_control_window = guard_increment_window(
