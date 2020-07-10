@@ -6,6 +6,7 @@ h2/connection
 An implementation of a HTTP/2 connection.
 """
 import base64
+import logging
 
 from enum import Enum, IntEnum
 
@@ -292,6 +293,7 @@ class H2Connection(object):
         self.encoder = Encoder()
         self.decoder = Decoder()
 
+        self._open_stream_counts = {0: 0, 1: 0}
         # This won't always actually do anything: for versions of HPACK older
         # than 2.3.0 it does nothing. However, we have to try!
         self.decoder.max_header_list_size = self.DEFAULT_MAX_HEADER_LIST_SIZE
@@ -362,6 +364,8 @@ class H2Connection(object):
             size_limit=self.MAX_CLOSED_STREAMS
         )
 
+        self._streams_to_close = list()
+
         # The flow control window manager for the connection.
         self._inbound_flow_control_window_manager = WindowManager(
             max_window_size=self.local_settings.initial_window_size
@@ -383,6 +387,13 @@ class H2Connection(object):
             ExtensionFrame: self._receive_unknown_frame
         }
 
+    def _increment_open_streams(self, stream_id, incr):
+        remainder = stream_id % 2
+        self._open_stream_counts[remainder] += incr
+
+    def _close_stream(self, stream_id):
+        self._streams_to_close.append(stream_id)
+
     def _prepare_for_sending(self, frames):
         if not frames:
             return
@@ -393,22 +404,15 @@ class H2Connection(object):
         """
         A common method of counting number of open streams. Returns the number
         of streams that are open *and* that have (stream ID % 2) == remainder.
-        While it iterates, also deletes any closed streams.
+        Also cleans up closed streams.
         """
-        count = 0
-        to_delete = []
-
-        for stream_id, stream in self.streams.items():
-            if stream.open and (stream_id % 2 == remainder):
-                count += 1
-            elif stream.closed:
-                to_delete.append(stream_id)
-
-        for stream_id in to_delete:
+        for stream_id in self._streams_to_close:
             stream = self.streams.pop(stream_id)
+            assert stream.closed
             self._closed_streams[stream_id] = stream.closed_by
+        self._streams_to_close = list()
 
-        return count
+        return self._open_stream_counts[remainder]
 
     @property
     def open_outbound_streams(self):
@@ -467,14 +471,20 @@ class H2Connection(object):
             stream_id,
             config=self.config,
             inbound_window_size=self.local_settings.initial_window_size,
-            outbound_window_size=self.remote_settings.initial_window_size
+            outbound_window_size=self.remote_settings.initial_window_size,
+            increment_open_stream_count_callback=self._increment_open_streams,
+            close_stream_callback=self._close_stream,
         )
         self.config.logger.debug("Stream ID %d created", stream_id)
         s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
 
         self.streams[stream_id] = s
-        self.config.logger.debug("Current streams: %s", self.streams.keys())
+        # Disable this log if we're not in debug mode, as it can be expensive
+        # when there are many concurrently open streams
+        if self.config.logger.isEnabledFor(logging.DEBUG):
+            self.config.logger.debug(
+                "Current streams: %s", self.streams.keys())
 
         if outbound:
             self.highest_outbound_stream_id = stream_id
@@ -1025,7 +1035,6 @@ class H2Connection(object):
 
     def close_connection(self, error_code=0, additional_data=None,
                          last_stream_id=None):
-
         """
         Close a connection, emitting a GOAWAY frame.
 
@@ -1542,8 +1551,8 @@ class H2Connection(object):
             max_open_streams = self.local_settings.max_concurrent_streams
             if (self.open_inbound_streams + 1) > max_open_streams:
                 raise TooManyStreamsError(
-                    "Max outbound streams is %d, %d open" %
-                    (max_open_streams, self.open_outbound_streams)
+                    "Max inbound streams is %d, %d open" %
+                    (max_open_streams, self.open_inbound_streams)
                 )
 
         # Let's decode the headers. We handle headers as bytes internally up

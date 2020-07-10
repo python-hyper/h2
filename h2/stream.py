@@ -90,6 +90,7 @@ class H2StreamStateMachine(object):
     :param stream_id: The stream ID of this stream. This is stored primarily
         for logging purposes.
     """
+
     def __init__(self, stream_id):
         self.state = StreamState.IDLE
         self.stream_id = stream_id
@@ -733,6 +734,55 @@ _transitions = {
         (H2StreamStateMachine.send_on_closed_stream, StreamState.CLOSED),
 }
 
+"""
+Wraps a stream state change function to ensure that we keep
+the parent H2Connection's state in sync
+"""
+
+
+def sync_state_change(func):
+    def wrapper(self, *args, **kwargs):
+        # Collect state at the beginning.
+        start_state = self.state_machine.state
+        started_open = self.open
+        started_closed = not started_open
+
+        # Do the state change (if any).
+        result = func(self, *args, **kwargs)
+
+        # Collect state at the end.
+        end_state = self.state_machine.state
+        ended_open = self.open
+        ended_closed = not ended_open
+
+        # If at any point we've tranwsitioned to the CLOSED state
+        # from any other state, close our stream.
+        if end_state == StreamState.CLOSED and start_state != end_state:
+            if self._close_stream_callback:
+                self._close_stream_callback(self.stream_id)
+                # Clear callback so we only call this once per stream
+                self._close_stream_callback = None
+
+        # If we were open, but are now closed, decrement
+        # the open stream count, and call the close callback.
+        if started_open and ended_closed:
+            if self._decrement_open_stream_count_callback:
+                self._decrement_open_stream_count_callback(self.stream_id,
+                                                           -1,)
+                # Clear callback so we only call this once per stream
+                self._decrement_open_stream_count_callback = None
+
+        # If we were closed, but are now open, increment
+        # the open stream count.
+        elif started_closed and ended_open:
+            if self._increment_open_stream_count_callback:
+                self._increment_open_stream_count_callback(self.stream_id,
+                                                           1,)
+                # Clear callback so we only call this once per stream
+                self._increment_open_stream_count_callback = None
+        return result
+    return wrapper
+
 
 class H2Stream(object):
     """
@@ -744,21 +794,35 @@ class H2Stream(object):
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
+
     def __init__(self,
                  stream_id,
                  config,
                  inbound_window_size,
-                 outbound_window_size):
+                 outbound_window_size,
+                 increment_open_stream_count_callback,
+                 close_stream_callback,):
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
         self.max_outbound_frame_size = None
         self.request_method = None
 
-        # The current value of the outbound stream flow control window
+        # The current value of the outbound stream flow control window.
         self.outbound_flow_control_window = outbound_window_size
 
         # The flow control manager.
         self._inbound_window_manager = WindowManager(inbound_window_size)
+
+        # Callback to increment open stream count for the H2Connection.
+        self._increment_open_stream_count_callback = \
+            increment_open_stream_count_callback
+
+        # Callback to decrement open stream count for the H2Connection.
+        self._decrement_open_stream_count_callback = \
+            increment_open_stream_count_callback
+
+        # Callback to clean up state for the H2Connection once we're closed.
+        self._close_stream_callback = close_stream_callback
 
         # The expected content length, if any.
         self._expected_content_length = None
@@ -816,6 +880,7 @@ class H2Stream(object):
         """
         return self.state_machine.stream_closed_by
 
+    @sync_state_change
     def upgrade(self, client_side):
         """
         Called by the connection to indicate that this stream is the initial
@@ -834,6 +899,7 @@ class H2Stream(object):
         self.state_machine.process_input(input_)
         return
 
+    @sync_state_change
     def send_headers(self, headers, encoder, end_stream=False):
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
@@ -883,6 +949,7 @@ class H2Stream(object):
 
         return frames
 
+    @sync_state_change
     def push_stream_in_band(self, related_stream_id, headers, encoder):
         """
         Returns a list of PUSH_PROMISE/CONTINUATION frames to emit as a pushed
@@ -907,6 +974,7 @@ class H2Stream(object):
 
         return frames
 
+    @sync_state_change
     def locally_pushed(self):
         """
         Mark this stream as one that was pushed by this peer. Must be called
@@ -920,6 +988,7 @@ class H2Stream(object):
         assert not events
         return []
 
+    @sync_state_change
     def send_data(self, data, end_stream=False, pad_length=None):
         """
         Prepare some data frames. Optionally end the stream.
@@ -947,6 +1016,7 @@ class H2Stream(object):
 
         return [df]
 
+    @sync_state_change
     def end_stream(self):
         """
         End a stream without sending data.
@@ -958,6 +1028,7 @@ class H2Stream(object):
         df.flags.add('END_STREAM')
         return [df]
 
+    @sync_state_change
     def advertise_alternative_service(self, field_value):
         """
         Advertise an RFC 7838 alternative service. The semantics of this are
@@ -971,6 +1042,7 @@ class H2Stream(object):
         asf.field = field_value
         return [asf]
 
+    @sync_state_change
     def increase_flow_control_window(self, increment):
         """
         Increase the size of the flow control window for the remote side.
@@ -986,6 +1058,7 @@ class H2Stream(object):
         wuf.window_increment = increment
         return [wuf]
 
+    @sync_state_change
     def receive_push_promise_in_band(self,
                                      promised_stream_id,
                                      headers,
@@ -1010,6 +1083,7 @@ class H2Stream(object):
         )
         return [], events
 
+    @sync_state_change
     def remotely_pushed(self, pushed_headers):
         """
         Mark this stream as one that was pushed by the remote peer. Must be
@@ -1023,6 +1097,7 @@ class H2Stream(object):
         self._authority = authority_from_headers(pushed_headers)
         return [], events
 
+    @sync_state_change
     def receive_headers(self, headers, end_stream, header_encoding):
         """
         Receive a set of headers (or trailers).
@@ -1057,6 +1132,7 @@ class H2Stream(object):
         )
         return [], events
 
+    @sync_state_change
     def receive_data(self, data, end_stream, flow_control_len):
         """
         Receive some data.
@@ -1080,6 +1156,7 @@ class H2Stream(object):
         events[0].flow_controlled_length = flow_control_len
         return [], events
 
+    @sync_state_change
     def receive_window_update(self, increment):
         """
         Handle a WINDOW_UPDATE increment.
@@ -1116,6 +1193,7 @@ class H2Stream(object):
 
         return frames, events
 
+    @sync_state_change
     def receive_continuation(self):
         """
         A naked CONTINUATION frame has been received. This is always an error,
@@ -1128,6 +1206,7 @@ class H2Stream(object):
         )
         assert False, "Should not be reachable"
 
+    @sync_state_change
     def receive_alt_svc(self, frame):
         """
         An Alternative Service frame was received on the stream. This frame
@@ -1155,6 +1234,7 @@ class H2Stream(object):
 
         return [], events
 
+    @sync_state_change
     def reset_stream(self, error_code=0):
         """
         Close the stream locally. Reset the stream with an error code.
@@ -1168,6 +1248,7 @@ class H2Stream(object):
         rsf.error_code = error_code
         return [rsf]
 
+    @sync_state_change
     def stream_reset(self, frame):
         """
         Handle a stream being reset remotely.
@@ -1183,6 +1264,7 @@ class H2Stream(object):
 
         return [], events
 
+    @sync_state_change
     def acknowledge_received_data(self, acknowledged_size):
         """
         The user has informed us that they've processed some amount of data

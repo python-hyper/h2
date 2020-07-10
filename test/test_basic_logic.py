@@ -1851,7 +1851,7 @@ class TestBasicServer(object):
         """
         Ensure stream string representation is appropriate.
         """
-        s = h2.stream.H2Stream(4, None, 12, 14)
+        s = h2.stream.H2Stream(4, None, 12, 14, None, None)
         assert repr(s) == "<H2Stream id:4 state:<StreamState.IDLE: 0>>"
 
 
