@@ -11,6 +11,7 @@ API Changes (Backward-Incompatible)
 - Support for Python 3.4 has been removed.
 - Support for Python 3.5 has been removed.
 - Support for PyPy (Python 2.7 compatible) has been removed.
+- Receiving DATA before HEADERS now raises a ProtocolError.
 
 
 3.2.0 (2020-02-08)

@@ -198,6 +198,8 @@ class H2StreamStateMachine(object):
         """
         Fires when data is received.
         """
+        if not self.headers_received:
+            raise ProtocolError("cannot receive data before headers")
         event = DataReceived()
         event.stream_id = self.stream_id
         return [event]
