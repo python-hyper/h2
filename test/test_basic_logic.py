@@ -20,7 +20,7 @@ import h2.frame_buffer
 import h2.settings
 import h2.stream
 
-import helpers
+from . import helpers
 
 from hypothesis import given
 from hypothesis.strategies import integers
