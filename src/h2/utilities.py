@@ -8,7 +8,6 @@ Utility functions that do not belong in a separate module.
 import collections
 import re
 from string import whitespace
-import sys
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 

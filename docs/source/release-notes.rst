@@ -99,4 +99,4 @@ that you'll find lots of excellent HTTP/2 applications to build with Hyper-h2!
 
 
 .. _detailed-release-notes:
-.. include:: ../../HISTORY.rst
+.. include:: ../../CHANGELOG.rst
