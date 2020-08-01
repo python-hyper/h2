@@ -1,7 +1,7 @@
 Release History
 ===============
 
-4.0.0.dev0
+4.0.0+dev
 ------------------
 
 API Changes (Backward-Incompatible)
