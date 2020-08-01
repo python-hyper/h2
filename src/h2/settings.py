@@ -17,7 +17,6 @@ from h2.errors import ErrorCodes
 from h2.exceptions import InvalidSettingsValueError
 
 
-
 class SettingCodes(enum.IntEnum):
     """
     All known HTTP/2 setting codes.

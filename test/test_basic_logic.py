@@ -6,7 +6,6 @@ test_basic_logic
 Test the basic logic of the h2 state machines.
 """
 import random
-import sys
 
 import hyperframe
 import pytest
