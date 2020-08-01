@@ -149,13 +149,11 @@ class FrameBuffer:
         # Confirm the frame has an appropriate length.
         self._validate_frame_length(length)
 
-        # Don't try to parse the body if we didn't get a frame we know about:
-        # there's nothing we can do with it anyway.
-        if f is not None:
-            try:
-                f.parse_body(memoryview(self.data[9:9+length]))
-            except InvalidFrameError:
-                raise FrameDataMissingError("Frame data missing or invalid")
+        # Try to parse the frame body
+        try:
+            f.parse_body(memoryview(self.data[9:9+length]))
+        except InvalidFrameError:
+            raise FrameDataMissingError("Frame data missing or invalid")
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.
