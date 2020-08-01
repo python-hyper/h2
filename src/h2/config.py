@@ -7,7 +7,7 @@ Objects for controlling the configuration of the HTTP/2 stack.
 """
 
 
-class _BooleanConfigOption(object):
+class _BooleanConfigOption:
     """
     Descriptor for handling a boolean config option.  This will block
     attempts to set boolean config options to non-bools.
@@ -25,7 +25,7 @@ class _BooleanConfigOption(object):
         setattr(instance, self.attr_name, value)
 
 
-class DummyLogger(object):
+class DummyLogger:
     """
     An Logger object that does not actual logging, hence a DummyLogger.
 
@@ -49,7 +49,7 @@ class DummyLogger(object):
         pass
 
 
-class H2Configuration(object):
+class H2Configuration:
     """
     An object that controls the way a single HTTP/2 connection behaves.
 

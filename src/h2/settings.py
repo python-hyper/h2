@@ -8,6 +8,7 @@ API for manipulating HTTP/2 settings, keeping track of both the current active
 state of the settings and the unacknowledged future values of the settings.
 """
 import collections
+from collections.abc import MutableMapping
 import enum
 
 from hyperframe.frame import SettingsFrame
@@ -15,11 +16,6 @@ from hyperframe.frame import SettingsFrame
 from h2.errors import ErrorCodes
 from h2.exceptions import InvalidSettingsValueError
 
-try:
-    from collections.abc import MutableMapping
-except ImportError:  # pragma: no cover
-    # Python 2.7 compatibility
-    from collections import MutableMapping
 
 
 class SettingCodes(enum.IntEnum):
