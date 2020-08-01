@@ -14,7 +14,7 @@ import binascii
 from .settings import ChangedSetting, _setting_code_from_int
 
 
-class Event(object):
+class Event:
     """
     Base class for h2 events.
     """
@@ -374,11 +374,16 @@ class PingReceived(Event):
         )
 
 
-class PingAcknowledged(Event):
+class PingAckReceived(Event):
     """
-    Same as PingAckReceived.
+    The PingAckReceived event is fired whenever a PING acknowledgment is
+    received. It contains the 'opaque data' of the PING+ACK frame, allowing the
+    user to correlate PINGs and calculate RTT.
 
-    .. deprecated:: 3.1.0
+    .. versionadded:: 3.1.0
+
+    .. versionchanged:: 4.0.0
+       Removed deprecated but equivalent ``PingAcknowledged``.
     """
     def __init__(self):
         #: The data included on the ping.
@@ -388,17 +393,6 @@ class PingAcknowledged(Event):
         return "<PingAckReceived ping_data:%s>" % (
             _bytes_representation(self.ping_data),
         )
-
-
-class PingAckReceived(PingAcknowledged):
-    """
-    The PingAckReceived event is fired whenever a PING acknowledgment is
-    received. It contains the 'opaque data' of the PING+ACK frame, allowing the
-    user to correlate PINGs and calculate RTT.
-
-    .. versionadded:: 3.1.0
-    """
-    pass
 
 
 class StreamEnded(Event):
@@ -637,12 +631,4 @@ def _bytes_representation(data):
     if data is None:
         return None
 
-    hex = binascii.hexlify(data)
-
-    # This is moderately clever: on all Python versions hexlify returns a byte
-    # string. On Python 3 we want an actual string, so we just check whether
-    # that's what we have.
-    if not isinstance(hex, str):  # pragma: no cover
-        hex = hex.decode('ascii')
-
-    return hex
+    return binascii.hexlify(data).decode('ascii')

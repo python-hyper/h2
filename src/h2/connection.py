@@ -72,7 +72,7 @@ class AllowedStreamIDs(IntEnum):
     ODD = 1
 
 
-class H2ConnectionStateMachine(object):
+class H2ConnectionStateMachine:
     """
     A single HTTP/2 connection state machine.
 
@@ -236,7 +236,7 @@ class H2ConnectionStateMachine(object):
             return []
 
 
-class H2Connection(object):
+class H2Connection:
     """
     A low-level HTTP/2 connection object. This handles building and receiving
     frames and maintains both connection and per-stream state for all streams

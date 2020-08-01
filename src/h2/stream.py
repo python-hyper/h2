@@ -80,7 +80,7 @@ STREAM_OPEN[StreamState.HALF_CLOSED_LOCAL] = True
 STREAM_OPEN[StreamState.HALF_CLOSED_REMOTE] = True
 
 
-class H2StreamStateMachine(object):
+class H2StreamStateMachine:
     """
     A single HTTP/2 stream state machine.
 
@@ -736,7 +736,7 @@ _transitions = {
 }
 
 
-class H2Stream(object):
+class H2Stream:
     """
     A low-level HTTP/2 stream object. This handles building and receiving
     frames and maintains per-stream state.
