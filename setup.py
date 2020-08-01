@@ -38,7 +38,7 @@ setup(
     author_email='cory@lukasa.co.uk',
     url='https://github.com/python-hyper/hyper-h2',
     packages=find_packages(where="src"),
-    package_data={'': ['LICENSE', 'README.rst', 'HISTORY.rst']},
+    package_data={'': ['LICENSE', 'README.rst', 'CHANGELOG.rst']},
     package_dir={'': 'src'},
     python_requires='>=3.6.1',
     include_package_data=True,
