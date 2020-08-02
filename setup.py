@@ -5,15 +5,17 @@ import os
 import re
 import sys
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+from setuptools import setup, find_packages
+
+PROJECT_ROOT = os.path.dirname(__file__)
+
+with open(os.path.join(PROJECT_ROOT, 'README.rst')) as file_:
+    long_description = file_.read()
 
 # Get the version
 version_regex = r'__version__ = ["\']([^"\']*)["\']'
-with open('h2/__init__.py', 'r') as f:
-    text = f.read()
+with open(os.path.join(PROJECT_ROOT, 'src/h2/__init__.py')) as file_:
+    text = file_.read()
     match = re.search(version_regex, text)
 
     if match:
@@ -26,20 +28,19 @@ if sys.argv[-1] == 'publish':
     os.system('python setup.py sdist upload')
     sys.exit()
 
-readme = codecs.open('README.rst', encoding='utf-8').read()
-history = codecs.open('HISTORY.rst', encoding='utf-8').read()
-
 setup(
     name='h2',
     version=version,
     description='HTTP/2 State-Machine based protocol implementation',
-    long_description=u'\n\n'.join([readme, history]),
+    long_description=long_description,
+    long_description_content_type='text/x-rst',
     author='Cory Benfield',
     author_email='cory@lukasa.co.uk',
     url='https://github.com/python-hyper/hyper-h2',
-    packages=['h2'],
-    package_data={'': ['LICENSE', 'README.rst', 'HISTORY.rst']},
-    package_dir={'h2': 'h2'},
+    packages=find_packages(where="src"),
+    package_data={'': ['LICENSE', 'README.rst', 'CHANGELOG.rst']},
+    package_dir={'': 'src'},
+    python_requires='>=3.6.1',
     include_package_data=True,
     license='MIT License',
     classifiers=[
