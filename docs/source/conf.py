@@ -58,6 +58,8 @@ intersphinx_mapping = {
     'pyopenssl': ('https://pyopenssl.readthedocs.org/en/latest/', None),
 }
 
+master_doc = 'index'
+
 
 # -- Options for HTML output -------------------------------------------------
 
