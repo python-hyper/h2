@@ -5,14 +5,12 @@ gevent-server.py
 
 A simple HTTP/2 server written for gevent serving static files from a directory specified as input.
 If no directory is provided, the current directory will be used.
-
-Requires Python 3.6+.
 """
 import mimetypes
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 from gevent import socket, ssl
 from gevent.event import Event
@@ -47,7 +45,7 @@ class H2Worker:
         self._address = address
         self._flow_control_events: Dict[int, Event] = {}
         self._server_name = 'gevent-h2'
-        self._connection: H2Connection = None
+        self._connection: Optional[H2Connection] = None
         self._read_chunk_size = 8192  # The maximum amount of a file we'll send in a single DATA frame
 
         self._check_sources_dir(source_dir)
@@ -56,7 +54,8 @@ class H2Worker:
         self._run()
 
     def _initiate_connection(self):
-        self._connection = H2Connection(H2Configuration(client_side=False, header_encoding='utf-8'))
+        config = H2Configuration(client_side=False, header_encoding='utf-8')
+        self._connection = H2Connection(config=config)
         self._connection.initiate_connection()
         self._sock.sendall(self._connection.data_to_send())
 
