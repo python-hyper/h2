@@ -14,6 +14,7 @@ Example Servers
    asyncio-example
    twisted-example
    eventlet-example
+   gevent-example
    curio-example
    tornado-example
    wsgi-example
