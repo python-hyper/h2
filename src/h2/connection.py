@@ -72,7 +72,7 @@ class AllowedStreamIDs(IntEnum):
     ODD = 1
 
 
-class H2ConnectionStateMachine(object):
+class H2ConnectionStateMachine:
     """
     A single HTTP/2 connection state machine.
 
@@ -236,7 +236,7 @@ class H2ConnectionStateMachine(object):
             return []
 
 
-class H2Connection(object):
+class H2Connection:
     """
     A low-level HTTP/2 connection object. This handles building and receiving
     frames and maintains both connection and per-stream state for all streams
@@ -1450,7 +1450,7 @@ class H2Connection(object):
         :returns: A list of events that the remote peer triggered by sending
             this data.
         """
-        self.config.logger.debug(
+        self.config.logger.trace(
             "Process received data on connection. Received data: %r", data
         )
 
@@ -1634,6 +1634,35 @@ class H2Connection(object):
 
         return frames, events + stream_events
 
+    def _handle_data_on_closed_stream(self, events, exc, frame):
+        # This stream is already closed - and yet we received a DATA frame.
+        # The received DATA frame counts towards the connection flow window.
+        # We need to manually to acknowledge the DATA frame to update the flow
+        # window of the connection. Otherwise the whole connection stalls due
+        # the inbound flow window being 0.
+        frames = []
+        conn_manager = self._inbound_flow_control_window_manager
+        conn_increment = conn_manager.process_bytes(
+            frame.flow_controlled_length
+        )
+        if conn_increment:
+            f = WindowUpdateFrame(0)
+            f.window_increment = conn_increment
+            frames.append(f)
+            self.config.logger.debug(
+                "Received DATA frame on closed stream %d - "
+                "auto-emitted a WINDOW_UPDATE by %d",
+                frame.stream_id, conn_increment
+            )
+        f = RstStreamFrame(exc.stream_id)
+        f.error_code = exc.error_code
+        frames.append(f)
+        self.config.logger.debug(
+            "Stream %d already CLOSED or cleaned up - "
+            "auto-emitted a RST_FRAME" % frame.stream_id
+        )
+        return frames, events + exc._events
+
     def _receive_data_frame(self, frame):
         """
         Receive a data frame on the connection.
@@ -1646,12 +1675,19 @@ class H2Connection(object):
         self._inbound_flow_control_window_manager.window_consumed(
             flow_controlled_length
         )
-        stream = self._get_stream_by_id(frame.stream_id)
-        frames, stream_events = stream.receive_data(
-            frame.data,
-            'END_STREAM' in frame.flags,
-            flow_controlled_length
-        )
+
+        try:
+            stream = self._get_stream_by_id(frame.stream_id)
+            frames, stream_events = stream.receive_data(
+                frame.data,
+                'END_STREAM' in frame.flags,
+                flow_controlled_length
+            )
+        except StreamClosedError as e:
+            # This stream is either marked as CLOSED or already gone from our
+            # internal state.
+            return self._handle_data_on_closed_stream(events, e, frame)
+
         return frames, events + stream_events
 
     def _receive_settings_frame(self, frame):
@@ -1697,10 +1733,13 @@ class H2Connection(object):
         )
 
         if frame.stream_id:
-            stream = self._get_stream_by_id(frame.stream_id)
-            frames, stream_events = stream.receive_window_update(
-                frame.window_increment
-            )
+            try:
+                stream = self._get_stream_by_id(frame.stream_id)
+                frames, stream_events = stream.receive_window_update(
+                    frame.window_increment
+                )
+            except StreamClosedError:
+                return [], events
         else:
             # Increment our local flow control window.
             self.outbound_flow_control_window = guard_increment_window(

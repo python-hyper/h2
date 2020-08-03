@@ -7,7 +7,7 @@ Objects for controlling the configuration of the HTTP/2 stack.
 """
 
 
-class _BooleanConfigOption(object):
+class _BooleanConfigOption:
     """
     Descriptor for handling a boolean config option.  This will block
     attempts to set boolean config options to non-bools.
@@ -25,11 +25,11 @@ class _BooleanConfigOption(object):
         setattr(instance, self.attr_name, value)
 
 
-class DummyLogger(object):
+class DummyLogger:
     """
     An Logger object that does not actual logging, hence a DummyLogger.
 
-    For the class the log operation is merely a no-op.  The intent is to avoid
+    For the class the log operation is merely a no-op. The intent is to avoid
     conditionals being sprinkled throughout the hyper-h2 code for calls to
     logging functions when no logger is passed into the corresponding object.
     """
@@ -42,8 +42,14 @@ class DummyLogger(object):
         """
         pass
 
+    def trace(self, *vargs, **kwargs):
+        """
+        No-op logging. Only level needed for now.
+        """
+        pass
 
-class H2Configuration(object):
+
+class H2Configuration:
     """
     An object that controls the way a single HTTP/2 connection behaves.
 

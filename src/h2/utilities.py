@@ -8,7 +8,6 @@ Utility functions that do not belong in a separate module.
 import collections
 import re
 from string import whitespace
-import sys
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
@@ -61,10 +60,7 @@ _RESPONSE_ONLY_HEADERS = frozenset([b':status', u':status'])
 _CONNECT_REQUEST_ONLY_HEADERS = frozenset([b':protocol', u':protocol'])
 
 
-if sys.version_info[0] == 2:  # Python 2.X
-    _WHITESPACE = frozenset(whitespace)
-else:  # Python 3.3+
-    _WHITESPACE = frozenset(map(ord, whitespace))
+_WHITESPACE = frozenset(map(ord, whitespace))
 
 
 def _secure_headers(headers, hdr_validation_flags):

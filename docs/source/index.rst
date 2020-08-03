@@ -38,4 +38,3 @@ Contents
    testimonials
    release-process
    release-notes
-   contributors

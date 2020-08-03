@@ -1,8 +1,34 @@
 Release History
 ===============
 
-3.1.1dev0
----------
+4.0.0+dev
+------------------
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support for Python 2.7 has been removed.
+- Support for Python 3.4 has been removed.
+- Support for Python 3.5 has been removed.
+- Support for PyPy (Python 2.7 compatible) has been removed.
+- Support for Python 3.8 has been added.
+- Receiving DATA before HEADERS now raises a ProtocolError (see https://tools.ietf.org/html/rfc7540#section-8.1)
+
+3.2.0 (2020-02-08)
+------------------
+
+Bugfixes
+~~~~~~~~
+
+- Receiving DATA frames on closed (or reset) streams now properly emit a
+  WINDOW_UPDATE to keep the connection flow window topped up.
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``h2.config.logger`` now uses a `trace(...)` function, in addition
+  to `debug(...)`. If you defined a custom logger object, you need to handle
+  these new function calls.
 
 
 3.1.1 (2019-08-02)
