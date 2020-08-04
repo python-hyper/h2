@@ -50,7 +50,7 @@ To install it, just run:
 Documentation
 =============
 
-Documentation is available at <https://hyper-h2.readthedocs.io/>.
+Documentation is available at https://hyper-h2.readthedocs.io/ .
 
 Contributing
 ============
