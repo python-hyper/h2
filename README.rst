@@ -50,7 +50,7 @@ To install it, just run:
 Documentation
 =============
 
-Documentation is available at http://python-hyper.org/h2/.
+Documentation is available at <https://hyper-h2.readthedocs.io/>.
 
 Contributing
 ============
