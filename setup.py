@@ -56,6 +56,6 @@ setup(
     ],
     install_requires=[
         'hyperframe>=5.2.0,<6',
-        'hpack>=3.0.0,<4',
+        'hpack>=4.0,<4.1',
     ],
 )
