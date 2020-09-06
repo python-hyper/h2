@@ -278,7 +278,7 @@ class TestInvalidFrameSequences(object):
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(frame_data)
 
-        assert "Stream ID must be non-zero" in str(e.value)
+        assert "Received frame with invalid header" in str(e.value)
 
     def test_data_before_headers(self, frame_factory):
         """

@@ -6,7 +6,7 @@ h2/frame_buffer
 A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
-from hyperframe.exceptions import InvalidFrameError
+from hyperframe.exceptions import InvalidFrameError, InvalidDataError
 from hyperframe.frame import (
     Frame, HeadersFrame, ContinuationFrame, PushPromiseFrame
 )
@@ -56,20 +56,6 @@ class FrameBuffer:
             self._preamble = self._preamble[of_which_preamble:]
 
         self.data += data
-
-    def _parse_frame_header(self, data):
-        """
-        Parses the frame header from the data. Either returns a tuple of
-        (frame, length), or throws an exception. The returned frame may be None
-        if the frame is of unknown type.
-        """
-        try:
-            frame, length = Frame.parse_frame_header(data[:9])
-        except ValueError as e:
-            # The frame header is invalid. This is a ProtocolError
-            raise ProtocolError("Invalid frame header received: %s" % str(e))
-
-        return frame, length
 
     def _validate_frame_length(self, length):
         """
@@ -137,9 +123,11 @@ class FrameBuffer:
             raise StopIteration()
 
         try:
-            f, length = self._parse_frame_header(self.data)
-        except InvalidFrameError:  # pragma: no cover
-            raise ProtocolError("Received frame with invalid frame header.")
+            f, length = Frame.parse_frame_header(self.data[:9])
+        except (InvalidDataError, InvalidFrameError) as e:  # pragma: no cover
+            raise ProtocolError(
+                "Received frame with invalid header: %s" % str(e)
+            )
 
         # Next, check that we have enough length to parse the frame body. If
         # not, bail, leaving the frame header data in the buffer for next time.
@@ -152,6 +140,8 @@ class FrameBuffer:
         # Try to parse the frame body
         try:
             f.parse_body(memoryview(self.data[9:9+length]))
+        except InvalidDataError:
+            raise ProtocolError("Received frame with non-compliant data")
         except InvalidFrameError:
             raise FrameDataMissingError("Frame data missing or invalid")
 
