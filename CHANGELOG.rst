@@ -1,7 +1,7 @@
 Release History
 ===============
 
-4.0.0+dev
+4.0.0 (2020-09-19)
 ------------------
 
 API Changes (Backward-Incompatible)
