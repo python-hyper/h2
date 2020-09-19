@@ -22,11 +22,6 @@ with open(os.path.join(PROJECT_ROOT, 'src/h2/__init__.py')) as file_:
     else:
         raise RuntimeError("No version number found!")
 
-# Stealing this from Kenneth Reitz
-if sys.argv[-1] == 'publish':
-    os.system('python setup.py sdist upload')
-    sys.exit()
-
 setup(
     name='h2',
     version=version,
