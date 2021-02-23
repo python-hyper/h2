@@ -30,7 +30,7 @@ setup(
     long_description_content_type='text/x-rst',
     author='Cory Benfield',
     author_email='cory@lukasa.co.uk',
-    url='https://github.com/python-hyper/hyper-h2',
+    url='https://github.com/python-hyper/h2',
     packages=find_packages(where="src"),
     package_data={'': ['LICENSE', 'README.rst', 'CHANGELOG.rst']},
     package_dir={'': 'src'},

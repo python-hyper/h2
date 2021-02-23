@@ -4,6 +4,9 @@ Release History
 dev
 ---
 
+**Note:** The GitHub repository has been renamed to ``python-hyper/h2``, previously
+was ``python-hyper/hyper-h2``. **The name of the package on PyPI is unchanged**
+
 **API Changes (Backward Incompatible)**
 
 -

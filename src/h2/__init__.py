@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-hyper-h2
+h2
 ~~
 
 A HTTP/2 implementation.

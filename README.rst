@@ -1,15 +1,15 @@
-===============================
-hyper-h2: HTTP/2 Protocol Stack
-===============================
+=========================
+h2: HTTP/2 Protocol Stack
+=========================
 
-.. image:: https://github.com/python-hyper/hyper-h2/workflows/CI/badge.svg
-    :target: https://github.com/python-hyper/hyper-h2/actions
+.. image:: https://github.com/python-hyper/h2/workflows/CI/badge.svg
+    :target: https://github.com/python-hyper/h2/actions
     :alt: Build Status
-.. image:: https://codecov.io/gh/python-hyper/hyper-h2/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/python-hyper/hyper-h2
+.. image:: https://codecov.io/gh/python-hyper/h2/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/python-hyper/h2
     :alt: Code Coverage
-.. image:: https://readthedocs.org/projects/hyper-h2/badge/?version=latest
-    :target: https://hyper-h2.readthedocs.io/en/latest/
+.. image:: https://readthedocs.org/projects/h2/badge/?version=latest
+    :target: https://h2.readthedocs.io
     :alt: Documentation Status
 .. image:: https://img.shields.io/badge/chat-join_now-brightgreen.svg
     :target: https://gitter.im/python-hyper/community
@@ -45,17 +45,17 @@ To install it, just run:
 
 .. code-block:: console
 
-    $ pip install h2
+    $ python -m pip install h2
 
 Documentation
 =============
 
-Documentation is available at https://hyper-h2.readthedocs.io/ .
+Documentation is available at https://h2.readthedocs.io .
 
 Contributing
 ============
 
-``hyper-h2`` welcomes contributions from anyone! Unlike many other projects we
+``h2`` welcomes contributions from anyone! Unlike many other projects we
 are happy to accept cosmetic contributions and small contributions, in addition
 to large feature requests and changes.
 
@@ -67,10 +67,11 @@ please `read the contribution guidelines`_.
 License
 =======
 
-``hyper-h2`` is made available under the MIT License. For more details, see the
+``h2`` is made available under the MIT License. For more details, see the
 ``LICENSE`` file in the repository.
 
 Authors
 =======
 
-``hyper-h2`` is maintained by Cory Benfield, with contributions from others.
+``h2`` was authored by Cory Benfield and is maintained
+by the members of `python-hyper <https://github.com/orgs/python-hyper/people>`_.

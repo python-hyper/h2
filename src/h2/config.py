@@ -30,7 +30,7 @@ class DummyLogger:
     An Logger object that does not actual logging, hence a DummyLogger.
 
     For the class the log operation is merely a no-op. The intent is to avoid
-    conditionals being sprinkled throughout the hyper-h2 code for calls to
+    conditionals being sprinkled throughout the h2 code for calls to
     logging functions when no logger is passed into the corresponding object.
     """
     def __init__(self, *vargs):
@@ -101,7 +101,7 @@ class H2Configuration:
 
     :param normalize_inbound_headers: Controls whether the headers received by
         this object are normalized according to the rules of RFC 7540.
-        Disabling this setting may lead to hyper-h2 emitting header blocks that
+        Disabling this setting may lead to h2 emitting header blocks that
         some RFCs forbid, e.g. with multiple cookie fields.
 
         .. versionadded:: 3.0.0

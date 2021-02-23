@@ -7,7 +7,7 @@ to provide a high-level synchronous API on top of the `libev`_ or `libuv`_
 event loop.
 
 This example is inspired by the curio one and also demonstrates the correct use
-of HTTP/2 flow control with Hyper-h2 and how gevent can be simple to use.
+of HTTP/2 flow control with h2 and how gevent can be simple to use.
 
 .. literalinclude:: ../../examples/gevent/gevent-server.py
    :language: python
