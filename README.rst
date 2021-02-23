@@ -9,7 +9,7 @@ h2: HTTP/2 Protocol Stack
     :target: https://codecov.io/gh/python-hyper/h2
     :alt: Code Coverage
 .. image:: https://readthedocs.org/projects/h2/badge/?version=latest
-    :target: https://hyper-h2.readthedocs.io
+    :target: https://h2.readthedocs.io
     :alt: Documentation Status
 .. image:: https://img.shields.io/badge/chat-join_now-brightgreen.svg
     :target: https://gitter.im/python-hyper/community
@@ -50,7 +50,7 @@ To install it, just run:
 Documentation
 =============
 
-Documentation is available at https://hyper-h2.readthedocs.io .
+Documentation is available at https://h2.readthedocs.io .
 
 Contributing
 ============
