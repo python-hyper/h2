@@ -16,6 +16,7 @@ Example Servers
    eventlet-example
    gevent-example
    curio-example
+   trio-example
    tornado-example
    wsgi-example
 
