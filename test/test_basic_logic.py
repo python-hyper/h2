@@ -21,7 +21,7 @@ import h2.stream
 
 from . import helpers
 
-from hypothesis import given
+from hypothesis import given, settings, HealthCheck
 from hypothesis.strategies import integers
 
 
@@ -790,6 +790,7 @@ class TestBasicClient(object):
         assert c.data_to_send() == expected_frame.serialize()
 
     @given(frame_size=integers(min_value=2**14, max_value=(2**24 - 1)))
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_changing_max_frame_size(self, frame_factory, frame_size):
         """
         When the user changes the max frame size and the change is ACKed, the
