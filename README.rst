@@ -15,7 +15,7 @@ h2: HTTP/2 Protocol Stack
     :target: https://gitter.im/python-hyper/community
     :alt: Chat community
 
-.. image:: https://raw.github.com/Lukasa/hyper/development/docs/source/images/hyper.png
+.. image:: https://micwom.com/images/hyper_transparent.png
 
 This repository contains a pure-Python implementation of a HTTP/2 protocol
 stack. It's written from the ground up to be embeddable in whatever program you
