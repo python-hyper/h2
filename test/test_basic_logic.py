@@ -1845,7 +1845,7 @@ class TestBasicServer(object):
         Ensure stream string representation is appropriate.
         """
         s = h2.stream.H2Stream(4, None, 12, 14)
-        assert repr(s) == "<H2Stream id:4 state:<StreamState.IDLE: 0>>"
+        assert repr(s) == "<H2Stream id:4 state:StreamState.IDLE>"
 
 
 def sanity_check_data_frame(data_frame,
