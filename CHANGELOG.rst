@@ -7,11 +7,18 @@ dev
 **Note:** The GitHub repository has been renamed to ``python-hyper/h2``, previously
 was ``python-hyper/hyper-h2``. **The name of the package on PyPI is unchanged**
 
-**API Changes (Backward Incompatible)**
+API Changes (Backward-Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support for Python 3.9 has been added.
+
+API Changes (Backward-Incompatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -
 
-**Bugfixes**
+Bugfixes
+~~~~~~~~
 
 -
 
