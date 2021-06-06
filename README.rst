@@ -9,13 +9,13 @@ h2: HTTP/2 Protocol Stack
     :target: https://codecov.io/gh/python-hyper/h2
     :alt: Code Coverage
 .. image:: https://readthedocs.org/projects/h2/badge/?version=latest
-    :target: https://h2.readthedocs.io
+    :target: https://h2.readthedocs.io/en/latest/
     :alt: Documentation Status
 .. image:: https://img.shields.io/badge/chat-join_now-brightgreen.svg
     :target: https://gitter.im/python-hyper/community
     :alt: Chat community
 
-.. image:: https://raw.github.com/Lukasa/hyper/development/docs/source/images/hyper.png
+.. image:: https://raw.github.com/python-hyper/documentation/master/source/logo/hyper-black-bg-white.png
 
 This repository contains a pure-Python implementation of a HTTP/2 protocol
 stack. It's written from the ground up to be embeddable in whatever program you
