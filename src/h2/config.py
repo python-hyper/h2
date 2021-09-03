@@ -61,16 +61,16 @@ class OutputLogger:
         Defaults to ``sys.stderr``.
     :param trace: Enables trace-level output. Defaults to ``False``.
     """
-    def __init__(self, file=sys.stderr, trace=False):
+    def __init__(self, file=None, trace_level=False):
         super().__init__()
-        self.file = file
-        self.trace = trace
+        self.file = file or sys.stderr
+        self.trace_level = trace_level
 
     def debug(self, fmtstr, *args):
         print(f"h2 (debug): {fmtstr % args}", file=self.file)
 
     def trace(self, fmtstr, *args):
-        if self.trace:
+        if self.trace_level:
             print(f"h2 (trace): {fmtstr % args}", file=self.file)
 
 
