@@ -470,39 +470,39 @@ class TestFilter(object):
     invalid_request_header_blocks_unicode = (
         # First, missing :method
         (
-            (u':authority', u'google.com'),
-            (u':path', u'/'),
-            (u':scheme', u'https'),
+            (':authority', 'google.com'),
+            (':path', '/'),
+            (':scheme', 'https'),
         ),
         # Next, missing :path
         (
-            (u':authority', u'google.com'),
-            (u':method', u'GET'),
-            (u':scheme', u'https'),
+            (':authority', 'google.com'),
+            (':method', 'GET'),
+            (':scheme', 'https'),
         ),
         # Next, missing :scheme
         (
-            (u':authority', u'google.com'),
-            (u':method', u'GET'),
-            (u':path', u'/'),
+            (':authority', 'google.com'),
+            (':method', 'GET'),
+            (':path', '/'),
         ),
         # Finally, path present but empty.
         (
-            (u':authority', u'google.com'),
-            (u':method', u'GET'),
-            (u':scheme', u'https'),
-            (u':path', u''),
+            (':authority', 'google.com'),
+            (':method', 'GET'),
+            (':scheme', 'https'),
+            (':path', ''),
         ),
     )
 
     # All headers that are forbidden from either request or response blocks.
     forbidden_request_headers_bytes = (b':status',)
-    forbidden_request_headers_unicode = (u':status',)
+    forbidden_request_headers_unicode = (':status',)
     forbidden_response_headers_bytes = (
         b':path', b':scheme', b':authority', b':method'
     )
     forbidden_response_headers_unicode = (
-        u':path', u':scheme', u':authority', u':method'
+        ':path', ':scheme', ':authority', ':method'
     )
 
     @pytest.mark.parametrize('validation_function', validation_functions)
