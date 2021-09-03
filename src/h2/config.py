@@ -6,6 +6,8 @@ h2/config
 Objects for controlling the configuration of the HTTP/2 stack.
 """
 
+import sys
+
 
 class _BooleanConfigOption:
     """
@@ -27,7 +29,7 @@ class _BooleanConfigOption:
 
 class DummyLogger:
     """
-    An Logger object that does not actual logging, hence a DummyLogger.
+    A Logger object that does not actual logging, hence a DummyLogger.
 
     For the class the log operation is merely a no-op. The intent is to avoid
     conditionals being sprinkled throughout the h2 code for calls to
@@ -47,6 +49,29 @@ class DummyLogger:
         No-op logging. Only level needed for now.
         """
         pass
+
+
+class OutputLogger:
+    """
+    A Logger object that prints to stderr or any other file-like object.
+
+    This class is provided for convinience and not part of the stable API.
+
+    :param file: A file-like object passed to the print function.
+        Defaults to ``sys.stderr``.
+    :param trace: Enables trace-level output. Defaults to ``False``.
+    """
+    def __init__(self, file=sys.stderr, trace=False):
+        super().__init__()
+        self.file = file
+        self.trace = trace
+
+    def debug(self, fmtstr, *args):
+        print(f"h2 (debug): {fmtstr % args}", file=self.file)
+
+    def trace(self, fmtstr, *args):
+        if self.trace:
+            print(f"h2 (trace): {fmtstr % args}", file=self.file)
 
 
 class H2Configuration:

@@ -1481,6 +1481,7 @@ class H2Connection:
         .. versionchanged:: 2.0.0
            Removed from the public API.
         """
+        self.config.logger.trace("Received frame: %s", repr(frame))
         try:
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)

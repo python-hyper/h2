@@ -203,7 +203,7 @@ def validate_headers(headers, hdr_validation_flags):
     # checking remains somewhat expensive, and attempts should be made wherever
     # possible to reduce the time spent doing them.
     #
-    # For example, we avoid tuple upacking in loops because it represents a
+    # For example, we avoid tuple unpacking in loops because it represents a
     # fixed cost that we don't want to spend, instead indexing into the header
     # tuples.
     headers = _reject_uppercase_header_fields(
