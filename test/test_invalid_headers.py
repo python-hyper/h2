@@ -688,6 +688,24 @@ class TestFilter(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             list(h2.utilities.validate_headers(headers, hdr_validation_flags))
 
+    @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
+    def test_inbound_header_name_length(self, hdr_validation_flags):
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(h2.utilities.validate_headers([(b'', b'foobar')], hdr_validation_flags))
+
+    def test_inbound_header_name_length_full_frame_decode(self, frame_factory):
+        f = frame_factory.build_headers_frame([])
+        f.data = b"\x00\x00\x05\x00\x00\x00\x00\x04"
+        data = f.serialize()
+
+        c = h2.connection.H2Connection(config=h2.config.H2Configuration(client_side=False))
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.ProtocolError, match="Received header name with zero length."):
+            c.receive_data(data)
+
 
 class TestOversizedHeaders(object):
     """
