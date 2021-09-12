@@ -12,11 +12,11 @@ Example Servers
    :maxdepth: 2
 
    asyncio-example
-   twisted-example
+   curio-example
    eventlet-example
    gevent-example
-   curio-example
    tornado-example
+   twisted-example
    wsgi-example
 
 Example Clients
@@ -25,5 +25,6 @@ Example Clients
 .. toctree::
    :maxdepth: 2
 
+   plain-sockets-example
    twisted-head-example
    twisted-post-example
