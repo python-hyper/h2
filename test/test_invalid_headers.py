@@ -162,9 +162,9 @@ class TestInvalidFrameSequences(object):
         request_event = events[0]
         assert request_event.headers == headers
 
-    def test_transfer_encoding_trailers_is_valid(self, frame_factory):
+    def test_te_trailers_is_valid(self, frame_factory):
         """
-        Transfer-Encoding trailers is allowed by the filter.
+        `te: trailers` is allowed by the filter.
         """
         headers = (
             self.base_request_headers + [('te', 'trailers')]
