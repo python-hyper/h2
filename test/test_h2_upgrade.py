@@ -71,10 +71,7 @@ class TestClientUpgrade(object):
         """
         After upgrading, we can safely receive a response.
         """
-        c = h2.connection.H2Connection()
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_send_data_stream_1_3()
         f1 = frame_factory.build_headers_frame(
             stream_id=1,
             headers=self.example_response_headers,
@@ -101,10 +98,7 @@ class TestClientUpgrade(object):
         """
         After upgrading, we can safely receive a pushed stream.
         """
-        c = h2.connection.H2Connection()
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_send_data_stream_1_3()
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
@@ -122,10 +116,7 @@ class TestClientUpgrade(object):
         """
         After upgrading, we cannot send headers on stream 1.
         """
-        c = h2.connection.H2Connection()
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_send_data_stream_1_3()
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(stream_id=1, headers=self.example_request_headers)
 
@@ -133,12 +124,15 @@ class TestClientUpgrade(object):
         """
         After upgrading, we cannot send data on stream 1.
         """
-        c = h2.connection.H2Connection()
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_send_data_stream_1_3()
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_data(stream_id=1, data=b'some data')
+
+    def _extracted_from_test_cannot_send_data_stream_1_3(self):
+        result = h2.connection.H2Connection()
+        result.initiate_upgrade_connection()
+        result.clear_outbound_data_buffer()
+        return result
 
 
 class TestServerUpgrade(object):
@@ -183,10 +177,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we can safely send a response.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_can_push_stream_3()
         c.send_headers(stream_id=1, headers=self.example_response_headers)
         c.send_data(stream_id=1, data=b'some data', end_stream=True)
 
@@ -207,10 +198,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we can safely push a stream.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_upgrade_connection()
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_can_push_stream_3()
         c.push_stream(
             stream_id=1,
             promised_stream_id=2,
@@ -224,15 +212,17 @@ class TestServerUpgrade(object):
         )
         assert c.data_to_send() == f.serialize()
 
+    def _extracted_from_test_can_push_stream_3(self):
+        result = h2.connection.H2Connection(config=self.server_config)
+        result.initiate_upgrade_connection()
+        result.clear_outbound_data_buffer()
+        return result
+
     def test_cannot_receive_headers_stream_1(self, frame_factory):
         """
         After upgrading, we cannot receive headers on stream 1.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_upgrade_connection()
-        c.receive_data(frame_factory.preamble())
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_receive_data_stream_1_3(frame_factory)
         f = frame_factory.build_headers_frame(
             stream_id=1,
             headers=self.example_request_headers,
@@ -249,11 +239,7 @@ class TestServerUpgrade(object):
         """
         After upgrading, we cannot receive data on stream 1.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_upgrade_connection()
-        c.receive_data(frame_factory.preamble())
-        c.clear_outbound_data_buffer()
-
+        c = self._extracted_from_test_cannot_receive_data_stream_1_3(frame_factory)
         f = frame_factory.build_data_frame(
             stream_id=1,
             data=b'some data',
@@ -265,6 +251,13 @@ class TestServerUpgrade(object):
             error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         ).serialize()
         assert c.data_to_send() == expected
+
+    def _extracted_from_test_cannot_receive_data_stream_1_3(self, frame_factory):
+        result = h2.connection.H2Connection(config=self.server_config)
+        result.initiate_upgrade_connection()
+        result.receive_data(frame_factory.preamble())
+        result.clear_outbound_data_buffer()
+        return result
 
     def test_client_settings_are_applied(self, frame_factory):
         """

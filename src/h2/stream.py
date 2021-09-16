@@ -5,6 +5,7 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
+
 from enum import Enum, IntEnum
 from hpack import HeaderTuple
 from hyperframe.frame import (
@@ -74,7 +75,7 @@ class StreamClosedBy(Enum):
 # this is that we potentially check whether a stream in a given state is open
 # quite frequently: given that we check so often, we should do so in the
 # fastest and most performant way possible.
-STREAM_OPEN = [False for _ in range(0, len(StreamState))]
+STREAM_OPEN = [False for _ in range(len(StreamState))]
 STREAM_OPEN[StreamState.OPEN] = True
 STREAM_OPEN[StreamState.HALF_CLOSED_LOCAL] = True
 STREAM_OPEN[StreamState.HALF_CLOSED_REMOTE] = True
@@ -217,15 +218,16 @@ class H2StreamStateMachine:
         Fires when an END_STREAM flag is received in the OPEN state,
         transitioning this stream to a HALF_CLOSED_REMOTE state.
         """
-        event = StreamEnded()
-        event.stream_id = self.stream_id
-        return [event]
+        return self._extracted_from_stream_ended_3()
 
     def stream_ended(self, previous_state):
         """
         Fires when a stream is cleanly ended.
         """
         self.stream_closed_by = StreamClosedBy.RECV_END_STREAM
+        return self._extracted_from_stream_ended_3()
+
+    def _extracted_from_stream_ended_3(self):
         event = StreamEnded()
         event.stream_id = self.stream_id
         return [event]
@@ -245,10 +247,7 @@ class H2StreamStateMachine:
 
         No event here, but definitionally this peer must be a server.
         """
-        assert self.client is None
-        self.client = False
-        self.headers_received = True
-        return []
+        return self._extracted_from_recv_new_pushed_stream_3(False)
 
     def recv_new_pushed_stream(self, previous_state):
         """
@@ -256,9 +255,12 @@ class H2StreamStateMachine:
 
         No event here, but definitionally this peer must be a client.
         """
+        return self._extracted_from_recv_new_pushed_stream_3(True)
+
+    def _extracted_from_recv_new_pushed_stream_3(self, arg0):
         assert self.client is None
-        self.client = True
-        self.headers_sent = True
+        self.client = arg0
+        result = True
         return []
 
     def send_push_promise(self, previous_state):
@@ -903,11 +905,9 @@ class H2Stream:
         ppf = PushPromiseFrame(self.stream_id)
         ppf.promised_stream_id = related_stream_id
         hdr_validation_flags = self._build_hdr_validation_flags(events)
-        frames = self._build_headers_frames(
+        return self._build_headers_frames(
             headers, encoder, ppf, hdr_validation_flags
         )
-
-        return frames
 
     def locally_pushed(self):
         """
@@ -984,9 +984,7 @@ class H2Stream:
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         self._inbound_window_manager.window_opened(increment)
 
-        wuf = WindowUpdateFrame(self.stream_id)
-        wuf.window_increment = increment
-        return [wuf]
+        return self._extracted_from_acknowledge_received_data_10(increment)
 
     def receive_push_promise_in_band(self,
                                      promised_stream_id,
@@ -1006,11 +1004,9 @@ class H2Stream:
         )
         events[0].pushed_stream_id = promised_stream_id
 
-        hdr_validation_flags = self._build_hdr_validation_flags(events)
-        events[0].headers = self._process_received_headers(
-            headers, hdr_validation_flags, header_encoding
+        return self._extracted_from_receive_headers_15(
+            events, headers, header_encoding
         )
-        return [], events
 
     def remotely_pushed(self, pushed_headers):
         """
@@ -1049,14 +1045,20 @@ class H2Stream:
 
         self._initialize_content_length(headers)
 
-        if isinstance(events[0], TrailersReceived):
-            if not end_stream:
-                raise ProtocolError("Trailers must have END_STREAM set")
+        if isinstance(events[0], TrailersReceived) and not end_stream:
+            raise ProtocolError("Trailers must have END_STREAM set")
 
+        return self._extracted_from_receive_headers_15(
+            events, headers, header_encoding
+        )
+
+
+    def _extracted_from_receive_headers_15(self, events, headers, header_encoding):
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         events[0].headers = self._process_received_headers(
             headers, hdr_validation_flags, header_encoding
         )
+
         return [], events
 
     def receive_data(self, data, end_stream, flow_control_len):
@@ -1199,11 +1201,13 @@ class H2Stream:
             acknowledged_size
         )
         if increment:
-            f = WindowUpdateFrame(self.stream_id)
-            f.window_increment = increment
-            return [f]
-
+            return self._extracted_from_acknowledge_received_data_10(increment)
         return []
+
+    def _extracted_from_acknowledge_received_data_10(self, increment):
+        wuf = WindowUpdateFrame(self.stream_id)
+        wuf.window_increment = increment
+        return [wuf]
 
     def _build_hdr_validation_flags(self, events):
         """

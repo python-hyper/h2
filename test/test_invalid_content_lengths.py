@@ -38,16 +38,9 @@ class TestInvalidContentLengths(object):
         Remote peers sending data in excess of content-length causes Protocol
         Errors.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_connection()
-        c.receive_data(frame_factory.preamble())
-
-        headers = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+        c = self._extracted_from_test_insufficient_data_empty_frame_3(
+            frame_factory, 15
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*15)
-        c.receive_data(headers.serialize() + first_data.serialize())
-        c.clear_outbound_data_buffer()
 
         second_data = frame_factory.build_data_frame(data=b'\x01')
         with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
@@ -70,16 +63,9 @@ class TestInvalidContentLengths(object):
         Remote peers sending less data than content-length causes Protocol
         Errors.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_connection()
-        c.receive_data(frame_factory.preamble())
-
-        headers = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+        c = self._extracted_from_test_insufficient_data_empty_frame_3(
+            frame_factory, 13
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*13)
-        c.receive_data(headers.serialize() + first_data.serialize())
-        c.clear_outbound_data_buffer()
 
         second_data = frame_factory.build_data_frame(
             data=b'\x01',
@@ -105,16 +91,9 @@ class TestInvalidContentLengths(object):
         Remote peers sending less data than content-length where the last data
         frame is empty causes Protocol Errors.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
-        c.initiate_connection()
-        c.receive_data(frame_factory.preamble())
-
-        headers = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+        c = self._extracted_from_test_insufficient_data_empty_frame_3(
+            frame_factory, 14
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*14)
-        c.receive_data(headers.serialize() + first_data.serialize())
-        c.clear_outbound_data_buffer()
 
         second_data = frame_factory.build_data_frame(
             data=b'',
@@ -134,3 +113,16 @@ class TestInvalidContentLengths(object):
             error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+    def _extracted_from_test_insufficient_data_empty_frame_3(self, frame_factory, arg1):
+        result = h2.connection.H2Connection(config=self.server_config)
+        result.initiate_connection()
+        result.receive_data(frame_factory.preamble())
+        headers = frame_factory.build_headers_frame(
+            headers=self.example_request_headers
+        )
+
+        first_data = frame_factory.build_data_frame(data=b'\x01' * arg1)
+        result.receive_data(headers.serialize() + first_data.serialize())
+        result.clear_outbound_data_buffer()
+        return result

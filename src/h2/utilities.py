@@ -285,12 +285,14 @@ def _reject_te(headers, hdr_validation_flags):
     its value is anything other than "trailers".
     """
     for header in headers:
-        if header[0] in (b'te', u'te'):
-            if header[1].lower() not in (b'trailers', u'trailers'):
-                raise ProtocolError(
-                    "Invalid value for TE header: %s" %
-                    header[1]
-                )
+        if header[0] in (b'te', u'te') and header[1].lower() not in (
+            b'trailers',
+            u'trailers',
+        ):
+            raise ProtocolError(
+                "Invalid value for TE header: %s" %
+                header[1]
+            )
 
         yield header
 
@@ -326,7 +328,7 @@ def _assert_header_in_set(string_header, bytes_header, header_set):
     the header name is present. Raises a Protocol error with the appropriate
     error if it's missing.
     """
-    if not (string_header in header_set or bytes_header in header_set):
+    if string_header not in header_set and bytes_header not in header_set:
         raise ProtocolError(
             "Header block missing mandatory %s header" % string_header
         )
@@ -408,8 +410,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
                 "Encountered request-only headers %s" %
                 invalid_response_headers
             )
-    elif (not hdr_validation_flags.is_response_header and
-          not hdr_validation_flags.is_trailer):
+    elif not hdr_validation_flags.is_trailer:
         # This is a request, so we need to have seen :path, :method, and
         # :scheme.
         _assert_header_in_set(u':path', b':path', pseudo_headers)
@@ -471,13 +472,16 @@ def _validate_host_authority_header(headers):
         )
 
     # If we receive both headers, they should definitely match.
-    if authority_present and host_present:
-        if authority_header_val != host_header_val:
-            raise ProtocolError(
-                "Request header block has mismatched :authority and "
-                "Host headers: %r / %r"
-                % (authority_header_val, host_header_val)
-            )
+    if (
+        authority_present
+        and host_present
+        and authority_header_val != host_header_val
+    ):
+        raise ProtocolError(
+            "Request header block has mismatched :authority and "
+            "Host headers: %r / %r"
+            % (authority_header_val, host_header_val)
+        )
 
 
 def _check_host_authority_header(headers, hdr_validation_flags):
@@ -506,9 +510,8 @@ def _check_path_header(headers, hdr_validation_flags):
     """
     def inner():
         for header in headers:
-            if header[0] in (b':path', u':path'):
-                if not header[1]:
-                    raise ProtocolError("An empty :path header is forbidden")
+            if header[0] in (b':path', u':path') and not header[1]:
+                raise ProtocolError("An empty :path header is forbidden")
 
             yield header
 

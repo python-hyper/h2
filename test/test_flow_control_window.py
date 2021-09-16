@@ -47,10 +47,7 @@ class TestFlowControl(object):
         """
         When data is sent on a stream, the flow control window should drop.
         """
-        c = h2.connection.H2Connection()
-        c.send_headers(1, self.example_request_headers)
-        c.send_data(1, b'some data')
-
+        c = self._extracted_from_test_flow_control_is_limited_by_connection_3()
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
         assert (c.local_flow_control_window(1) == remaining_length)
 
@@ -108,13 +105,17 @@ class TestFlowControl(object):
         The flow control window is limited by the flow control of the
         connection.
         """
-        c = h2.connection.H2Connection()
-        c.send_headers(1, self.example_request_headers)
-        c.send_data(1, b'some data')
+        c = self._extracted_from_test_flow_control_is_limited_by_connection_3()
         c.send_headers(3, self.example_request_headers)
 
         remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
         assert (c.local_flow_control_window(3) == remaining_length)
+
+    def _extracted_from_test_flow_control_is_limited_by_connection_3(self):
+        result = h2.connection.H2Connection()
+        result.send_headers(1, self.example_request_headers)
+        result.send_data(1, b'some data')
+        return result
 
     def test_remote_flow_control_is_limited_by_connection(self, frame_factory):
         """
