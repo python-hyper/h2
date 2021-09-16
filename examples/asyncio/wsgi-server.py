@@ -603,8 +603,7 @@ class Stream:
 
         # We only need the status code
         status = self._response_status.split(" ", 1)[0]
-        headers = [(":status", status)]
-        headers.extend(self._response_headers)
+        headers = [(":status", status), *self._response_headers]
         event = self._protocol.send_response(self.stream_id, headers)
         event.wait()
         return
