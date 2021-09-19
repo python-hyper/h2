@@ -55,7 +55,7 @@ class OutputLogger:
     """
     A Logger object that prints to stderr or any other file-like object.
 
-    This class is provided for convinience and not part of the stable API.
+    This class is provided for convenience and not part of the stable API.
 
     :param file: A file-like object passed to the print function.
         Defaults to ``sys.stderr``.
