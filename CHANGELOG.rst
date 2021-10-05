@@ -1,26 +1,28 @@
 Release History
 ===============
 
-dev
----
+4.1.0 (2021-10-05)
+------------------
 
 **Note:** The GitHub repository has been renamed to ``python-hyper/h2``, previously
-was ``python-hyper/hyper-h2``. **The name of the package on PyPI is unchanged**
+was ``python-hyper/hyper-h2``. **The name of the package on PyPI is unchanged!**
 
 API Changes (Backward-Compatible)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Support for Python 3.9 has been added.
-
-API Changes (Backward-Incompatible)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
--
+- Support for Python 3.10 has been added.
+- New example for a Python socket HTTP/2 client.
+- New `OutputLogger` for use with ``h2.config.logger``. This is only provided
+  for convenience and not part of the stable API.
 
 Bugfixes
 ~~~~~~~~
 
--
+- Header validation now rejects empty header names with a ProtocolError. While
+  hpack decodes such header blocks without issues, they violate the
+  HTTP semantics.
+- Fix TE header name in error message.
 
 
 4.0.0 (2020-09-19)
