@@ -152,7 +152,7 @@ For this reason, it is possible to consume only a subset of the data available
 when you call :meth:`data_to_send <h2.connection.H2Connection.data_to_send>`.
 However, once you have pulled the data out of the ``H2Connection`` internal
 buffer, it is *not* possible to put it back on again. For that reason, it is
-adviseable that you confirm how much space is available in the OS buffer before
+advisable that you confirm how much space is available in the OS buffer before
 sending.
 
 Alternatively, use tools made available by your framework. For example, the

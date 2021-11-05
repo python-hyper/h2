@@ -923,7 +923,7 @@ class TestAutomaticFlowControl(object):
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_mixing_update_forms(self, frame_factory, increment):
         """
-        If the user mixes ackowledging data with manually incrementing windows,
+        If the user mixes acknowledging data with manually incrementing windows,
         we still keep track of what's going on.
         """
         # We need to refresh the encoder because hypothesis has a problem with
