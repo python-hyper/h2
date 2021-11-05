@@ -77,7 +77,7 @@ def main():
     """
     The client upgrade flow.
     """
-    # Step 1: Establish the TCP connecton.
+    # Step 1: Establish the TCP connection.
     connection = establish_tcp_connection()
 
     # Step 2: Create H2 Connection object, put it in upgrade mode, and get the

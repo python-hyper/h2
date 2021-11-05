@@ -74,7 +74,7 @@ def main():
     """
     The server upgrade flow.
     """
-    # Step 1: Establish the TCP connecton.
+    # Step 1: Establish the TCP connection.
     connection = establish_tcp_connection()
 
     # Step 2: Read the response. We expect this to request an upgrade.

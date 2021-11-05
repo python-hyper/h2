@@ -1302,7 +1302,7 @@ class TestBasicServer(object):
     def test_basic_sending_ping_frame_logic(self, frame_factory):
         """
         Sending ping frames serializes a ping frame on stream 0 with
-        approriate opaque data.
+        appropriate opaque data.
         """
         c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
