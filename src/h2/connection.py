@@ -1486,16 +1486,17 @@ class H2Connection:
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
         except StreamClosedError as e:
-            # If the stream was closed by RST_STREAM, we just send a RST_STREAM
-            # to the remote peer. Otherwise, this is a connection error, and so
-            # we will re-raise to trigger one.
-            if self._stream_is_closed_by_reset(e.stream_id):
+            if e._connection_error:
+                raise
+            else:
+                # A StreamClosedError is raised when a stream wants to send a
+                # RST_STREAM frame. Since the H2Stream is the authoritative source
+                # of its own state, we always respect its wishes here.
+
                 f = RstStreamFrame(e.stream_id)
                 f.error_code = e.error_code
                 self._prepare_for_sending([f])
                 events = e._events
-            else:
-                raise
         except StreamIDTooLowError as e:
             # The stream ID seems invalid. This may happen when the closed
             # stream has been cleaned up, or when the remote peer has opened a
@@ -1506,10 +1507,18 @@ class H2Connection:
             # is either a stream error or a connection error.
             if self._stream_is_closed_by_reset(e.stream_id):
                 # Closed by RST_STREAM is a stream error.
-                f = RstStreamFrame(e.stream_id)
-                f.error_code = ErrorCodes.STREAM_CLOSED
-                self._prepare_for_sending([f])
-                events = []
+                if self._stream_is_closed_by_peer_reset(e.stream_id):
+                    self._closed_streams[e.stream_id] = StreamClosedBy.SEND_RST_STREAM
+
+                    f = RstStreamFrame(e.stream_id)
+                    f.error_code = ErrorCodes.STREAM_CLOSED
+                    self._prepare_for_sending([f])
+                    events = []
+                else:
+                    # Stream was closed by a local reset. A stream SHOULD NOT
+                    # send additional RST_STREAM frames. Ignore.
+                    events = []
+                    pass
             elif self._stream_is_closed_by_end(e.stream_id):
                 # Closed by END_STREAM is a connection error.
                 raise StreamClosedError(e.stream_id)
@@ -1655,13 +1664,32 @@ class H2Connection:
                 "auto-emitted a WINDOW_UPDATE by %d",
                 frame.stream_id, conn_increment
             )
-        f = RstStreamFrame(exc.stream_id)
-        f.error_code = exc.error_code
-        frames.append(f)
-        self.config.logger.debug(
-            "Stream %d already CLOSED or cleaned up - "
-            "auto-emitted a RST_FRAME" % frame.stream_id
-        )
+
+        send_rst_frame = False
+
+        if frame.stream_id in self._closed_streams:
+            closed_by = self._closed_streams[frame.stream_id]
+
+            if closed_by == StreamClosedBy.RECV_RST_STREAM:
+                self._closed_streams[frame.stream_id] = StreamClosedBy.SEND_RST_STREAM
+                send_rst_frame = True
+            elif closed_by == StreamClosedBy.SEND_RST_STREAM:
+                # Do not send additional RST_STREAM frames
+                pass
+            else:
+                # Protocol error
+                raise StreamClosedError(frame.stream_id)
+        else:
+            send_rst_frame = True
+
+        if send_rst_frame:
+            f = RstStreamFrame(exc.stream_id)
+            f.error_code = exc.error_code
+            frames.append(f)
+            self.config.logger.debug(
+                "Stream %d already CLOSED or cleaned up - "
+                "auto-emitted a RST_FRAME" % frame.stream_id
+            )
         return frames, events + exc._events
 
     def _receive_data_frame(self, frame):
@@ -1677,6 +1705,8 @@ class H2Connection:
             flow_controlled_length
         )
 
+        stream = None
+
         try:
             stream = self._get_stream_by_id(frame.stream_id)
             frames, stream_events = stream.receive_data(
@@ -1685,6 +1715,11 @@ class H2Connection:
                 flow_controlled_length
             )
         except StreamClosedError as e:
+            # If this exception originated from a yet-to-be clenaed up stream,
+            # check if it should be a connection error
+            if stream is not None and e._connection_error:
+                raise
+
             # This stream is either marked as CLOSED or already gone from our
             # internal state.
             return self._handle_data_on_closed_stream(events, e, frame)
@@ -1962,7 +1997,7 @@ class H2Connection:
         before opening this one.
         """
         if stream_id in self.streams:
-            return self.streams[stream_id].closed_by
+            return self.streams[stream_id].closed_by  # pragma: no cover
         if stream_id in self._closed_streams:
             return self._closed_streams[stream_id]
         return None
@@ -1975,6 +2010,14 @@ class H2Connection:
         return self._stream_closed_by(stream_id) in (
             StreamClosedBy.RECV_RST_STREAM, StreamClosedBy.SEND_RST_STREAM
         )
+
+    def _stream_is_closed_by_peer_reset(self, stream_id):
+        """
+        Returns ``True`` if the stream was closed by sending or receiving a
+        RST_STREAM frame. Returns ``False`` otherwise.
+        """
+        return (self._stream_closed_by(stream_id) ==
+                StreamClosedBy.RECV_RST_STREAM)
 
     def _stream_is_closed_by_end(self, stream_id):
         """
