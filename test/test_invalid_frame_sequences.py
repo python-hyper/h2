@@ -153,6 +153,7 @@ class TestInvalidFrameSequences(object):
         bad_frame = frame_factory.build_data_frame(
             data=b'some data'
         )
+
         c.receive_data(bad_frame.serialize())
 
         expected = frame_factory.build_rst_stream_frame(
@@ -349,15 +350,25 @@ class TestInvalidFrameSequences(object):
         bad_frame = frame_factory.build_data_frame(
             data=b'some data'
         )
-        # Receive 5 frames.
-        events = c.receive_data(bad_frame.serialize() * 5)
+
+        rst_frame = frame_factory.build_rst_stream_frame(
+            stream_id=1,
+            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
+        )
 
         expected = frame_factory.build_rst_stream_frame(
             stream_id=1,
             error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         ).serialize()
-        assert c.data_to_send() == expected * 5
 
+        # Receive 5 frames.
+        events = c.receive_data(bad_frame.serialize())
+        assert len(events) == 1
+        assert c.data_to_send() == expected
+
+        events += c.receive_data(rst_frame.serialize() * 4)
+
+        assert c.data_to_send() == b""
         assert len(events) == 1
         event = events[0]
         assert isinstance(event, h2.events.StreamReset)

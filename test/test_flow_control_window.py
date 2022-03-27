@@ -652,15 +652,9 @@ class TestFlowControl(object):
         events = c.receive_data(f.serialize()*3)
         assert not events
 
-        expected = frame_factory.build_rst_stream_frame(
-            stream_id=1,
-            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
-        ).serialize() * 2 + frame_factory.build_window_update_frame(
+        expected = frame_factory.build_window_update_frame(
             stream_id=0,
             increment=40500,
-        ).serialize() + frame_factory.build_rst_stream_frame(
-            stream_id=1,
-            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
         ).serialize()
         assert c.data_to_send() == expected
 
@@ -668,11 +662,8 @@ class TestFlowControl(object):
         events = c.receive_data(f.serialize())
         assert not events
 
-        expected = frame_factory.build_rst_stream_frame(
-            stream_id=1,
-            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
-        ).serialize()
-        assert c.data_to_send() == expected
+        # RST_STREAM has already been sent. Expect no data here.
+        assert c.data_to_send() == b""
 
 
 class TestAutomaticFlowControl(object):
