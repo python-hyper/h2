@@ -126,7 +126,7 @@ Writing Your Server
 -------------------
 
 Armed with the knowledge you just obtained, we're going to write a very simple
-HTTP/2 web server. The goal of this server is to write a server that can handle
+HTTP/2 web server. The goal of this tutorial is to write a server that can handle
 a HTTP GET, and that returns the headers sent by the client, encoded in JSON.
 Basically, something a lot like `httpbin.org/get`_. Nothing fancy, but this is
 a good way to get a handle on how you should interact with h2.
