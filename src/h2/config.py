@@ -117,6 +117,12 @@ class H2Configuration:
         RFC 7540. Defaults to ``True``.
     :type normalize_outbound_headers: ``bool``
 
+    :param split_outbound_cookies: Controls whether the outbound cookie
+        headers are split before sending or not. According to RFC 7540
+        - 8.1.2.5 the outbound header cookie headers may be split to improve
+        headers compression. Default is ``False``.
+    :type split_outbound_cookies: ``bool``
+
     :param validate_inbound_headers: Controls whether the headers received
         by this object are validated against the rules in RFC 7540.
         Disabling this setting will cause inbound header validation to
@@ -148,6 +154,9 @@ class H2Configuration:
     normalize_outbound_headers = _BooleanConfigOption(
         'normalize_outbound_headers'
     )
+    split_outbound_cookies = _BooleanConfigOption(
+        'split_outbound_cookies'
+    )
     validate_inbound_headers = _BooleanConfigOption(
         'validate_inbound_headers'
     )
@@ -160,6 +169,7 @@ class H2Configuration:
                  header_encoding=None,
                  validate_outbound_headers=True,
                  normalize_outbound_headers=True,
+                 split_outbound_cookies=False,
                  validate_inbound_headers=True,
                  normalize_inbound_headers=True,
                  logger=None):
@@ -167,6 +177,7 @@ class H2Configuration:
         self.header_encoding = header_encoding
         self.validate_outbound_headers = validate_outbound_headers
         self.normalize_outbound_headers = normalize_outbound_headers
+        self.split_outbound_cookies = split_outbound_cookies
         self.validate_inbound_headers = validate_inbound_headers
         self.normalize_inbound_headers = normalize_inbound_headers
         self.logger = logger or DummyLogger(__name__)
