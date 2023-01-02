@@ -8,7 +8,7 @@ on:
 
 jobs:
   tox:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # bump to -latest or -22.04 once we drop py36
     strategy:
       max-parallel: 5
       matrix:
@@ -18,11 +18,11 @@ jobs:
         - "3.8"
         - "3.9"
         - "3.10"
-        - pypy3
+        - "pypy3.9"
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install tox
@@ -30,6 +30,8 @@ jobs:
         python -m pip install --upgrade pip setuptools
         pip install --upgrade tox tox-gh-actions
     - name: Install h2spec
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         .github/workflows/install_h2spec.sh
     - name: Initialize tox envs
