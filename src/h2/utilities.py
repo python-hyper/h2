@@ -603,14 +603,41 @@ def _combine_cookie_fields(headers, hdr_validation_flags):
         yield NeverIndexedHeaderTuple(b'cookie', cookie_val)
 
 
-def normalize_outbound_headers(headers, hdr_validation_flags):
+def _split_outbound_cookie_fields(headers, hdr_validation_flags):
+    """
+    RFC 7540 § 8.1.2.5 allows for better compression efficiency,
+    to split the Cookie header field into separate header fields
+
+    We want to do it for outbound requests, as we are doing for
+    inbound.
+    """
+    for header in headers:
+        if header[0] in (b'cookie', 'cookie'):
+            needle = b'; ' if isinstance(header[0], bytes) else '; '
+
+            if needle in header[1]:
+                for cookie_val in header[1].split(needle):
+                    if isinstance(header, HeaderTuple):
+                        yield header.__class__(header[0], cookie_val)
+                    else:
+                        yield header[0], cookie_val
+            else:
+                yield header
+        else:
+            yield header
+
+
+def normalize_outbound_headers(headers, hdr_validation_flags, should_split_outbound_cookies):
     """
     Normalizes a header sequence that we are about to send.
 
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
+    :param should_split_outbound_cookies: boolean flag
     """
     headers = _lowercase_header_names(headers, hdr_validation_flags)
+    if should_split_outbound_cookies:
+        headers = _split_outbound_cookie_fields(headers, hdr_validation_flags)
     headers = _strip_surrounding_whitespace(headers, hdr_validation_flags)
     headers = _strip_connection_headers(headers, hdr_validation_flags)
     headers = _secure_headers(headers, hdr_validation_flags)

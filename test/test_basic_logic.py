@@ -9,6 +9,7 @@ import random
 
 import hyperframe
 import pytest
+from hpack import HeaderTuple
 
 import h2.config
 import h2.connection
@@ -788,6 +789,48 @@ class TestBasicClient(object):
         )
 
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_outbound_cookie_headers_are_split(self):
+        """
+        We should split outbound cookie headers according to
+        RFC 7540 - 8.1.2.5
+        """
+        cookie_headers = [
+            HeaderTuple('cookie',
+                        'username=John Doe; expires=Thu, 18 Dec 2013 12:00:00 UTC'),
+            ('cookie', 'path=1'),
+            ('cookie', 'test1=val1; test2=val2')
+        ]
+
+        expected_cookie_headers = [
+            HeaderTuple('cookie', 'username=John Doe'),
+            HeaderTuple('cookie', 'expires=Thu, 18 Dec 2013 12:00:00 UTC'),
+            ('cookie', 'path=1'),
+            ('cookie', 'test1=val1'),
+            ('cookie', 'test2=val2'),
+        ]
+
+        client_config = h2.config.H2Configuration(
+            client_side=True,
+            header_encoding='utf-8',
+            split_outbound_cookies=True
+        )
+        server_config = h2.config.H2Configuration(
+            client_side=False,
+            normalize_inbound_headers=False,
+            header_encoding='utf-8'
+        )
+        client = h2.connection.H2Connection(config=client_config)
+        server = h2.connection.H2Connection(config=server_config)
+
+        client.initiate_connection()
+        client.send_headers(1, self.example_request_headers + cookie_headers, end_stream=True)
+
+        e = server.receive_data(client.data_to_send())
+
+        cookie_fields = [(n, v) for n, v in e[1].headers if n == 'cookie']
+
+        assert cookie_fields == expected_cookie_headers
 
     @given(frame_size=integers(min_value=2**14, max_value=(2**24 - 1)))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])

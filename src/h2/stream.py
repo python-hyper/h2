@@ -1243,8 +1243,12 @@ class H2Stream:
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
         if self.config.normalize_outbound_headers:
+            # also we may want to split outbound cookies to improve
+            # headers compression
+            should_split_outbound_cookies = self.config.split_outbound_cookies
+
             headers = normalize_outbound_headers(
-                headers, hdr_validation_flags
+                headers, hdr_validation_flags, should_split_outbound_cookies
             )
         if self.config.validate_outbound_headers:
             headers = validate_outbound_headers(
