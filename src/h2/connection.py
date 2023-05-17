@@ -386,6 +386,10 @@ class H2Connection:
     def _prepare_for_sending(self, frames):
         if not frames:
             return
+
+        for frame in frames:
+            self.config.logger.trace("Sending frame:  %s", repr(frame))
+
         self._data_to_send += b''.join(f.serialize() for f in frames)
         assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
 
@@ -498,10 +502,8 @@ class H2Connection:
         f = SettingsFrame(0)
         for setting, value in self.local_settings.items():
             f.settings[setting] = value
-        self.config.logger.debug(
-            "Send Settings frame: %s", self.local_settings
-        )
 
+        self.config.logger.trace("Sending frame: %s", repr(f))
         self._data_to_send += preamble + f.serialize()
 
     def initiate_upgrade_connection(self, settings_header=None):
@@ -1450,10 +1452,6 @@ class H2Connection:
         :returns: A list of events that the remote peer triggered by sending
             this data.
         """
-        self.config.logger.trace(
-            "Process received data on connection. Received data: %r", data
-        )
-
         events = []
         self.incoming_buffer.add_data(data)
         self.incoming_buffer.max_frame_size = self.max_inbound_frame_size
