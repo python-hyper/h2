@@ -388,7 +388,7 @@ class H2Connection:
             return
 
         for frame in frames:
-            self.config.logger.trace("Sending frame:  %s", repr(frame))
+            self.config.logger.trace("Sending frame: %s", repr(frame))
 
         self._data_to_send += b''.join(f.serialize() for f in frames)
         assert all(f.body_len <= self.max_outbound_frame_size for f in frames)
