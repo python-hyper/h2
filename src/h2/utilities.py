@@ -177,6 +177,8 @@ def authority_from_headers(headers):
         # user, so we may have unicode floating around in here. We only want
         # bytes.
         if n in (b':authority', u':authority'):
+            if v is None:
+                return None
             return v.encode('utf-8') if not isinstance(v, bytes) else v
 
     return None
