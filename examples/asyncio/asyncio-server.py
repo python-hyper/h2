@@ -60,7 +60,9 @@ class H2Protocol(asyncio.Protocol):
                 if isinstance(event, RequestReceived):
                     self.request_received(event.headers, event.stream_id)
                 elif isinstance(event, DataReceived):
-                    self.receive_data(event.data, event.stream_id)
+                    self.receive_data(
+                        event.data, event.flow_controlled_length, event.stream_id
+                    )
                 elif isinstance(event, StreamEnded):
                     self.stream_complete(event.stream_id)
                 elif isinstance(event, ConnectionTerminated):
@@ -109,10 +111,12 @@ class H2Protocol(asyncio.Protocol):
         self.conn.send_headers(stream_id, response_headers)
         asyncio.ensure_future(self.send_data(data, stream_id))
 
-    def receive_data(self, data: bytes, stream_id: int):
+    def receive_data(self, data: bytes, flow_controlled_length: int, stream_id: int):
         """
         We've received some data on a stream. If that stream is one we're
-        expecting data on, save it off. Otherwise, reset the stream.
+        expecting data on, save it off (and account for the received amount of
+        data in flow control so that the client can send more data).
+        Otherwise, reset the stream.
         """
         try:
             stream_data = self.stream_data[stream_id]
@@ -122,6 +126,7 @@ class H2Protocol(asyncio.Protocol):
             )
         else:
             stream_data.data.write(data)
+            self.conn.acknowledge_received_data(flow_controlled_length, stream_id)
 
     def stream_reset(self, stream_id):
         """
