@@ -39,6 +39,7 @@ class TestStreamReset(object):
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(stream_id=1, headers=self.example_request_headers)
+        # Send initial RST_STREAM
         c.reset_stream(stream_id=1)
         c.send_headers(stream_id=3, headers=self.example_request_headers)
         c.clear_outbound_data_buffer()
@@ -46,12 +47,11 @@ class TestStreamReset(object):
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers, stream_id=1
         )
-        rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
-        )
+
+        # RST_STREAM already sent. Expect no data here.
         events = c.receive_data(f.serialize())
         assert not events
-        assert c.data_to_send() == rst_frame.serialize()
+        assert c.data_to_send() == b""
 
         # This works because the header state should be intact from the headers
         # frame that was send on stream 1, so they should decode cleanly.
@@ -85,6 +85,7 @@ class TestStreamReset(object):
             headers=self.example_response_headers, stream_id=close_id
         )
         c.receive_data(f.serialize())
+        # Send initial reset
         c.reset_stream(stream_id=close_id)
         c.clear_outbound_data_buffer()
 
@@ -94,11 +95,8 @@ class TestStreamReset(object):
         )
         c.receive_data(f.serialize())
 
-        expected = frame_factory.build_rst_stream_frame(
-            stream_id=close_id,
-            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
-        ).serialize()
-        assert c.data_to_send() == expected
+        # RST_STREAM already sent. Expect no data here.
+        assert c.data_to_send() == b""
 
         new_window = c.remote_flow_control_window(stream_id=other_id)
         assert initial_window - len(b'some data') == new_window
