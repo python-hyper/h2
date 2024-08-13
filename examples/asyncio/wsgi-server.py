@@ -193,10 +193,9 @@ class H2Protocol(asyncio.Protocol):
             for data in self._flow_controlled_data.values():
                 self._stream_data.put_nowait(data)
 
-            self._flow_controlled_data = {}
+            self._flow_controlled_data.clear()
 
-    @asyncio.coroutine
-    def sending_loop(self):
+    async def sending_loop(self):
         """
         A call that loops forever, attempting to send data. This sending loop
         contains most of the flow-control smarts of this class: it pulls data
@@ -216,7 +215,7 @@ class H2Protocol(asyncio.Protocol):
         This coroutine explicitly *does not end*.
         """
         while True:
-            stream_id, data, event = yield from self._stream_data.get()
+            stream_id, data, event = await self._stream_data.get()
 
             # If this stream got reset, just drop the data on the floor. Note
             # that we need to reset the event here to make sure that
@@ -327,7 +326,7 @@ class H2Protocol(asyncio.Protocol):
         data.
         """
         if event.stream_id in self._flow_controlled_data:
-            del self._flow_controlled_data
+            del self._flow_controlled_data[event.stream_id]
 
         self._reset_streams.add(event.stream_id)
         self.end_stream(event)
@@ -534,23 +533,9 @@ class Stream:
     def readlines(self, hint=None):
         """
         Called by the WSGI application to read several lines of data.
-
-        This method is really pretty stupid. It rigorously observes the
-        ``hint`` parameter, and quite happily returns the input split into
-        lines.
         """
-        # This method is *crazy inefficient*, but it's also a pretty stupid
-        # method to call.
         data = self.read(hint)
-        lines = data.split(b'\n')
-
-        # Split removes the newline character, but we want it, so put it back.
-        lines = [line + b'\n' for line in lines]
-
-        # Except if the last character was a newline character we now have an
-        # extra line that is just a newline: pull that out.
-        if lines[-1] == b'\n':
-            lines = lines[:-1]
+        lines = data.splitlines(True)
         return lines
 
     def start_response(self, status, response_headers, exc_info=None):
@@ -688,41 +673,41 @@ def _build_environ_dict(headers, stream):
     version you'd want to fix it.
     """
     header_dict = dict(headers)
-    path = header_dict.pop(u':path')
+    path = header_dict.pop(':path')
     try:
-        path, query = path.split(u'?', 1)
+        path, query = path.split('?', 1)
     except ValueError:
-        query = u""
-    server_name = header_dict.pop(u':authority')
+        query = ""
+    server_name = header_dict.pop(':authority')
     try:
-        server_name, port = server_name.split(u':', 1)
-    except ValueError as e:
+        server_name, port = server_name.split(':', 1)
+    except ValueError:
         port = "8443"
 
     environ = {
-        u'REQUEST_METHOD': header_dict.pop(u':method'),
-        u'SCRIPT_NAME': u'',
-        u'PATH_INFO': path,
-        u'QUERY_STRING': query,
-        u'SERVER_NAME': server_name,
-        u'SERVER_PORT': port,
-        u'SERVER_PROTOCOL': u'HTTP/2',
-        u'HTTPS': u"on",
-        u'SSL_PROTOCOL': u'TLSv1.2',
-        u'wsgi.version': (1, 0),
-        u'wsgi.url_scheme': header_dict.pop(u':scheme'),
-        u'wsgi.input': stream,
-        u'wsgi.errors': sys.stderr,
-        u'wsgi.multithread': True,
-        u'wsgi.multiprocess': False,
-        u'wsgi.run_once': False,
+        'REQUEST_METHOD': header_dict.pop(':method'),
+        'SCRIPT_NAME': '',
+        'PATH_INFO': path,
+        'QUERY_STRING': query,
+        'SERVER_NAME': server_name,
+        'SERVER_PORT': port,
+        'SERVER_PROTOCOL': 'HTTP/2',
+        'HTTPS': "on",
+        'SSL_PROTOCOL': 'TLSv1.2',
+        'wsgi.version': (1, 0),
+        'wsgi.url_scheme': header_dict.pop(':scheme'),
+        'wsgi.input': stream,
+        'wsgi.errors': sys.stderr,
+        'wsgi.multithread': True,
+        'wsgi.multiprocess': False,
+        'wsgi.run_once': False,
     }
-    if u'content-type' in header_dict:
-        environ[u'CONTENT_TYPE'] = header_dict[u'content-type']
-    if u'content-length' in header_dict:
-        environ[u'CONTENT_LENGTH'] = header_dict[u'content-length']
+    if 'content-type' in header_dict:
+        environ['CONTENT_TYPE'] = header_dict.pop('content-type')
+    if 'content-length' in header_dict:
+        environ['CONTENT_LENGTH'] = header_dict.pop('content-length')
     for name, value in header_dict.items():
-        environ[u'HTTP_' + name.upper()] = value
+        environ['HTTP_' + name.upper()] = value
     return environ
 
 
@@ -753,8 +738,8 @@ try:
     loop.run_forever()
 except KeyboardInterrupt:
     pass
-
-# Close the server
-server.close()
-loop.run_until_complete(server.wait_closed())
-loop.close()
+finally:
+    # Close the server
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()

@@ -208,8 +208,8 @@ try:
     loop.run_forever()
 except KeyboardInterrupt:
     pass
-
-# Close the server
-server.close()
-loop.run_until_complete(server.wait_closed())
-loop.close()
+finally:
+    # Close the server
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()
