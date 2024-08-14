@@ -14,4 +14,13 @@ This example demonstrates some basic asyncio techniques.
    :encoding: utf-8
 
 
+You can use ``cert.crt`` and ``cert.key`` files provided within the repository
+or generate your own certificates using `OpenSSL`_:
+
+.. code-block:: console
+
+   $ openssl req -x509 -newkey rsa:2048 -keyout cert.key -out cert.crt -days 365 -nodes
+
+
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
+.. _OpenSSL: https://openssl-library.org/source/index.html
