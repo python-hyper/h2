@@ -156,7 +156,7 @@ This is not a socket tutorial, so we're not going to dive too deeply into how
 this works. If you want more detail about sockets, there are lots of good
 tutorials on the web that you should investigate.
 
-When you want to listen for incoming connections, the you need to *bind* an
+When you want to listen for incoming connections, you need to *bind* an
 address first. So let's do that. Try setting up your file to look like this:
 
 .. code-block:: python
@@ -213,11 +213,12 @@ connection object and start handing it data. For now, let's just see what
 happens as we feed it data.
 
 To make HTTP/2 connections, we need a tool that knows how to speak HTTP/2.
-Most versions of curl in the wild don't, so let's install a Python tool. In
-your Python environment, run ``pip install hyper``. This will install a Python
-command-line HTTP/2 tool called ``hyper``. To confirm that it works, try
-running this command and verifying that the output looks similar to the one
-shown below:
+You can simply use `curl`_ or install a Python tool used throughout this
+tutorial. In your Python environment, run ``pip install hyper`` (Make sure to
+use ``Python < 3.10`` or install it in separate environment). This will
+install a Python command-line HTTP/2 tool called ``hyper``. To confirm that
+it works, try running this command and verifying that the output looks similar
+to the one shown below:
 
 .. code-block:: console
 
@@ -226,6 +227,16 @@ shown below:
      'headers': {'Host': 'nghttp2.org'},
      'origin': '10.0.0.2',
      'url': 'https://nghttp2.org/httpbin/get'}
+
+Equivalent code with curl would look like this:
+
+.. code-block:: console
+
+    $ curl --http2 https://nghttp2.org/httpbin/get
+
+To use it with our server though, you will need to invoke it with a different
+``--http2-prior-knowledge`` flag as we are going to serve over the insecure
+connection.
 
 Assuming it works, you're now ready to start sending HTTP/2 data.
 
@@ -290,7 +301,9 @@ function. Your ``h2server.py`` should end up looking a like this:
         handle(sock.accept()[0])
 
 Running that in one shell, in your other shell you can run
-``hyper --h2 GET http://localhost:8080/``. That shell should hang, and you
+``hyper --h2 GET http://localhost:8080/``. For the ``curl`` use
+``curl -v --http2-prior-knowledge http://localhost:8080/`` command.
+That shell should hang, and you
 should then see the following output from your ``h2server.py`` shell:
 
 .. code-block:: console
@@ -744,3 +757,4 @@ it, there are a few directions you could investigate:
 .. _get your private key here: https://raw.githubusercontent.com/python-hyper/h2/master/examples/twisted/server.key
 .. _PyOpenSSL: http://pyopenssl.readthedocs.org/
 .. _Eventlet example: https://github.com/python-hyper/h2/blob/master/examples/eventlet/eventlet-server.py
+.. _curl: https://curl.se/docs/http2.html
