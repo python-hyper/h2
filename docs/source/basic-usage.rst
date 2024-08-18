@@ -213,26 +213,18 @@ connection object and start handing it data. For now, let's just see what
 happens as we feed it data.
 
 To make HTTP/2 connections, we need a tool that knows how to speak HTTP/2.
-You can simply use `curl`_ or install a Python tool used throughout this
-tutorial. In your Python environment, run ``pip install hyper`` (Make sure to
-use ``Python < 3.10`` or install it in separate environment). This will
-install a Python command-line HTTP/2 tool called ``hyper``. To confirm that
-it works, try running this command and verifying that the output looks similar
-to the one shown below:
+You can simply use `curl`_ or any other client with HTTP/2 support like
+`httpx`_. To confirm that it works, try running this command and verifying that
+the output looks similar to the one shown below:
 
 .. code-block:: console
 
-    $ hyper GET https://nghttp2.org/httpbin/get
+    $ curl --http2 https://nghttp2.org/httpbin/get
     {'args': {},
      'headers': {'Host': 'nghttp2.org'},
      'origin': '10.0.0.2',
      'url': 'https://nghttp2.org/httpbin/get'}
 
-Equivalent code with curl would look like this:
-
-.. code-block:: console
-
-    $ curl --http2 https://nghttp2.org/httpbin/get
 
 To use it with our server though, you will need to invoke it with a different
 ``--http2-prior-knowledge`` flag as we are going to serve over the insecure
@@ -301,17 +293,16 @@ function. Your ``h2server.py`` should end up looking a like this:
         handle(sock.accept()[0])
 
 Running that in one shell, in your other shell you can run
-``hyper --h2 GET http://localhost:8080/``. For the ``curl`` use
 ``curl -v --http2-prior-knowledge http://localhost:8080/`` command.
-That shell should hang, and you
-should then see the following output from your ``h2server.py`` shell:
+That shell should hang, and you should then see the following output from your
+``h2server.py`` shell:
 
 .. code-block:: console
 
     $ python h2server.py
     [<h2.events.RemoteSettingsChanged object at 0x10c4ee390>]
 
-You'll then need to kill ``hyper`` and ``h2server.py`` with Ctrl+C. Feel free
+You'll then need to kill ``curl`` and ``h2server.py`` with Ctrl+C. Feel free
 to do this a few times, to see how things behave.
 
 So, what did we see here? When the connection was opened, we used the
@@ -320,15 +311,15 @@ socket, in a loop. We then passed that data to the connection object, which
 returned us a single event object:
 :class:`RemoteSettingsChanged <h2.events.RemoteSettingsChanged>`.
 
-But what we didn't see was anything else. So it seems like all ``hyper`` did
-was change its settings, but nothing else. If you look at the other ``hyper``
+But what we didn't see was anything else. So it seems like all ``curl`` did
+was change its settings, but nothing else. If you look at the other ``curl``
 window, you'll notice that it hangs for a while and then eventually fails with
 a socket timeout. It was waiting for something: what?
 
 Well, it turns out that at the start of a connection, both sides need to send
 a bit of data, called "the HTTP/2 preamble". We don't need to get into too much
 detail here, but basically both sides need to send a single block of HTTP/2
-data that tells the other side what their settings are. ``hyper`` did that,
+data that tells the other side what their settings are. ``curl`` did that,
 but we didn't.
 
 Let's do that next.
@@ -401,9 +392,10 @@ Your ``h2server.py`` script should now look like this:
 
 
 With this change made, rerun your ``h2server.py`` script and hit it with the
-same ``hyper`` command: ``hyper --h2 GET http://localhost:8080/``. The
-``hyper`` command still hangs, but this time we get a bit more output from our
-``h2server.py`` script:
+same ``curl`` command:
+``curl -v --http2-prior-knowledge http://localhost:8080/``.
+The ``curl`` command still hangs, but this time we get a bit more output from
+our ``h2server.py`` script:
 
 .. code-block:: console
 
@@ -423,17 +415,17 @@ Finally, even more data that triggers *two* events:
 :class:`RequestReceived <h2.events.RequestReceived>` and
 :class:`StreamEnded <h2.events.StreamEnded>`.
 
-So, what's happening is that ``hyper`` is telling us about its settings,
+So, what's happening is that ``curl`` is telling us about its settings,
 acknowledging ours, and then sending us a request. Then it ends a *stream*,
 which is a HTTP/2 communications channel that holds a request and response
 pair.
 
 A stream isn't done until it's either *reset* or both sides *close* it:
 in this sense it's bi-directional. So what the ``StreamEnded`` event tells us
-is that ``hyper`` is closing its half of the stream: it won't send us any more
+is that ``curl`` is closing its half of the stream: it won't send us any more
 data on that stream. That means the request is done.
 
-So why is ``hyper`` hanging? Well, we haven't sent a response yet: let's do
+So why is ``curl`` hanging? Well, we haven't sent a response yet: let's do
 that.
 
 
@@ -502,7 +494,7 @@ one exception is headers: h2 will automatically encode those into UTF-8.
 The last thing to note is that on our call to ``send_data``, we set
 ``end_stream`` to ``True``. This tells h2 (and the remote peer) that
 we're done with sending data: the response is over. Because we know that
-``hyper`` will have ended its side of the stream, when we end ours the stream
+``curl`` will have ended its side of the stream, when we end ours the stream
 will be totally done with.
 
 We're nearly ready to go with this: we just need to plumb this function in.
@@ -594,9 +586,9 @@ With these changes, your ``h2server.py`` file should look like this:
     while True:
         handle(sock.accept()[0])
 
-Alright. Let's run this, and then run our ``hyper`` command again.
+Alright. Let's run this, and then run our ``curl`` command again.
 
-This time, nothing is printed from our server, and the ``hyper`` side prints
+This time, nothing is printed from our server, and the ``curl`` side prints
 ``it works!``. Success! Try running it a few more times, and we can see that
 not only does it work the first time, it works the other times too!
 
@@ -705,15 +697,15 @@ file, which should now look like this:
     while True:
         handle(sock.accept()[0])
 
-Now, execute ``h2server.py`` and then point ``hyper`` at it again. You should
-see something like the following output from ``hyper``:
+Now, execute ``h2server.py`` and then point ``curl`` at it again. You should
+see something like the following output from ``curl``:
 
 .. code-block:: console
 
-    $ hyper --h2 GET http://localhost:8080/
+    $ curl -v --http2-prior-knowledge http://localhost:8080/
     {":scheme": "http", ":authority": "localhost", ":method": "GET", ":path": "/"}
 
-Here you can see the HTTP/2 request 'special headers' that ``hyper`` sends.
+Here you can see the HTTP/2 request 'special headers' that ``curl`` sends.
 These are similar to the ``:status`` header we have to send on our response:
 they encode important parts of the HTTP request in a clearly-defined way. If
 you were writing a client stack using h2, you'd need to make sure you
@@ -758,3 +750,4 @@ it, there are a few directions you could investigate:
 .. _PyOpenSSL: http://pyopenssl.readthedocs.org/
 .. _Eventlet example: https://github.com/python-hyper/h2/blob/master/examples/eventlet/eventlet-server.py
 .. _curl: https://curl.se/docs/http2.html
+.. _httpx: https://www.python-httpx.org/
