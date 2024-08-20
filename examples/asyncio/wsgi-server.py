@@ -535,7 +535,7 @@ class Stream:
         Called by the WSGI application to read several lines of data.
         """
         data = self.read(hint)
-        lines = data.splitlines(True)
+        lines = data.splitlines(keepends=True)
         return lines
 
     def start_response(self, status, response_headers, exc_info=None):
