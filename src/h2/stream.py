@@ -316,7 +316,7 @@ class H2StreamStateMachine:
         """
         self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
 
-        error = StreamClosedError(self.stream_id)
+        error = StreamClosedError(self.stream_id, connection_error=False)
 
         event = StreamReset()
         event.stream_id = self.stream_id
@@ -334,8 +334,31 @@ class H2StreamStateMachine:
         a stream error or connection error with type STREAM_CLOSED, depending
         on the specific frame. The error handling is done at a higher level:
         this just raises the appropriate error.
+
+        RFC:
+            Normally, an endpoint SHOULD NOT send more than one RST_STREAM
+            frame for any stream.  However, an endpoint MAY send additional
+            RST_STREAM frames if it receives frames on a closed stream after
+            more than a round-trip time.  This behavior is permitted to deal
+            with misbehaving implementations.
+
+        Implementation:
+            Raising StreamClosedError causes the RST_STREAM frame to be sent.
+            If the stream closed_by value is SEND_RST_STREAM, ignore this
+            instead of raising, such that only one RST_STREAM frame is sent.
+            There is currently now latency tracking, and as such measuring
+            round-trip time for allowed additional RST_STREAM frames which
+            MAY be sent cannot be implemented.
         """
-        raise StreamClosedError(self.stream_id)
+
+        if self.stream_closed_by == StreamClosedBy.RECV_RST_STREAM:
+            self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
+            raise StreamClosedError(self.stream_id, connection_error=False)
+        elif self.stream_closed_by in (StreamClosedBy.RECV_END_STREAM,
+                                       StreamClosedBy.SEND_END_STREAM):
+            raise StreamClosedError(self.stream_id)
+
+        return []
 
     def send_on_closed_stream(self, previous_state):
         """
@@ -1040,23 +1063,24 @@ class H2Stream:
 
         events = self.state_machine.process_input(input_)
 
-        if end_stream:
-            es_events = self.state_machine.process_input(
-                StreamInputs.RECV_END_STREAM
+        if len(events) > 0:
+            if end_stream:
+                es_events = self.state_machine.process_input(
+                    StreamInputs.RECV_END_STREAM
+                )
+                events[0].stream_ended = es_events[0]
+                events += es_events
+
+            self._initialize_content_length(headers)
+
+            if isinstance(events[0], TrailersReceived):
+                if not end_stream:
+                    raise ProtocolError("Trailers must have END_STREAM set")
+
+            hdr_validation_flags = self._build_hdr_validation_flags(events)
+            events[0].headers = self._process_received_headers(
+                headers, hdr_validation_flags, header_encoding
             )
-            events[0].stream_ended = es_events[0]
-            events += es_events
-
-        self._initialize_content_length(headers)
-
-        if isinstance(events[0], TrailersReceived):
-            if not end_stream:
-                raise ProtocolError("Trailers must have END_STREAM set")
-
-        hdr_validation_flags = self._build_hdr_validation_flags(events)
-        events[0].headers = self._process_received_headers(
-            headers, hdr_validation_flags, header_encoding
-        )
         return [], events
 
     def receive_data(self, data, end_stream, flow_control_len):
@@ -1068,18 +1092,20 @@ class H2Stream:
             "set to %d", self, end_stream, flow_control_len
         )
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
-        self._inbound_window_manager.window_consumed(flow_control_len)
-        self._track_content_length(len(data), end_stream)
 
-        if end_stream:
-            es_events = self.state_machine.process_input(
-                StreamInputs.RECV_END_STREAM
-            )
-            events[0].stream_ended = es_events[0]
-            events.extend(es_events)
+        if len(events) > 0:
+            self._inbound_window_manager.window_consumed(flow_control_len)
+            self._track_content_length(len(data), end_stream)
 
-        events[0].data = data
-        events[0].flow_controlled_length = flow_control_len
+            if end_stream:
+                es_events = self.state_machine.process_input(
+                    StreamInputs.RECV_END_STREAM
+                )
+                events[0].stream_ended = es_events[0]
+                events.extend(es_events)
+
+            events[0].data = data
+            events[0].flow_controlled_length = flow_control_len
         return [], events
 
     def receive_window_update(self, increment):
