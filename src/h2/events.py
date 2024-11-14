@@ -589,11 +589,9 @@ class AlternativeServiceAvailable(Event):
         self.field_value = None
 
     def __repr__(self):
-        return (
-            "<AlternativeServiceAvailable origin:%s, field_value:%s>" % (
-                self.origin.decode('utf-8', 'ignore'),
-                self.field_value.decode('utf-8', 'ignore'),
-            )
+        return "<AlternativeServiceAvailable origin:%s, field_value:%s>" % (
+            self.origin.decode("utf-8", "replace"),
+            self.field_value.decode("utf-8", "replace"),
         )
 
 

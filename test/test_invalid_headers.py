@@ -296,7 +296,9 @@ class TestSendingInvalidFrameSequences(object):
         c.send_headers(1, headers)
 
         # Ensure headers are still normalized.
-        norm_headers = h2.utilities.normalize_outbound_headers(headers, None, False)
+        norm_headers = h2.utilities.normalize_outbound_headers(
+            h2.utilities.utf8_encode_headers(headers), None, False
+        )
         f = frame_factory.build_headers_frame(norm_headers)
         assert c.data_to_send() == f.serialize()
 
@@ -322,7 +324,9 @@ class TestSendingInvalidFrameSequences(object):
 
         # Create push promise frame with normalized headers.
         frame_factory.refresh_encoder()
-        norm_headers = h2.utilities.normalize_outbound_headers(headers, None, False)
+        norm_headers = h2.utilities.normalize_outbound_headers(
+            h2.utilities.utf8_encode_headers(headers), None, False
+        )
         pp_frame = frame_factory.build_push_promise_frame(
             stream_id=1, promised_stream_id=2, headers=norm_headers
         )
@@ -467,43 +471,10 @@ class TestFilter(object):
             (b':path', b''),
         ),
     )
-    invalid_request_header_blocks_unicode = (
-        # First, missing :method
-        (
-            (':authority', 'google.com'),
-            (':path', '/'),
-            (':scheme', 'https'),
-        ),
-        # Next, missing :path
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':scheme', 'https'),
-        ),
-        # Next, missing :scheme
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':path', '/'),
-        ),
-        # Finally, path present but empty.
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':scheme', 'https'),
-            (':path', ''),
-        ),
-    )
 
     # All headers that are forbidden from either request or response blocks.
-    forbidden_request_headers_bytes = (b':status',)
-    forbidden_request_headers_unicode = (':status',)
-    forbidden_response_headers_bytes = (
-        b':path', b':scheme', b':authority', b':method'
-    )
-    forbidden_response_headers_unicode = (
-        ':path', ':scheme', ':authority', ':method'
-    )
+    forbidden_request_headers_bytes = (b":status",)
+    forbidden_response_headers_bytes = (b":path", b":scheme", b":authority", b":method")
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
@@ -562,11 +533,8 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
     @pytest.mark.parametrize(
-        'header_block',
-        (
-            invalid_request_header_blocks_bytes +
-            invalid_request_header_blocks_unicode
-        )
+        "header_block",
+        (invalid_request_header_blocks_bytes),
     )
     def test_outbound_req_header_missing_pseudo_headers(self,
                                                         hdr_validation_flags,
@@ -598,8 +566,8 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
     @pytest.mark.parametrize(
-        'invalid_header',
-        forbidden_request_headers_bytes + forbidden_request_headers_unicode
+        "invalid_header",
+        forbidden_request_headers_bytes,
     )
     def test_outbound_req_header_extra_pseudo_headers(self,
                                                       hdr_validation_flags,
@@ -650,8 +618,8 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_response_headers
     )
     @pytest.mark.parametrize(
-        'invalid_header',
-        forbidden_response_headers_bytes + forbidden_response_headers_unicode
+        "invalid_header",
+        forbidden_response_headers_bytes,
     )
     def test_outbound_resp_header_extra_pseudo_headers(self,
                                                        hdr_validation_flags,
