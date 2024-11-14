@@ -506,13 +506,18 @@ def _check_path_header(headers, hdr_validation_flags):
 
 
 def _to_bytes(v):
+    """
+    Given an assumed `str` (or anything that supports `.encode()`),
+    encodes it using utf-8 into bytes. Returns the unmodified object
+    if it is already a `bytes` object.
+    """
     return v if isinstance(v, bytes) else v.encode("utf-8")
 
 
 def utf8_encode_headers(headers):
     """
-    Given an iterable of header two-tuples, rebuilds that iterable with the
-    header names and values encoded as utf-8 bytes. This generator produces
+    Given an iterable of header two-tuples, rebuilds that as a list with the
+    header names and values encoded as utf-8 bytes. This function produces
     tuples that preserve the original type of the header tuple for tuple and
     any ``HeaderTuple``.
     """
