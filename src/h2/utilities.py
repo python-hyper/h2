@@ -20,47 +20,39 @@ SIGIL = ord(b":")
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
-CONNECTION_HEADERS = frozenset(
-    [
-        b"connection",
-        b"proxy-connection",
-        b"keep-alive",
-        b"transfer-encoding",
-        b"upgrade",
-    ]
-)
+CONNECTION_HEADERS = frozenset([
+    b"connection",
+    b"proxy-connection",
+    b"keep-alive",
+    b"transfer-encoding",
+    b"upgrade",
+])
 
 
-_ALLOWED_PSEUDO_HEADER_FIELDS = frozenset(
-    [
-        b":method",
-        b":scheme",
-        b":authority",
-        b":path",
-        b":status",
-        b":protocol",
-    ]
-)
+_ALLOWED_PSEUDO_HEADER_FIELDS = frozenset([
+    b":method",
+    b":scheme",
+    b":authority",
+    b":path",
+    b":status",
+    b":protocol",
+])
 
 
-_SECURE_HEADERS = frozenset(
-    [
-        # May have basic credentials which are vulnerable to dictionary attacks.
-        b"authorization",
-        b"proxy-authorization",
-    ]
-)
+_SECURE_HEADERS = frozenset([
+    # May have basic credentials which are vulnerable to dictionary attacks.
+    b"authorization",
+    b"proxy-authorization",
+])
 
 
-_REQUEST_ONLY_HEADERS = frozenset(
-    [
-        b":scheme",
-        b":path",
-        b":authority",
-        b":method",
-        b":protocol",
-    ]
-)
+_REQUEST_ONLY_HEADERS = frozenset([
+    b":scheme",
+    b":path",
+    b":authority",
+    b":method",
+    b":protocol",
+])
 
 
 _RESPONSE_ONLY_HEADERS = frozenset([b":status"])
@@ -285,7 +277,9 @@ def _reject_te(headers, hdr_validation_flags):
     for header in headers:
         if header[0] == b"te":
             if header[1].lower() != b"trailers":
-                raise ProtocolError(f"Invalid value for TE header: {repr(header[1])}")
+                raise ProtocolError(
+                    f"Invalid value for TE header: {repr(header[1])}"
+                )
 
         yield header
 

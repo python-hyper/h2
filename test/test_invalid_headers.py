@@ -473,8 +473,8 @@ class TestFilter(object):
     )
 
     # All headers that are forbidden from either request or response blocks.
-    forbidden_request_headers_bytes = (b":status",)
-    forbidden_response_headers_bytes = (b":path", b":scheme", b":authority", b":method")
+    forbidden_request_headers_bytes = (b':status',)
+    forbidden_response_headers_bytes = (b':path', b':scheme', b':authority', b':method')
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
@@ -533,7 +533,7 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
     @pytest.mark.parametrize(
-        "header_block",
+        'header_block',
         (invalid_request_header_blocks_bytes),
     )
     def test_outbound_req_header_missing_pseudo_headers(self,
@@ -566,7 +566,7 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_request_headers_no_trailer
     )
     @pytest.mark.parametrize(
-        "invalid_header",
+        'invalid_header',
         forbidden_request_headers_bytes,
     )
     def test_outbound_req_header_extra_pseudo_headers(self,
@@ -618,7 +618,7 @@ class TestFilter(object):
         'hdr_validation_flags', hdr_validation_response_headers
     )
     @pytest.mark.parametrize(
-        "invalid_header",
+        'invalid_header',
         forbidden_response_headers_bytes,
     )
     def test_outbound_resp_header_extra_pseudo_headers(self,

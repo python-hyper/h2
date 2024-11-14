@@ -160,7 +160,9 @@ class TestExtractHeader(object):
     ]
 
     def test_extract_header_method(self):
-        assert extract_method_header(self.example_headers_with_bytes) == b"GET"
+        assert extract_method_header(
+            self.example_headers_with_bytes
+        ) == b'GET'
 
 
 def test_size_limit_dict_limit():

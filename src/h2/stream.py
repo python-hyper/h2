@@ -23,16 +23,10 @@ from .exceptions import (
     ProtocolError, StreamClosedError, InvalidBodyLengthError, FlowControlError
 )
 from .utilities import (
-    guard_increment_window,
-    is_informational_response,
-    authority_from_headers,
-    utf8_encode_headers,
-    validate_headers,
-    validate_outbound_headers,
-    normalize_outbound_headers,
-    HeaderValidationFlags,
-    extract_method_header,
-    normalize_inbound_headers,
+    guard_increment_window, is_informational_response, authority_from_headers,
+    validate_headers, validate_outbound_headers, normalize_outbound_headers,
+    HeaderValidationFlags, extract_method_header, normalize_inbound_headers,
+    utf8_encode_headers
 )
 from .windows import WindowManager
 
@@ -860,7 +854,8 @@ class H2Stream:
         input_ = StreamInputs.SEND_HEADERS
 
         headers = utf8_encode_headers(headers)
-        if (not self.state_machine.client) and is_informational_response(headers):
+        if ((not self.state_machine.client) and
+                is_informational_response(headers)):
             if end_stream:
                 raise ProtocolError(
                     "Cannot set END_STREAM on informational responses."
@@ -1327,7 +1322,9 @@ class H2Stream:
                 try:
                     self._expected_content_length = int(v, 10)
                 except ValueError:
-                    raise ProtocolError(f"Invalid content-length header: {repr(v)}")
+                    raise ProtocolError(
+                        f"Invalid content-length header: {repr(v)}"
+                    )
 
                 return
 
