@@ -13,54 +13,56 @@ from hpack import HeaderTuple, NeverIndexedHeaderTuple
 
 from .exceptions import ProtocolError, FlowControlError
 
-UPPER_RE = re.compile(b"[A-Z]")
 
-SIGIL = ord(b":")
+UPPER_RE = re.compile(b"[A-Z]")
+SIGIL = ord(b':')
+STATUS_HEADER = b':status'
+INFORMATIONAL_START = ord(b'1')
 
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
 CONNECTION_HEADERS = frozenset([
-    b"connection",
-    b"proxy-connection",
-    b"keep-alive",
-    b"transfer-encoding",
-    b"upgrade",
+    b'connection',
+    b'proxy-connection',
+    b'keep-alive',
+    b'transfer-encoding',
+    b'upgrade',
 ])
 
 
 _ALLOWED_PSEUDO_HEADER_FIELDS = frozenset([
-    b":method",
-    b":scheme",
-    b":authority",
-    b":path",
-    b":status",
-    b":protocol",
+    b':method',
+    b':scheme',
+    b':authority',
+    b':path',
+    b':status',
+    b':protocol',
 ])
 
 
 _SECURE_HEADERS = frozenset([
     # May have basic credentials which are vulnerable to dictionary attacks.
-    b"authorization",
-    b"proxy-authorization",
+    b'authorization',
+    b'proxy-authorization',
 ])
 
 
 _REQUEST_ONLY_HEADERS = frozenset([
-    b":scheme",
-    b":path",
-    b":authority",
-    b":method",
-    b":protocol",
+    b':scheme',
+    b':path',
+    b':authority',
+    b':method',
+    b':protocol',
 ])
 
 
-_RESPONSE_ONLY_HEADERS = frozenset([b":status"])
+_RESPONSE_ONLY_HEADERS = frozenset([b':status'])
 
 
 # A Set of pseudo headers that are only valid if the method is
 # CONNECT, see RFC 8441 § 5
-_CONNECT_REQUEST_ONLY_HEADERS = frozenset([b":protocol"])
+_CONNECT_REQUEST_ONLY_HEADERS = frozenset([b':protocol'])
 
 
 _WHITESPACE = frozenset(map(ord, whitespace))
@@ -87,7 +89,7 @@ def _secure_headers(headers, hdr_validation_flags):
     for header in headers:
         if header[0] in _SECURE_HEADERS:
             yield NeverIndexedHeaderTuple(*header)
-        elif header[0] == b"cookie" and len(header[1]) < 20:
+        elif header[0] == b'cookie' and len(header[1]) < 20:
             yield NeverIndexedHeaderTuple(*header)
         else:
             yield header
@@ -98,7 +100,7 @@ def extract_method_header(headers):
     Extracts the request method from the headers list.
     """
     for k, v in headers:
-        if k == b":method":
+        if k == b':method':
             return v
 
 
@@ -113,8 +115,6 @@ def is_informational_response(headers):
     :param headers: The HTTP/2 header block.
     :returns: A boolean indicating if this is an informational response.
     """
-    status = b":status"
-    informational_start = ord(b"1")
     for n, v in headers:
         # If we find a non-special header, we're done here: stop looping.
 
@@ -122,11 +122,11 @@ def is_informational_response(headers):
             return False
 
         # This isn't the status header, bail.
-        if n != status:
+        if n != STATUS_HEADER:
             continue
 
         # If the first digit is a 1, we've got informational headers.
-        return v[0] == informational_start
+        return v[0] == INFORMATIONAL_START
 
 
 def guard_increment_window(current, increment):
@@ -167,7 +167,7 @@ def authority_from_headers(headers):
     :rtype: ``bytes`` or ``None``.
     """
     for n, v in headers:
-        if n == b":authority":
+        if n == b':authority':
             return v
 
     return None
@@ -243,7 +243,9 @@ def _reject_uppercase_header_fields(headers, hdr_validation_flags):
     """
     for header in headers:
         if UPPER_RE.search(header[0]):
-            raise ProtocolError(f"Received uppercase header name {repr(header[0])}.")
+            raise ProtocolError(
+                f"Received uppercase header name {repr(header[0])}."
+            )
         yield header
 
 
@@ -275,8 +277,8 @@ def _reject_te(headers, hdr_validation_flags):
     its value is anything other than "trailers".
     """
     for header in headers:
-        if header[0] == b"te":
-            if header[1].lower() != b"trailers":
+        if header[0] == b'te':
+            if header[1].lower() != b'trailers':
                 raise ProtocolError(
                     f"Invalid value for TE header: {repr(header[1])}"
                 )
@@ -341,7 +343,7 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
                     f"Received custom pseudo-header field {repr(header[0])}"
                 )
 
-            if header[0] in b":method":
+            if header[0] in b':method':
                 method = header[1]
 
         else:
@@ -375,7 +377,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
     # Relevant RFC section: RFC 7540 § 8.1.2.4
     # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
     if hdr_validation_flags.is_response_header:
-        _assert_header_in_set(b":status", pseudo_headers)
+        _assert_header_in_set(STATUS_HEADER, pseudo_headers)
         invalid_response_headers = pseudo_headers & _REQUEST_ONLY_HEADERS
         if invalid_response_headers:
             raise ProtocolError(
@@ -386,9 +388,9 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
           not hdr_validation_flags.is_trailer):
         # This is a request, so we need to have seen :path, :method, and
         # :scheme.
-        _assert_header_in_set(b":path", pseudo_headers)
-        _assert_header_in_set(b":method", pseudo_headers)
-        _assert_header_in_set(b":scheme", pseudo_headers)
+        _assert_header_in_set(b':path', pseudo_headers)
+        _assert_header_in_set(b':method', pseudo_headers)
+        _assert_header_in_set(b':scheme', pseudo_headers)
         invalid_request_headers = pseudo_headers & _RESPONSE_ONLY_HEADERS
         if invalid_request_headers:
             raise ProtocolError(
@@ -399,8 +401,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
             invalid_headers = pseudo_headers & _CONNECT_REQUEST_ONLY_HEADERS
             if invalid_headers:
                 raise ProtocolError(
-                    "Encountered connect-request-only headers %s" %
-                    invalid_headers
+                    f"Encountered connect-request-only headers {repr(invalid_headers)}"
                 )
 
 
@@ -425,9 +426,9 @@ def _validate_host_authority_header(headers):
     host_header_val = None
 
     for header in headers:
-        if header[0] == b":authority":
+        if header[0] == b':authority':
             authority_header_val = header[1]
-        elif header[0] == b"host":
+        elif header[0] == b'host':
             host_header_val = header[1]
 
         yield header
@@ -480,7 +481,7 @@ def _check_path_header(headers, hdr_validation_flags):
     """
     def inner():
         for header in headers:
-            if header[0] == b":path":
+            if header[0] == b':path':
                 if not header[1]:
                     raise ProtocolError("An empty :path header is forbidden")
 
@@ -505,7 +506,7 @@ def _to_bytes(v):
     encodes it using utf-8 into bytes. Returns the unmodified object
     if it is already a `bytes` object.
     """
-    return v if isinstance(v, bytes) else v.encode("utf-8")
+    return v if isinstance(v, bytes) else v.encode('utf-8')
 
 
 def utf8_encode_headers(headers):
@@ -612,8 +613,8 @@ def _split_outbound_cookie_fields(headers, hdr_validation_flags):
     inbound.
     """
     for header in headers:
-        if header[0] == b"cookie":
-            for cookie_val in header[1].split(b"; "):
+        if header[0] == b'cookie':
+            for cookie_val in header[1].split(b'; '):
                 if isinstance(header, HeaderTuple):
                     yield header.__class__(header[0], cookie_val)
                 else:

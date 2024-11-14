@@ -1245,7 +1245,6 @@ class H2Stream:
         """
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
-
         if self.config.normalize_outbound_headers:
             # also we may want to split outbound cookies to improve
             # headers compression
