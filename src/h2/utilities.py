@@ -16,7 +16,6 @@ from .exceptions import ProtocolError, FlowControlError
 
 UPPER_RE = re.compile(b"[A-Z]")
 SIGIL = ord(b':')
-STATUS_HEADER = b':status'
 INFORMATIONAL_START = ord(b'1')
 
 
@@ -122,7 +121,7 @@ def is_informational_response(headers):
             return False
 
         # This isn't the status header, bail.
-        if n != STATUS_HEADER:
+        if n != b'status':
             continue
 
         # If the first digit is a 1, we've got informational headers.
@@ -377,7 +376,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
     # Relevant RFC section: RFC 7540 § 8.1.2.4
     # https://tools.ietf.org/html/rfc7540#section-8.1.2.4
     if hdr_validation_flags.is_response_header:
-        _assert_header_in_set(STATUS_HEADER, pseudo_headers)
+        _assert_header_in_set(b'status', pseudo_headers)
         invalid_response_headers = pseudo_headers & _REQUEST_ONLY_HEADERS
         if invalid_response_headers:
             raise ProtocolError(
