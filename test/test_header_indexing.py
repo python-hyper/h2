@@ -32,10 +32,10 @@ class TestHeaderIndexing(object):
     the appropriate hpack data structures.
     """
     example_request_headers = [
-        HeaderTuple(u':authority', u'example.com'),
-        HeaderTuple(u':path', u'/'),
-        HeaderTuple(u':scheme', u'https'),
-        HeaderTuple(u':method', u'GET'),
+        HeaderTuple(':authority', 'example.com'),
+        HeaderTuple(':path', '/'),
+        HeaderTuple(':scheme', 'https'),
+        HeaderTuple(':method', 'GET'),
     ]
     bytes_example_request_headers = [
         HeaderTuple(b':authority', b'example.com'),
@@ -45,11 +45,11 @@ class TestHeaderIndexing(object):
     ]
 
     extended_request_headers = [
-        HeaderTuple(u':authority', u'example.com'),
-        HeaderTuple(u':path', u'/'),
-        HeaderTuple(u':scheme', u'https'),
-        HeaderTuple(u':method', u'GET'),
-        NeverIndexedHeaderTuple(u'authorization', u'realpassword'),
+        HeaderTuple(':authority', 'example.com'),
+        HeaderTuple(':path', '/'),
+        HeaderTuple(':scheme', 'https'),
+        HeaderTuple(':method', 'GET'),
+        NeverIndexedHeaderTuple('authorization', 'realpassword'),
     ]
     bytes_extended_request_headers = [
         HeaderTuple(b':authority', b'example.com'),
@@ -60,8 +60,8 @@ class TestHeaderIndexing(object):
     ]
 
     example_response_headers = [
-        HeaderTuple(u':status', u'200'),
-        HeaderTuple(u'server', u'fake-serv/0.1.0')
+        HeaderTuple(':status', '200'),
+        HeaderTuple('server', 'fake-serv/0.1.0')
     ]
     bytes_example_response_headers = [
         HeaderTuple(b':status', b'200'),
@@ -69,9 +69,9 @@ class TestHeaderIndexing(object):
     ]
 
     extended_response_headers = [
-        HeaderTuple(u':status', u'200'),
-        HeaderTuple(u'server', u'fake-serv/0.1.0'),
-        NeverIndexedHeaderTuple(u'secure', u'you-bet'),
+        HeaderTuple(':status', '200'),
+        HeaderTuple('server', 'fake-serv/0.1.0'),
+        NeverIndexedHeaderTuple('secure', 'you-bet'),
     ]
     bytes_extended_response_headers = [
         HeaderTuple(b':status', b'200'),
@@ -228,7 +228,7 @@ class TestHeaderIndexing(object):
         # to avoid breaking the example headers.
         headers = headers[:]
         if encoding:
-            headers[0] = HeaderTuple(u':status', u'100')
+            headers[0] = HeaderTuple(':status', '100')
         else:
             headers[0] = HeaderTuple(b':status', b'100')
 
@@ -334,10 +334,10 @@ class TestSecureHeaders(object):
     Certain headers should always be transformed to their never-indexed form.
     """
     example_request_headers = [
-        (u':authority', u'example.com'),
-        (u':path', u'/'),
-        (u':scheme', u'https'),
-        (u':method', u'GET'),
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'GET'),
     ]
     bytes_example_request_headers = [
         (b':authority', b'example.com'),
@@ -346,15 +346,15 @@ class TestSecureHeaders(object):
         (b':method', b'GET'),
     ]
     possible_auth_headers = [
-        (u'authorization', u'test'),
-        (u'Authorization', u'test'),
-        (u'authorization', u'really long test'),
-        HeaderTuple(u'authorization', u'test'),
-        HeaderTuple(u'Authorization', u'test'),
-        HeaderTuple(u'authorization', u'really long test'),
-        NeverIndexedHeaderTuple(u'authorization', u'test'),
-        NeverIndexedHeaderTuple(u'Authorization', u'test'),
-        NeverIndexedHeaderTuple(u'authorization', u'really long test'),
+        ('authorization', 'test'),
+        ('Authorization', 'test'),
+        ('authorization', 'really long test'),
+        HeaderTuple('authorization', 'test'),
+        HeaderTuple('Authorization', 'test'),
+        HeaderTuple('authorization', 'really long test'),
+        NeverIndexedHeaderTuple('authorization', 'test'),
+        NeverIndexedHeaderTuple('Authorization', 'test'),
+        NeverIndexedHeaderTuple('authorization', 'really long test'),
         (b'authorization', b'test'),
         (b'Authorization', b'test'),
         (b'authorization', b'really long test'),
@@ -364,15 +364,15 @@ class TestSecureHeaders(object):
         NeverIndexedHeaderTuple(b'authorization', b'test'),
         NeverIndexedHeaderTuple(b'Authorization', b'test'),
         NeverIndexedHeaderTuple(b'authorization', b'really long test'),
-        (u'proxy-authorization', u'test'),
-        (u'Proxy-Authorization', u'test'),
-        (u'proxy-authorization', u'really long test'),
-        HeaderTuple(u'proxy-authorization', u'test'),
-        HeaderTuple(u'Proxy-Authorization', u'test'),
-        HeaderTuple(u'proxy-authorization', u'really long test'),
-        NeverIndexedHeaderTuple(u'proxy-authorization', u'test'),
-        NeverIndexedHeaderTuple(u'Proxy-Authorization', u'test'),
-        NeverIndexedHeaderTuple(u'proxy-authorization', u'really long test'),
+        ('proxy-authorization', 'test'),
+        ('Proxy-Authorization', 'test'),
+        ('proxy-authorization', 'really long test'),
+        HeaderTuple('proxy-authorization', 'test'),
+        HeaderTuple('Proxy-Authorization', 'test'),
+        HeaderTuple('proxy-authorization', 'really long test'),
+        NeverIndexedHeaderTuple('proxy-authorization', 'test'),
+        NeverIndexedHeaderTuple('Proxy-Authorization', 'test'),
+        NeverIndexedHeaderTuple('proxy-authorization', 'really long test'),
         (b'proxy-authorization', b'test'),
         (b'Proxy-Authorization', b'test'),
         (b'proxy-authorization', b'really long test'),
@@ -384,16 +384,16 @@ class TestSecureHeaders(object):
         NeverIndexedHeaderTuple(b'proxy-authorization', b'really long test'),
     ]
     secured_cookie_headers = [
-        (u'cookie', u'short'),
-        (u'Cookie', u'short'),
-        (u'cookie', u'nineteen byte cooki'),
-        HeaderTuple(u'cookie', u'short'),
-        HeaderTuple(u'Cookie', u'short'),
-        HeaderTuple(u'cookie', u'nineteen byte cooki'),
-        NeverIndexedHeaderTuple(u'cookie', u'short'),
-        NeverIndexedHeaderTuple(u'Cookie', u'short'),
-        NeverIndexedHeaderTuple(u'cookie', u'nineteen byte cooki'),
-        NeverIndexedHeaderTuple(u'cookie', u'longer manually secured cookie'),
+        ('cookie', 'short'),
+        ('Cookie', 'short'),
+        ('cookie', 'nineteen byte cooki'),
+        HeaderTuple('cookie', 'short'),
+        HeaderTuple('Cookie', 'short'),
+        HeaderTuple('cookie', 'nineteen byte cooki'),
+        NeverIndexedHeaderTuple('cookie', 'short'),
+        NeverIndexedHeaderTuple('Cookie', 'short'),
+        NeverIndexedHeaderTuple('cookie', 'nineteen byte cooki'),
+        NeverIndexedHeaderTuple('cookie', 'longer manually secured cookie'),
         (b'cookie', b'short'),
         (b'Cookie', b'short'),
         (b'cookie', b'nineteen byte cooki'),
@@ -406,12 +406,12 @@ class TestSecureHeaders(object):
         NeverIndexedHeaderTuple(b'cookie', b'longer manually secured cookie'),
     ]
     unsecured_cookie_headers = [
-        (u'cookie', u'twenty byte cookie!!'),
-        (u'Cookie', u'twenty byte cookie!!'),
-        (u'cookie', u'substantially longer than 20 byte cookie'),
-        HeaderTuple(u'cookie', u'twenty byte cookie!!'),
-        HeaderTuple(u'cookie', u'twenty byte cookie!!'),
-        HeaderTuple(u'Cookie', u'twenty byte cookie!!'),
+        ('cookie', 'twenty byte cookie!!'),
+        ('Cookie', 'twenty byte cookie!!'),
+        ('cookie', 'substantially longer than 20 byte cookie'),
+        HeaderTuple('cookie', 'twenty byte cookie!!'),
+        HeaderTuple('cookie', 'twenty byte cookie!!'),
+        HeaderTuple('Cookie', 'twenty byte cookie!!'),
         (b'cookie', b'twenty byte cookie!!'),
         (b'Cookie', b'twenty byte cookie!!'),
         (b'cookie', b'substantially longer than 20 byte cookie'),

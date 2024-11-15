@@ -37,7 +37,7 @@ class TestInvalidFrameSequences(object):
         (':method', 'GET'),
         ('user-agent', 'someua/0.0.1'),
     ]
-    invalid_header_blocks = [
+    base_invalid_header_blocks = [
         base_request_headers + [('Uppercase', 'name')],
         base_request_headers + [(':late', 'pseudo-header')],
         [(':path', 'duplicate-pseudo-header')] + base_request_headers,
@@ -55,6 +55,9 @@ class TestInvalidFrameSequences(object):
         [header for header in base_request_headers
          if header[0] != ':authority'],
         [(':protocol', 'websocket')] + base_request_headers,
+    ]
+    invalid_header_blocks = base_invalid_header_blocks + [
+        h2.utilities.utf8_encode_headers(headers) for headers in base_invalid_header_blocks
     ]
     server_config = h2.config.H2Configuration(
         client_side=False, header_encoding='utf-8'
@@ -117,7 +120,6 @@ class TestInvalidFrameSequences(object):
         config = h2.config.H2Configuration(
             client_side=True,
             validate_inbound_headers=False,
-            header_encoding='utf-8'
         )
 
         c = h2.connection.H2Connection(config=config)
@@ -137,7 +139,7 @@ class TestInvalidFrameSequences(object):
         events = c.receive_data(data)
         assert len(events) == 1
         pp_event = events[0]
-        assert pp_event.headers == headers
+        assert pp_event.headers == h2.utilities.utf8_encode_headers(headers)
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
@@ -148,7 +150,6 @@ class TestInvalidFrameSequences(object):
         config = h2.config.H2Configuration(
             client_side=False,
             validate_inbound_headers=False,
-            header_encoding='utf-8'
         )
 
         c = h2.connection.H2Connection(config=config)
@@ -160,7 +161,7 @@ class TestInvalidFrameSequences(object):
         events = c.receive_data(data)
         assert len(events) == 1
         request_event = events[0]
-        assert request_event.headers == headers
+        assert request_event.headers == h2.utilities.utf8_encode_headers(headers)
 
     def test_te_trailers_is_valid(self, frame_factory):
         """

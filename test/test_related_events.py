@@ -6,6 +6,8 @@ test_related_events.py
 Specific tests to validate the "related events" logic used by certain events
 inside hyper-h2.
 """
+import pytest
+
 import h2.config
 import h2.connection
 import h2.events
@@ -20,6 +22,13 @@ class TestRelatedEvents(object):
         (':path', '/'),
         (':scheme', 'https'),
         (':method', 'GET'),
+    ]
+
+    example_request_headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
 
     example_response_headers = [
@@ -38,7 +47,8 @@ class TestRelatedEvents(object):
 
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_request_received_related_all(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_request_received_related_all(self, frame_factory, request_headers):
         """
         RequestReceived has two possible related events: PriorityUpdated and
         StreamEnded, all fired when a single HEADERS frame is received.
@@ -48,7 +58,7 @@ class TestRelatedEvents(object):
         c.receive_data(frame_factory.preamble())
 
         input_frame = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             flags=['END_STREAM', 'PRIORITY'],
             stream_weight=15,
             depends_on=0,
@@ -67,7 +77,8 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_request_received_related_priority(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_request_received_related_priority(self, frame_factory, request_headers):
         """
         RequestReceived can be related to PriorityUpdated.
         """
@@ -76,7 +87,7 @@ class TestRelatedEvents(object):
         c.receive_data(frame_factory.preamble())
 
         input_frame = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             flags=['PRIORITY'],
             stream_weight=15,
             depends_on=0,
@@ -94,7 +105,8 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_request_received_related_stream_ended(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_request_received_related_stream_ended(self, frame_factory, request_headers):
         """
         RequestReceived can be related to StreamEnded.
         """
@@ -103,7 +115,7 @@ class TestRelatedEvents(object):
         c.receive_data(frame_factory.preamble())
 
         input_frame = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             flags=['END_STREAM'],
         )
         events = c.receive_data(input_frame.serialize())
@@ -116,13 +128,14 @@ class TestRelatedEvents(object):
         assert base_event.priority_updated is None
         assert isinstance(base_event.stream_ended, h2.events.StreamEnded)
 
-    def test_response_received_related_nothing(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_response_received_related_nothing(self, frame_factory, request_headers):
         """
         ResponseReceived is ordinarily related to no events.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -135,14 +148,15 @@ class TestRelatedEvents(object):
         assert base_event.stream_ended is None
         assert base_event.priority_updated is None
 
-    def test_response_received_related_all(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_response_received_related_all(self, frame_factory, request_headers):
         """
         ResponseReceived has two possible related events: PriorityUpdated and
         StreamEnded, all fired when a single HEADERS frame is received.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -164,13 +178,14 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_response_received_related_priority(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_response_received_related_priority(self, frame_factory, request_headers):
         """
         ResponseReceived can be related to PriorityUpdated.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -191,13 +206,14 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_response_received_related_stream_ended(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_response_received_related_stream_ended(self, frame_factory, request_headers):
         """
         ResponseReceived can be related to StreamEnded.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -213,14 +229,15 @@ class TestRelatedEvents(object):
         assert base_event.priority_updated is None
         assert isinstance(base_event.stream_ended, h2.events.StreamEnded)
 
-    def test_trailers_received_related_all(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_trailers_received_related_all(self, frame_factory, request_headers):
         """
         TrailersReceived has two possible related events: PriorityUpdated and
         StreamEnded, all fired when a single HEADERS frame is received.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -247,13 +264,14 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_trailers_received_related_stream_ended(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_trailers_received_related_stream_ended(self, frame_factory, request_headers):
         """
         TrailersReceived can be related to StreamEnded by itself.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -274,14 +292,15 @@ class TestRelatedEvents(object):
         assert base_event.priority_updated is None
         assert isinstance(base_event.stream_ended, h2.events.StreamEnded)
 
-    def test_informational_response_related_nothing(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_informational_response_related_nothing(self, frame_factory, request_headers):
         """
         InformationalResponseReceived in the standard case is related to
         nothing.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.informational_response_headers,
@@ -293,14 +312,15 @@ class TestRelatedEvents(object):
 
         assert base_event.priority_updated is None
 
-    def test_informational_response_received_related_all(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_informational_response_received_related_all(self, frame_factory, request_headers):
         """
         InformationalResponseReceived has one possible related event:
         PriorityUpdated, fired when a single HEADERS frame is received.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         input_frame = frame_factory.build_headers_frame(
             headers=self.informational_response_headers,
@@ -320,13 +340,14 @@ class TestRelatedEvents(object):
             base_event.priority_updated, h2.events.PriorityUpdated
         )
 
-    def test_data_received_normally_relates_to_nothing(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_data_received_normally_relates_to_nothing(self, frame_factory, request_headers):
         """
         A plain DATA frame leads to DataReceieved with no related events.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
@@ -343,13 +364,14 @@ class TestRelatedEvents(object):
 
         assert base_event.stream_ended is None
 
-    def test_data_received_related_stream_ended(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_data_received_related_stream_ended(self, frame_factory, request_headers):
         """
         DataReceived can be related to StreamEnded by itself.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
