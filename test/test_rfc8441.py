@@ -5,6 +5,9 @@ test_rfc8441
 
 Test the RFC 8441 extended connect request support.
 """
+from h2.utilities import utf8_encode_headers
+import pytest
+
 import h2.config
 import h2.connection
 import h2.events
@@ -16,16 +19,26 @@ class TestRFC8441(object):
     and the server supports receiving it.
     """
 
-    def test_can_send_headers(self, frame_factory):
-        headers = [
-            (b':authority', b'example.com'),
-            (b':path', b'/'),
-            (b':scheme', b'https'),
-            (b':method', b'CONNECT'),
-            (b':protocol', b'websocket'),
-            (b'user-agent', b'someua/0.0.1'),
-        ]
+    headers = [
+        (':authority', 'example.com'),
+        (':path', '/'),
+        (':scheme', 'https'),
+        (':method', 'CONNECT'),
+        (':protocol', 'websocket'),
+        ('user-agent', 'someua/0.0.1'),
+    ]
 
+    headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'CONNECT'),
+        (b':protocol', b'websocket'),
+        (b'user-agent', b'someua/0.0.1'),
+    ]
+
+    @pytest.mark.parametrize("headers", [headers, headers_bytes])
+    def test_can_send_headers(self, frame_factory, headers):
         client = h2.connection.H2Connection()
         client.initiate_connection()
         client.send_headers(stream_id=1, headers=headers)
@@ -37,4 +50,4 @@ class TestRFC8441(object):
         event = events[1]
         assert isinstance(event, h2.events.RequestReceived)
         assert event.stream_id == 1
-        assert event.headers == headers
+        assert event.headers == utf8_encode_headers(headers)

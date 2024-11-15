@@ -9,6 +9,7 @@ HTTP/1.1 connections to HTTP/2.
 """
 import base64
 
+from h2.utilities import utf8_encode_headers
 import pytest
 
 import h2.config
@@ -18,16 +19,23 @@ import h2.events
 import h2.exceptions
 
 
+EXAMPLE_REQUEST_HEADERS = [
+    (':authority', 'example.com'),
+    (':path', '/'),
+    (':scheme', 'https'),
+    (':method', 'GET'),
+]
+EXAMPLE_REQUEST_HEADERS_BYTES = [
+    (b':authority', b'example.com'),
+    (b':path', b'/'),
+    (b':scheme', b'https'),
+    (b':method', b'GET'),
+]
+
 class TestClientUpgrade(object):
     """
     Tests of the client-side of the HTTP/2 upgrade dance.
     """
-    example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
-    ]
     example_response_headers = [
         (b':status', b'200'),
         (b'server', b'fake-serv/0.1.0')
@@ -97,7 +105,8 @@ class TestClientUpgrade(object):
 
         assert not c.data_to_send()
 
-    def test_can_receive_pushed_stream(self, frame_factory):
+    @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_can_receive_pushed_stream(self, frame_factory, headers):
         """
         After upgrading, we can safely receive a pushed stream.
         """
@@ -108,17 +117,18 @@ class TestClientUpgrade(object):
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=self.example_request_headers,
+            headers=headers
         )
         events = c.receive_data(f.serialize())
         assert len(events) == 1
 
         assert isinstance(events[0], h2.events.PushedStreamReceived)
-        assert events[0].headers == self.example_request_headers
+        assert events[0].headers == utf8_encode_headers(headers)
         assert events[0].parent_stream_id == 1
         assert events[0].pushed_stream_id == 2
 
-    def test_cannot_send_headers_stream_1(self, frame_factory):
+    @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_cannot_send_headers_stream_1(self, frame_factory, headers):
         """
         After upgrading, we cannot send headers on stream 1.
         """
@@ -127,7 +137,7 @@ class TestClientUpgrade(object):
         c.clear_outbound_data_buffer()
 
         with pytest.raises(h2.exceptions.ProtocolError):
-            c.send_headers(stream_id=1, headers=self.example_request_headers)
+            c.send_headers(stream_id=1, headers=headers)
 
     def test_cannot_send_data_stream_1(self, frame_factory):
         """
@@ -145,12 +155,6 @@ class TestServerUpgrade(object):
     """
     Tests of the server-side of the HTTP/2 upgrade dance.
     """
-    example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
-    ]
     example_response_headers = [
         (b':status', b'200'),
         (b'server', b'fake-serv/0.1.0')
@@ -203,7 +207,8 @@ class TestServerUpgrade(object):
         expected_data = f1.serialize() + f2.serialize()
         assert c.data_to_send() == expected_data
 
-    def test_can_push_stream(self, frame_factory):
+    @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_can_push_stream(self, frame_factory, headers):
         """
         After upgrading, we can safely push a stream.
         """
@@ -214,17 +219,18 @@ class TestServerUpgrade(object):
         c.push_stream(
             stream_id=1,
             promised_stream_id=2,
-            request_headers=self.example_request_headers
+            request_headers=headers
         )
 
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=self.example_request_headers,
+            headers=headers,
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_cannot_receive_headers_stream_1(self, frame_factory):
+    @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_cannot_receive_headers_stream_1(self, frame_factory, headers):
         """
         After upgrading, we cannot receive headers on stream 1.
         """
@@ -235,7 +241,7 @@ class TestServerUpgrade(object):
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=headers,
         )
         c.receive_data(f.serialize())
 
