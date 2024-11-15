@@ -26,6 +26,12 @@ class TestInvalidFrameSequences(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_request_headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+    ]
     example_response_headers = [
         (':status', '200'),
         ('server', 'fake-serv/0.1.0')
@@ -33,13 +39,14 @@ class TestInvalidFrameSequences(object):
     server_config = h2.config.H2Configuration(client_side=False)
     client_config = h2.config.H2Configuration(client_side=True)
 
-    def test_cannot_send_on_closed_stream(self):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_send_on_closed_stream(self, request_headers):
         """
         When we've closed a stream locally, we cannot send further data.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.send_headers(1, request_headers, end_stream=True)
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_data(1, b'some data')
@@ -57,7 +64,8 @@ class TestInvalidFrameSequences(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(encoded_headers_frame)
 
-    def test_server_connections_reject_even_streams(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_server_connections_reject_even_streams(self, frame_factory, request_headers):
         """
         Servers do not allow clients to initiate even-numbered streams.
         """
@@ -66,30 +74,32 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers, stream_id=2
+            request_headers, stream_id=2
         )
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
 
-    def test_clients_reject_odd_stream_pushes(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_clients_reject_odd_stream_pushes(self, frame_factory, request_headers):
         """
         Clients do not allow servers to push odd numbered streams.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.send_headers(1, request_headers, end_stream=True)
 
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=request_headers,
             promised_stream_id=3
         )
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
 
-    def test_can_handle_frames_with_invalid_padding(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_can_handle_frames_with_invalid_padding(self, frame_factory, request_headers):
         """
         Frames with invalid padding cause connection teardown.
         """
@@ -97,7 +107,7 @@ class TestInvalidFrameSequences(object):
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
-        f = frame_factory.build_headers_frame(self.example_request_headers)
+        f = frame_factory.build_headers_frame(request_headers)
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
 
@@ -134,7 +144,8 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_data_on_closed_streams(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_reject_data_on_closed_streams(self, frame_factory, request_headers):
         """
         When a stream is not open to the remote peer, we reject receiving data
         frames from them.
@@ -144,7 +155,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers,
+            request_headers,
             flags=['END_STREAM']
         )
         c.receive_data(f.serialize())
@@ -161,7 +172,8 @@ class TestInvalidFrameSequences(object):
         ).serialize()
         assert c.data_to_send() == expected
 
-    def test_unexpected_continuation_on_closed_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_unexpected_continuation_on_closed_stream(self, frame_factory, request_headers):
         """
         CONTINUATION frames received on closed streams cause connection errors
         of type PROTOCOL_ERROR.
@@ -171,7 +183,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers,
+            request_headers,
             flags=['END_STREAM']
         )
         c.receive_data(f.serialize())
@@ -190,7 +202,8 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_prevent_continuation_dos(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_prevent_continuation_dos(self, frame_factory, request_headers):
         """
         Receiving too many CONTINUATION frames in one block causes a protocol
         error.
@@ -200,7 +213,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers,
+            request_headers,
         )
         f.flags = {'END_STREAM'}
         c.receive_data(f.serialize())
@@ -255,7 +268,8 @@ class TestInvalidFrameSequences(object):
             h2.errors.ErrorCodes.PROTOCOL_ERROR
         )
 
-    def test_invalid_frame_headers_are_protocol_errors(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_invalid_frame_headers_are_protocol_errors(self, frame_factory, request_headers):
         """
         When invalid frame headers are received they cause ProtocolErrors to be
         raised.
@@ -265,7 +279,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=request_headers
         )
 
         # Do some annoying bit twiddling here: the stream ID is currently set
@@ -280,7 +294,8 @@ class TestInvalidFrameSequences(object):
 
         assert "Received frame with invalid header" in str(e.value)
 
-    def test_data_before_headers(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_data_before_headers(self, frame_factory, request_headers):
         """
         When data frames are received before headers
         they cause ProtocolErrors to be raised.
@@ -288,7 +303,7 @@ class TestInvalidFrameSequences(object):
         c = h2.connection.H2Connection(config=self.client_config)
         c.initiate_connection()
         # transition stream into OPEN
-        c.send_headers(1, self.example_request_headers)
+        c.send_headers(1, request_headers)
 
         f = frame_factory.build_data_frame(b"hello")
 
@@ -297,7 +312,8 @@ class TestInvalidFrameSequences(object):
 
         assert "cannot receive data before headers" in str(e.value)
 
-    def test_get_stream_reset_event_on_auto_reset(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_get_stream_reset_event_on_auto_reset(self, frame_factory, request_headers):
         """
         When hyper-h2 resets a stream automatically, a StreamReset event fires.
         """
@@ -306,7 +322,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers,
+            request_headers,
             flags=['END_STREAM']
         )
         c.receive_data(f.serialize())
@@ -330,7 +346,8 @@ class TestInvalidFrameSequences(object):
         assert event.error_code == h2.errors.ErrorCodes.STREAM_CLOSED
         assert not event.remote_reset
 
-    def test_one_one_stream_reset(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_one_one_stream_reset(self, frame_factory, request_headers):
         """
         When hyper-h2 resets a stream automatically, a StreamReset event fires,
         but only for the first reset: the others are silent.
@@ -340,7 +357,7 @@ class TestInvalidFrameSequences(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers,
+            request_headers,
             flags=['END_STREAM']
         )
         c.receive_data(f.serialize())
@@ -365,8 +382,9 @@ class TestInvalidFrameSequences(object):
         assert event.error_code == h2.errors.ErrorCodes.STREAM_CLOSED
         assert not event.remote_reset
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize('value', ['', 'twelve'])
-    def test_error_on_invalid_content_length(self, frame_factory, value):
+    def test_error_on_invalid_content_length(self, frame_factory, value, request_headers):
         """
         When an invalid content-length is received, a ProtocolError is thrown.
         """
@@ -377,7 +395,7 @@ class TestInvalidFrameSequences(object):
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
-            headers=self.example_request_headers + [('content-length', value)]
+            headers=request_headers + [('content-length', value)]
         )
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
@@ -388,7 +406,8 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_invalid_header_data_protocol_error(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_invalid_header_data_protocol_error(self, frame_factory, request_headers):
         """
         If an invalid header block is received, we raise a ProtocolError.
         """
@@ -399,7 +418,7 @@ class TestInvalidFrameSequences(object):
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
-            headers=self.example_request_headers
+            headers=request_headers
         )
         f.data = b'\x00\x00\x00\x00'
 
@@ -412,20 +431,21 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_invalid_push_promise_data_protocol_error(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_invalid_push_promise_data_protocol_error(self, frame_factory, request_headers):
         """
         If an invalid header block is received on a PUSH_PROMISE, we raise a
         ProtocolError.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=self.example_request_headers
+            headers=request_headers
         )
         f.data = b'\x00\x00\x00\x00'
 
@@ -438,7 +458,8 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_cannot_receive_push_on_pushed_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_receive_push_on_pushed_stream(self, frame_factory, request_headers):
         """
         If a PUSH_PROMISE frame is received with the parent stream ID being a
         pushed stream, this is rejected with a PROTOCOL_ERROR.
@@ -447,14 +468,14 @@ class TestInvalidFrameSequences(object):
         c.initiate_connection()
         c.send_headers(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=request_headers,
             end_stream=True
         )
 
         f1 = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=self.example_request_headers,
+            headers=request_headers,
         )
         f2 = frame_factory.build_headers_frame(
             stream_id=2,
@@ -466,7 +487,7 @@ class TestInvalidFrameSequences(object):
         f = frame_factory.build_push_promise_frame(
             stream_id=2,
             promised_stream_id=4,
-            headers=self.example_request_headers,
+            headers=request_headers,
         )
 
         with pytest.raises(h2.exceptions.ProtocolError):
@@ -478,7 +499,8 @@ class TestInvalidFrameSequences(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_cannot_send_push_on_pushed_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_send_push_on_pushed_stream(self, frame_factory, request_headers):
         """
         If a user tries to send a PUSH_PROMISE frame with the parent stream ID
         being a pushed stream, this is rejected with a PROTOCOL_ERROR.
@@ -487,14 +509,14 @@ class TestInvalidFrameSequences(object):
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(
-            stream_id=1, headers=self.example_request_headers
+            stream_id=1, headers=request_headers
         )
         c.receive_data(f.serialize())
 
         c.push_stream(
             stream_id=1,
             promised_stream_id=2,
-            request_headers=self.example_request_headers
+            request_headers=request_headers
         )
         c.send_headers(stream_id=2, headers=self.example_response_headers)
 
@@ -502,5 +524,5 @@ class TestInvalidFrameSequences(object):
             c.push_stream(
                 stream_id=2,
                 promised_stream_id=4,
-                request_headers=self.example_request_headers
+                request_headers=request_headers
             )

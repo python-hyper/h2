@@ -20,6 +20,8 @@ useful.
 """
 from . import coroutine_tests
 
+import pytest
+
 import h2.config
 import h2.connection
 import h2.events
@@ -32,23 +34,33 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
     """
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_basic_request_response(self):
+    request_headers = [
+        (':method', 'GET'),
+        (':path', '/'),
+        (':authority', 'example.com'),
+        (':scheme', 'https'),
+        ('user-agent', 'test-client/0.1.0'),
+    ]
+
+    request_headers_bytes = [
+        (b':method', b'GET'),
+        (b':path', b'/'),
+        (b':authority', b'example.com'),
+        (b':scheme', b'https'),
+        (b'user-agent', b'test-client/0.1.0'),
+    ]
+
+    response_headers = [
+        (b':status', b'204'),
+        (b'server', b'test-server/0.1.0'),
+        (b'content-length', b'0'),
+    ]
+
+    @pytest.mark.parametrize('request_headers', [request_headers, request_headers_bytes])
+    def test_basic_request_response(self, request_headers):
         """
         A request issued by hyper-h2 can be responded to by hyper-h2.
         """
-        request_headers = [
-            (b':method', b'GET'),
-            (b':path', b'/'),
-            (b':authority', b'example.com'),
-            (b':scheme', b'https'),
-            (b'user-agent', b'test-client/0.1.0'),
-        ]
-        response_headers = [
-            (b':status', b'204'),
-            (b'server', b'test-server/0.1.0'),
-            (b'content-length', b'0'),
-        ]
-
         def client():
             c = h2.connection.H2Connection()
 
@@ -78,7 +90,7 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert len(events) == 2
             assert isinstance(events[0], h2.events.ResponseReceived)
             assert events[0].stream_id == 1
-            assert events[0].headers == response_headers
+            assert events[0].headers == self.response_headers
             assert isinstance(events[1], h2.events.StreamEnded)
             assert events[1].stream_id == 1
 
@@ -108,12 +120,12 @@ class TestCommunication(coroutine_tests.CoroutineTestCase):
             assert isinstance(events[0], h2.events.SettingsAcknowledged)
             assert isinstance(events[1], h2.events.RequestReceived)
             assert events[1].stream_id == 1
-            assert events[1].headers == request_headers
+            assert events[1].headers == self.request_headers_bytes
             assert isinstance(events[2], h2.events.StreamEnded)
             assert events[2].stream_id == 1
 
             # Send our response.
-            events = c.send_headers(1, response_headers, end_stream=True)
+            events = c.send_headers(1, self.response_headers, end_stream=True)
             assert not events
             yield c.data_to_send()
 
