@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 h2/utilities
 ~~~~~~~~~~~~
@@ -10,8 +9,11 @@ import re
 from string import whitespace
 
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
+from hpack.struct import Headers
 
 from .exceptions import ProtocolError, FlowControlError
+
+from typing import Any, Dict, Optional, Set, Union
 
 UPPER_RE = re.compile(b"[A-Z]")
 
@@ -63,7 +65,7 @@ _CONNECT_REQUEST_ONLY_HEADERS = frozenset([b':protocol', u':protocol'])
 _WHITESPACE = frozenset(map(ord, whitespace))
 
 
-def _secure_headers(headers, hdr_validation_flags):
+def _secure_headers(headers: Headers, hdr_validation_flags: Optional["HeaderValidationFlags"]) -> Headers:
     """
     Certain headers are at risk of being attacked during the header compression
     phase, and so need to be kept out of header compression contexts. This
@@ -83,14 +85,14 @@ def _secure_headers(headers, hdr_validation_flags):
     """
     for header in headers:
         if header[0] in _SECURE_HEADERS:
-            yield NeverIndexedHeaderTuple(*header)
+            yield NeverIndexedHeaderTuple(header[0], header[1])
         elif header[0] in (b'cookie', u'cookie') and len(header[1]) < 20:
-            yield NeverIndexedHeaderTuple(*header)
+            yield NeverIndexedHeaderTuple(header[0], header[1])
         else:
             yield header
 
 
-def extract_method_header(headers):
+def extract_method_header(headers: Headers) -> Optional[bytes]:
     """
     Extracts the request method from the headers list.
     """
@@ -100,9 +102,10 @@ def extract_method_header(headers):
                 return v.encode('utf-8')
             else:
                 return v
+    return None
 
 
-def is_informational_response(headers):
+def is_informational_response(headers: Headers) -> bool:
     """
     Searches a header block for a :status header to confirm that a given
     collection of headers are an informational response. Assumes the header
@@ -119,9 +122,9 @@ def is_informational_response(headers):
             status = b':status'
             informational_start = b'1'
         else:
-            sigil = u':'
-            status = u':status'
-            informational_start = u'1'
+            sigil = u':'  # type: ignore
+            status = u':status'  # type: ignore
+            informational_start = u'1'  # type: ignore
 
         # If we find a non-special header, we're done here: stop looping.
         if not n.startswith(sigil):
@@ -133,9 +136,10 @@ def is_informational_response(headers):
 
         # If the first digit is a 1, we've got informational headers.
         return v.startswith(informational_start)
+    return False
 
 
-def guard_increment_window(current, increment):
+def guard_increment_window(current: int, increment: int) -> int:
     """
     Increments a flow control window, guarding against that window becoming too
     large.
@@ -159,7 +163,7 @@ def guard_increment_window(current, increment):
     return new_size
 
 
-def authority_from_headers(headers):
+def authority_from_headers(headers: Headers) -> Optional[bytes]:
     """
     Given a header set, searches for the authority header and returns the
     value.
@@ -190,7 +194,7 @@ HeaderValidationFlags = collections.namedtuple(
 )
 
 
-def validate_headers(headers, hdr_validation_flags):
+def validate_headers(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Validates a header sequence against a set of constraints from RFC 7540.
 
@@ -232,7 +236,8 @@ def validate_headers(headers, hdr_validation_flags):
     return headers
 
 
-def _reject_empty_header_names(headers, hdr_validation_flags):
+def _reject_empty_header_names(headers: Headers,
+                               hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if any header names are empty (length 0).
     While hpack decodes such headers without errors, they are semantically
@@ -245,7 +250,7 @@ def _reject_empty_header_names(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_uppercase_header_fields(headers, hdr_validation_flags):
+def _reject_uppercase_header_fields(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if any uppercase character is found in a header
     block.
@@ -253,11 +258,12 @@ def _reject_uppercase_header_fields(headers, hdr_validation_flags):
     for header in headers:
         if UPPER_RE.search(header[0]):
             raise ProtocolError(
-                "Received uppercase header name %s." % header[0])
+                "Received uppercase header name %r" % header[0]
+            )
         yield header
 
 
-def _reject_surrounding_whitespace(headers, hdr_validation_flags):
+def _reject_surrounding_whitespace(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if any header name or value is surrounded by
     whitespace characters.
@@ -279,7 +285,7 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_te(headers, hdr_validation_flags):
+def _reject_te(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if the TE header is present in a header block and
     its value is anything other than "trailers".
@@ -288,14 +294,13 @@ def _reject_te(headers, hdr_validation_flags):
         if header[0] in (b'te', u'te'):
             if header[1].lower() not in (b'trailers', u'trailers'):
                 raise ProtocolError(
-                    "Invalid value for TE header: %s" %
-                    header[1]
+                    "Invalid value for TE header: %r" % header[1]
                 )
 
         yield header
 
 
-def _reject_connection_header(headers, hdr_validation_flags):
+def _reject_connection_header(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if the Connection header is present in a header
     block.
@@ -303,13 +308,13 @@ def _reject_connection_header(headers, hdr_validation_flags):
     for header in headers:
         if header[0] in CONNECTION_HEADERS:
             raise ProtocolError(
-                "Connection-specific header field present: %s." % header[0]
+                "Connection-specific header field present: %r" % header[0]
             )
 
         yield header
 
 
-def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
+def _custom_startswith(test_string: Union[bytes, str], bytes_prefix: bytes, unicode_prefix: str) -> bool:
     """
     Given a string that might be a bytestring or a Unicode string,
     return True if it starts with the appropriate prefix.
@@ -320,7 +325,7 @@ def _custom_startswith(test_string, bytes_prefix, unicode_prefix):
         return test_string.startswith(unicode_prefix)
 
 
-def _assert_header_in_set(string_header, bytes_header, header_set):
+def _assert_header_in_set(string_header: str, bytes_header: bytes, header_set: Union[Set[Union[bytes, str]], Set[bytes], Set[str]]) -> None:
     """
     Given a set of header names, checks whether the string or byte version of
     the header name is present. Raises a Protocol error with the appropriate
@@ -332,7 +337,7 @@ def _assert_header_in_set(string_header, bytes_header, header_set):
         )
 
 
-def _reject_pseudo_header_fields(headers, hdr_validation_flags):
+def _reject_pseudo_header_fields(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
     header block or if a pseudo-header field appears in a block after an
@@ -348,20 +353,20 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
         if _custom_startswith(header[0], b':', u':'):
             if header[0] in seen_pseudo_header_fields:
                 raise ProtocolError(
-                    "Received duplicate pseudo-header field %s" % header[0]
+                    "Received duplicate pseudo-header field %r" % header[0]
                 )
 
             seen_pseudo_header_fields.add(header[0])
 
             if seen_regular_header:
                 raise ProtocolError(
-                    "Received pseudo-header field out of sequence: %s" %
+                    "Received pseudo-header field out of sequence: %r" %
                     header[0]
                 )
 
             if header[0] not in _ALLOWED_PSEUDO_HEADER_FIELDS:
                 raise ProtocolError(
-                    "Received custom pseudo-header field %s" % header[0]
+                    "Received custom pseudo-header field %r" % header[0]
                 )
 
             if header[0] in (b':method', u':method'):
@@ -381,9 +386,9 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     )
 
 
-def _check_pseudo_header_field_acceptability(pseudo_headers,
-                                             method,
-                                             hdr_validation_flags):
+def _check_pseudo_header_field_acceptability(pseudo_headers: Union[Set[Union[bytes, str]], Set[bytes], Set[str]],
+                                             method: Optional[bytes],
+                                             hdr_validation_flags: HeaderValidationFlags) -> None:
     """
     Given the set of pseudo-headers present in a header block and the
     validation flags, confirms that RFC 7540 allows them.
@@ -430,7 +435,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
                 )
 
 
-def _validate_host_authority_header(headers):
+def _validate_host_authority_header(headers: Headers) -> Headers:
     """
     Given the :authority and Host headers from a request block that isn't
     a trailer, check that:
@@ -480,7 +485,7 @@ def _validate_host_authority_header(headers):
             )
 
 
-def _check_host_authority_header(headers, hdr_validation_flags):
+def _check_host_authority_header(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises a ProtocolError if a header block arrives that does not contain an
     :authority or a Host header, or if a header block contains both fields,
@@ -499,12 +504,12 @@ def _check_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
-def _check_path_header(headers, hdr_validation_flags):
+def _check_path_header(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raise a ProtocolError if a header block arrives or is sent that contains an
     empty :path header.
     """
-    def inner():
+    def inner() -> Headers:
         for header in headers:
             if header[0] in (b':path', u':path'):
                 if not header[1]:
@@ -525,7 +530,8 @@ def _check_path_header(headers, hdr_validation_flags):
         return inner()
 
 
-def _lowercase_header_names(headers, hdr_validation_flags):
+def _lowercase_header_names(headers: Headers,
+                            hdr_validation_flags: Optional[HeaderValidationFlags]) -> Headers:
     """
     Given an iterable of header two-tuples, rebuilds that iterable with the
     header names lowercased. This generator produces tuples that preserve the
@@ -538,7 +544,7 @@ def _lowercase_header_names(headers, hdr_validation_flags):
             yield (header[0].lower(), header[1])
 
 
-def _strip_surrounding_whitespace(headers, hdr_validation_flags):
+def _strip_surrounding_whitespace(headers: Headers, hdr_validation_flags: Optional[HeaderValidationFlags]) -> Headers:
     """
     Given an iterable of header two-tuples, strip both leading and trailing
     whitespace from both header names and header values. This generator
@@ -552,7 +558,7 @@ def _strip_surrounding_whitespace(headers, hdr_validation_flags):
             yield (header[0].strip(), header[1].strip())
 
 
-def _strip_connection_headers(headers, hdr_validation_flags):
+def _strip_connection_headers(headers: Headers, hdr_validation_flags: Optional[HeaderValidationFlags]) -> Headers:
     """
     Strip any connection headers as per RFC7540 § 8.1.2.2.
     """
@@ -561,7 +567,7 @@ def _strip_connection_headers(headers, hdr_validation_flags):
             yield header
 
 
-def _check_sent_host_authority_header(headers, hdr_validation_flags):
+def _check_sent_host_authority_header(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Raises an InvalidHeaderBlockError if we try to send a header block
     that does not contain an :authority or a Host header, or if
@@ -580,7 +586,7 @@ def _check_sent_host_authority_header(headers, hdr_validation_flags):
     return _validate_host_authority_header(headers)
 
 
-def _combine_cookie_fields(headers, hdr_validation_flags):
+def _combine_cookie_fields(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     RFC 7540 § 8.1.2.5 allows HTTP/2 clients to split the Cookie header field,
     which must normally appear only once, into multiple fields for better
@@ -592,7 +598,7 @@ def _combine_cookie_fields(headers, hdr_validation_flags):
     # possible that all these cookies are sent with different header indexing
     # values. At this point it shouldn't matter too much, so we apply our own
     # logic and make them never-indexed.
-    cookies = []
+    cookies: list[bytes] = []
     for header in headers:
         if header[0] == b'cookie':
             cookies.append(header[1])
@@ -603,7 +609,7 @@ def _combine_cookie_fields(headers, hdr_validation_flags):
         yield NeverIndexedHeaderTuple(b'cookie', cookie_val)
 
 
-def _split_outbound_cookie_fields(headers, hdr_validation_flags):
+def _split_outbound_cookie_fields(headers: Headers, hdr_validation_flags: Optional[HeaderValidationFlags]) -> Headers:
     """
     RFC 7540 § 8.1.2.5 allows for better compression efficiency,
     to split the Cookie header field into separate header fields
@@ -627,7 +633,9 @@ def _split_outbound_cookie_fields(headers, hdr_validation_flags):
             yield header
 
 
-def normalize_outbound_headers(headers, hdr_validation_flags, should_split_outbound_cookies):
+def normalize_outbound_headers(headers: Headers,
+                               hdr_validation_flags: Optional[HeaderValidationFlags],
+                               should_split_outbound_cookies: bool) -> Headers:
     """
     Normalizes a header sequence that we are about to send.
 
@@ -645,7 +653,8 @@ def normalize_outbound_headers(headers, hdr_validation_flags, should_split_outbo
     return headers
 
 
-def normalize_inbound_headers(headers, hdr_validation_flags):
+def normalize_inbound_headers(headers: Headers,
+                              hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Normalizes a header sequence that we have received.
 
@@ -656,7 +665,7 @@ def normalize_inbound_headers(headers, hdr_validation_flags):
     return headers
 
 
-def validate_outbound_headers(headers, hdr_validation_flags):
+def validate_outbound_headers(headers: Headers, hdr_validation_flags: HeaderValidationFlags) -> Headers:
     """
     Validates and normalizes a header sequence that we are about to send.
 
@@ -680,20 +689,20 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     return headers
 
 
-class SizeLimitDict(collections.OrderedDict):
+class SizeLimitDict(collections.OrderedDict[int, Any]):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Dict[int, int], **kwargs: Any) -> None:
         self._size_limit = kwargs.pop("size_limit", None)
         super(SizeLimitDict, self).__init__(*args, **kwargs)
 
         self._check_size_limit()
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: Union[Any, int]) -> None:
         super(SizeLimitDict, self).__setitem__(key, value)
 
         self._check_size_limit()
 
-    def _check_size_limit(self):
+    def _check_size_limit(self) -> None:
         if self._size_limit is not None:
             while len(self) > self._size_limit:
                 self.popitem(last=False)
