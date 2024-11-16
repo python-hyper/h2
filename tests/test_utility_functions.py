@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 test_utility_functions
 ~~~~~~~~~~~~~~~~~~~~~~

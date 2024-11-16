@@ -66,6 +66,7 @@ testing = [
 linting = [
   "ruff>=0.8.0,<1",
   "mypy>=1.13.0,<2",
+  "typing_extensions>=4.12.2",
 ]
 
 packaging = [
@@ -92,6 +93,10 @@ version = { attr = "h2.__version__" }
 [tool.ruff]
 line-length = 140
 target-version = "py39"
+
+[tool.mypy]
+show_error_codes = true
+strict = true
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]

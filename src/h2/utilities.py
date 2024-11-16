@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 h2/utilities
 ~~~~~~~~~~~~
@@ -9,10 +8,12 @@ import collections
 import re
 from string import whitespace
 
-from hpack import HeaderTuple, NeverIndexedHeaderTuple
+from hpack.struct import HeaderTuple, NeverIndexedHeaderTuple, Header, HeaderWeaklyTyped
 
 from .exceptions import ProtocolError, FlowControlError
 
+from typing import Any, Dict, Iterable, Optional, Set, Union
+from collections.abc import Generator
 
 UPPER_RE = re.compile(b"[A-Z]")
 SIGIL = ord(b':')
@@ -67,7 +68,8 @@ _CONNECT_REQUEST_ONLY_HEADERS = frozenset([b':protocol'])
 _WHITESPACE = frozenset(map(ord, whitespace))
 
 
-def _secure_headers(headers, hdr_validation_flags):
+def _secure_headers(headers: Iterable[Header],
+                    hdr_validation_flags: Optional["HeaderValidationFlags"]) -> Generator[Header, None, None]:
     """
     Certain headers are at risk of being attacked during the header compression
     phase, and so need to be kept out of header compression contexts. This
@@ -86,24 +88,28 @@ def _secure_headers(headers, hdr_validation_flags):
     and nghttp2.
     """
     for header in headers:
+        assert isinstance(header[0], bytes)
         if header[0] in _SECURE_HEADERS:
-            yield NeverIndexedHeaderTuple(*header)
-        elif header[0] == b'cookie' and len(header[1]) < 20:
-            yield NeverIndexedHeaderTuple(*header)
+            yield NeverIndexedHeaderTuple(header[0], header[1])
+        elif header[0] in b'cookie' and len(header[1]) < 20:
+            yield NeverIndexedHeaderTuple(header[0], header[1])
         else:
             yield header
 
 
-def extract_method_header(headers):
+def extract_method_header(headers: Iterable[Header]) -> Optional[bytes]:
     """
     Extracts the request method from the headers list.
     """
     for k, v in headers:
-        if k == b':method':
+        if isinstance(v, bytes) and k == b':method':
             return v
+        elif isinstance(v, str) and k == ':method':
+            return v.encode('utf-8')
+    return None
 
 
-def is_informational_response(headers):
+def is_informational_response(headers: Iterable[Header]) -> bool:
     """
     Searches headers list for a :status header to confirm that a given
     collection of headers are an informational response. Assumes the header
@@ -115,9 +121,6 @@ def is_informational_response(headers):
     :returns: A boolean indicating if this is an informational response.
     """
     for n, v in headers:
-        if not isinstance(n, bytes) or not isinstance(v, bytes):
-            raise ProtocolError(f"header not bytes: {n=:r}, {v=:r}")  # pragma: no cover
-
         if not n.startswith(b':'):
             return False
         if n != b':status':
@@ -125,9 +128,10 @@ def is_informational_response(headers):
             continue
         # If the first digit is a 1, we've got informational headers.
         return v.startswith(b'1')
+    return False
 
 
-def guard_increment_window(current, increment):
+def guard_increment_window(current: int, increment: int) -> int:
     """
     Increments a flow control window, guarding against that window becoming too
     large.
@@ -151,7 +155,7 @@ def guard_increment_window(current, increment):
     return new_size
 
 
-def authority_from_headers(headers):
+def authority_from_headers(headers: Iterable[Header]) -> Optional[bytes]:
     """
     Given a header set, searches for the authority header and returns the
     value.
@@ -179,7 +183,7 @@ HeaderValidationFlags = collections.namedtuple(
 )
 
 
-def validate_headers(headers, hdr_validation_flags):
+def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderValidationFlags) -> Iterable[Header]:
     """
     Validates a header sequence against a set of constraints from RFC 7540.
 
@@ -221,7 +225,8 @@ def validate_headers(headers, hdr_validation_flags):
     return headers
 
 
-def _reject_empty_header_names(headers, hdr_validation_flags):
+def _reject_empty_header_names(headers: Iterable[Header],
+                               hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if any header names are empty (length 0).
     While hpack decodes such headers without errors, they are semantically
@@ -234,7 +239,8 @@ def _reject_empty_header_names(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_uppercase_header_fields(headers, hdr_validation_flags):
+def _reject_uppercase_header_fields(headers: Iterable[Header],
+                                    hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if any uppercase character is found in a header
     block.
@@ -247,7 +253,8 @@ def _reject_uppercase_header_fields(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_surrounding_whitespace(headers, hdr_validation_flags):
+def _reject_surrounding_whitespace(headers: Iterable[Header],
+                                   hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if any header name or value is surrounded by
     whitespace characters.
@@ -269,7 +276,7 @@ def _reject_surrounding_whitespace(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_te(headers, hdr_validation_flags):
+def _reject_te(headers: Iterable[Header], hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if the TE header is present in a header block and
     its value is anything other than "trailers".
@@ -284,7 +291,7 @@ def _reject_te(headers, hdr_validation_flags):
         yield header
 
 
-def _reject_connection_header(headers, hdr_validation_flags):
+def _reject_connection_header(headers: Iterable[Header], hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if the Connection header is present in a header
     block.
@@ -298,7 +305,8 @@ def _reject_connection_header(headers, hdr_validation_flags):
         yield header
 
 
-def _assert_header_in_set(bytes_header, header_set):
+def _assert_header_in_set(bytes_header: bytes,
+                          header_set: Union[Set[Union[bytes, str]], Set[bytes], Set[str]]) -> None:
     """
     Given a set of header names, checks whether the string or byte version of
     the header name is present. Raises a Protocol error with the appropriate
@@ -310,7 +318,8 @@ def _assert_header_in_set(bytes_header, header_set):
         )
 
 
-def _reject_pseudo_header_fields(headers, hdr_validation_flags):
+def _reject_pseudo_header_fields(headers: Iterable[Header],
+                                 hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if duplicate pseudo-header fields are found in a
     header block or if a pseudo-header field appears in a block after an
@@ -355,9 +364,9 @@ def _reject_pseudo_header_fields(headers, hdr_validation_flags):
     )
 
 
-def _check_pseudo_header_field_acceptability(pseudo_headers,
-                                             method,
-                                             hdr_validation_flags):
+def _check_pseudo_header_field_acceptability(pseudo_headers: Union[Set[Union[bytes, str]], Set[bytes], Set[str]],
+                                             method: Optional[bytes],
+                                             hdr_validation_flags: HeaderValidationFlags) -> None:
     """
     Given the set of pseudo-headers present in a header block and the
     validation flags, confirms that RFC 7540 allows them.
@@ -403,7 +412,7 @@ def _check_pseudo_header_field_acceptability(pseudo_headers,
                 )
 
 
-def _validate_host_authority_header(headers):
+def _validate_host_authority_header(headers: Iterable[Header]) -> Generator[Header, None, None]:
     """
     Given the :authority and Host headers from a request block that isn't
     a trailer, check that:
@@ -453,7 +462,8 @@ def _validate_host_authority_header(headers):
             )
 
 
-def _check_host_authority_header(headers, hdr_validation_flags):
+def _check_host_authority_header(headers: Iterable[Header],
+                                 hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises a ProtocolError if a header block arrives that does not contain an
     :authority or a Host header, or if a header block contains both fields,
@@ -467,17 +477,18 @@ def _check_host_authority_header(headers, hdr_validation_flags):
         hdr_validation_flags.is_trailer
     )
     if skip_validation:
-        return headers
+        return (h for h in headers)
 
     return _validate_host_authority_header(headers)
 
 
-def _check_path_header(headers, hdr_validation_flags):
+def _check_path_header(headers: Iterable[Header],
+                       hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raise a ProtocolError if a header block arrives or is sent that contains an
     empty :path header.
     """
-    def inner():
+    def inner() -> Generator[Header, None, None]:
         for header in headers:
             if header[0] == b':path':
                 if not header[1]:
@@ -493,12 +504,12 @@ def _check_path_header(headers, hdr_validation_flags):
         hdr_validation_flags.is_trailer
     )
     if skip_validation:
-        return headers
+        return (h for h in headers)
     else:
         return inner()
 
 
-def _to_bytes(v):
+def _to_bytes(v: Union[bytes, str]) -> bytes:
     """
     Given an assumed `str` (or anything that supports `.encode()`),
     encodes it using utf-8 into bytes. Returns the unmodified object
@@ -507,14 +518,14 @@ def _to_bytes(v):
     return v if isinstance(v, bytes) else v.encode('utf-8')
 
 
-def utf8_encode_headers(headers):
+def utf8_encode_headers(headers: Iterable[HeaderWeaklyTyped]) -> list[Header]:
     """
     Given an iterable of header two-tuples, rebuilds that as a list with the
     header names and values encoded as utf-8 bytes. This function produces
     tuples that preserve the original type of the header tuple for tuple and
     any ``HeaderTuple``.
     """
-    encoded_headers = []
+    encoded_headers: list[Header] = []
     for header in headers:
         h = (_to_bytes(header[0]), _to_bytes(header[1]))
         if isinstance(header, HeaderTuple):
@@ -524,7 +535,8 @@ def utf8_encode_headers(headers):
     return encoded_headers
 
 
-def _lowercase_header_names(headers, hdr_validation_flags):
+def _lowercase_header_names(headers: Iterable[Header],
+                            hdr_validation_flags: Optional[HeaderValidationFlags]) -> Generator[Header, None, None]:
     """
     Given an iterable of header two-tuples, rebuilds that iterable with the
     header names lowercased. This generator produces tuples that preserve the
@@ -537,7 +549,8 @@ def _lowercase_header_names(headers, hdr_validation_flags):
             yield (header[0].lower(), header[1])
 
 
-def _strip_surrounding_whitespace(headers, hdr_validation_flags):
+def _strip_surrounding_whitespace(headers: Iterable[Header],
+                                  hdr_validation_flags: Optional[HeaderValidationFlags]) -> Generator[Header, None, None]:
     """
     Given an iterable of header two-tuples, strip both leading and trailing
     whitespace from both header names and header values. This generator
@@ -551,7 +564,8 @@ def _strip_surrounding_whitespace(headers, hdr_validation_flags):
             yield (header[0].strip(), header[1].strip())
 
 
-def _strip_connection_headers(headers, hdr_validation_flags):
+def _strip_connection_headers(headers: Iterable[Header],
+                              hdr_validation_flags: Optional[HeaderValidationFlags]) -> Generator[Header, None, None]:
     """
     Strip any connection headers as per RFC7540 § 8.1.2.2.
     """
@@ -560,7 +574,8 @@ def _strip_connection_headers(headers, hdr_validation_flags):
             yield header
 
 
-def _check_sent_host_authority_header(headers, hdr_validation_flags):
+def _check_sent_host_authority_header(headers: Iterable[Header],
+                                      hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Raises an InvalidHeaderBlockError if we try to send a header block
     that does not contain an :authority or a Host header, or if
@@ -574,12 +589,12 @@ def _check_sent_host_authority_header(headers, hdr_validation_flags):
         hdr_validation_flags.is_trailer
     )
     if skip_validation:
-        return headers
+        return (h for h in headers)
 
     return _validate_host_authority_header(headers)
 
 
-def _combine_cookie_fields(headers, hdr_validation_flags):
+def _combine_cookie_fields(headers: Iterable[Header], hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     RFC 7540 § 8.1.2.5 allows HTTP/2 clients to split the Cookie header field,
     which must normally appear only once, into multiple fields for better
@@ -591,7 +606,7 @@ def _combine_cookie_fields(headers, hdr_validation_flags):
     # possible that all these cookies are sent with different header indexing
     # values. At this point it shouldn't matter too much, so we apply our own
     # logic and make them never-indexed.
-    cookies = []
+    cookies: list[bytes] = []
     for header in headers:
         if header[0] == b'cookie':
             cookies.append(header[1])
@@ -602,7 +617,8 @@ def _combine_cookie_fields(headers, hdr_validation_flags):
         yield NeverIndexedHeaderTuple(b'cookie', cookie_val)
 
 
-def _split_outbound_cookie_fields(headers, hdr_validation_flags):
+def _split_outbound_cookie_fields(headers: Iterable[Header],
+                                  hdr_validation_flags: Optional[HeaderValidationFlags]) -> Generator[Header, None, None]:
     """
     RFC 7540 § 8.1.2.5 allows for better compression efficiency,
     to split the Cookie header field into separate header fields
@@ -611,6 +627,8 @@ def _split_outbound_cookie_fields(headers, hdr_validation_flags):
     inbound.
     """
     for header in headers:
+        assert isinstance(header[0], bytes)
+        assert isinstance(header[1], bytes)
         if header[0] == b'cookie':
             for cookie_val in header[1].split(b'; '):
                 if isinstance(header, HeaderTuple):
@@ -621,7 +639,9 @@ def _split_outbound_cookie_fields(headers, hdr_validation_flags):
             yield header
 
 
-def normalize_outbound_headers(headers, hdr_validation_flags, should_split_outbound_cookies):
+def normalize_outbound_headers(headers: Iterable[Header],
+                               hdr_validation_flags: Optional[HeaderValidationFlags],
+                               should_split_outbound_cookies: bool) -> Generator[Header, None, None]:
     """
     Normalizes a header sequence that we are about to send.
 
@@ -639,7 +659,8 @@ def normalize_outbound_headers(headers, hdr_validation_flags, should_split_outbo
     return headers
 
 
-def normalize_inbound_headers(headers, hdr_validation_flags):
+def normalize_inbound_headers(headers: Iterable[Header],
+                              hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Normalizes a header sequence that we have received.
 
@@ -650,7 +671,8 @@ def normalize_inbound_headers(headers, hdr_validation_flags):
     return headers
 
 
-def validate_outbound_headers(headers, hdr_validation_flags):
+def validate_outbound_headers(headers: Iterable[Header],
+                              hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
     Validates and normalizes a header sequence that we are about to send.
 
@@ -674,20 +696,20 @@ def validate_outbound_headers(headers, hdr_validation_flags):
     return headers
 
 
-class SizeLimitDict(collections.OrderedDict):
+class SizeLimitDict(collections.OrderedDict[int, Any]):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Dict[int, int], **kwargs: Any) -> None:
         self._size_limit = kwargs.pop("size_limit", None)
         super(SizeLimitDict, self).__init__(*args, **kwargs)
 
         self._check_size_limit()
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: Union[Any, int]) -> None:
         super(SizeLimitDict, self).__setitem__(key, value)
 
         self._check_size_limit()
 
-    def _check_size_limit(self):
+    def _check_size_limit(self) -> None:
         if self._size_limit is not None:
             while len(self) > self._size_limit:
                 self.popitem(last=False)
