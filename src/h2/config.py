@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 h2/config
 ~~~~~~~~~
@@ -7,6 +6,7 @@ Objects for controlling the configuration of the HTTP/2 stack.
 """
 
 import sys
+from typing import Any, Optional, Union
 
 
 class _BooleanConfigOption:
@@ -14,14 +14,14 @@ class _BooleanConfigOption:
     Descriptor for handling a boolean config option.  This will block
     attempts to set boolean config options to non-bools.
     """
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
         self.attr_name = '_%s' % self.name
 
-    def __get__(self, instance, owner):
-        return getattr(instance, self.attr_name)
+    def __get__(self, instance: Any, owner: Any) -> bool:
+        return getattr(instance, self.attr_name)  # type: ignore
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: Any, value: bool) -> None:
         if not isinstance(value, bool):
             raise ValueError("%s must be a bool" % self.name)
         setattr(instance, self.attr_name, value)
@@ -35,16 +35,16 @@ class DummyLogger:
     conditionals being sprinkled throughout the h2 code for calls to
     logging functions when no logger is passed into the corresponding object.
     """
-    def __init__(self, *vargs):
+    def __init__(self, *vargs) -> None:  # type: ignore
         pass
 
-    def debug(self, *vargs, **kwargs):
+    def debug(self, *vargs, **kwargs) -> None:  # type: ignore
         """
         No-op logging. Only level needed for now.
         """
         pass
 
-    def trace(self, *vargs, **kwargs):
+    def trace(self, *vargs, **kwargs) -> None:  # type: ignore
         """
         No-op logging. Only level needed for now.
         """
@@ -61,15 +61,15 @@ class OutputLogger:
         Defaults to ``sys.stderr``.
     :param trace: Enables trace-level output. Defaults to ``False``.
     """
-    def __init__(self, file=None, trace_level=False):
+    def __init__(self, file=None, trace_level=False):  # type: ignore
         super().__init__()
         self.file = file or sys.stderr
         self.trace_level = trace_level
 
-    def debug(self, fmtstr, *args):
+    def debug(self, fmtstr, *args):  # type: ignore
         print(f"h2 (debug): {fmtstr % args}", file=self.file)
 
-    def trace(self, fmtstr, *args):
+    def trace(self, fmtstr, *args):  # type: ignore
         if self.trace_level:
             print(f"h2 (trace): {fmtstr % args}", file=self.file)
 
@@ -165,14 +165,14 @@ class H2Configuration:
     )
 
     def __init__(self,
-                 client_side=True,
-                 header_encoding=None,
-                 validate_outbound_headers=True,
-                 normalize_outbound_headers=True,
-                 split_outbound_cookies=False,
-                 validate_inbound_headers=True,
-                 normalize_inbound_headers=True,
-                 logger=None):
+                 client_side: bool = True,
+                 header_encoding: Optional[Union[bool, str]] = None,
+                 validate_outbound_headers: bool = True,
+                 normalize_outbound_headers: bool = True,
+                 split_outbound_cookies: bool = False,
+                 validate_inbound_headers: bool = True,
+                 normalize_inbound_headers: bool = True,
+                 logger: Optional[Union[DummyLogger, OutputLogger]] = None) -> None:
         self.client_side = client_side
         self.header_encoding = header_encoding
         self.validate_outbound_headers = validate_outbound_headers
@@ -183,7 +183,7 @@ class H2Configuration:
         self.logger = logger or DummyLogger(__name__)
 
     @property
-    def header_encoding(self):
+    def header_encoding(self) -> Optional[Union[bool, str]]:
         """
         Controls whether the headers emitted by this object in events are
         transparently decoded to ``unicode`` strings, and what encoding is used
@@ -195,7 +195,7 @@ class H2Configuration:
         return self._header_encoding
 
     @header_encoding.setter
-    def header_encoding(self, value):
+    def header_encoding(self, value: Optional[Union[bool, str]]) -> None:
         """
         Enforces constraints on the value of header encoding.
         """

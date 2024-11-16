@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 h2/errors
 ~~~~~~~~~
@@ -9,6 +8,8 @@ The current registry is available at:
 https://tools.ietf.org/html/rfc7540#section-11.4
 """
 import enum
+
+from typing import Union
 
 
 class ErrorCodes(enum.IntEnum):
@@ -60,7 +61,7 @@ class ErrorCodes(enum.IntEnum):
     HTTP_1_1_REQUIRED = 0xd
 
 
-def _error_code_from_int(code):
+def _error_code_from_int(code: int) -> Union[ErrorCodes, int]:
     """
     Given an integer error code, returns either one of :class:`ErrorCodes
     <h2.errors.ErrorCodes>` or, if not present in the known set of codes,

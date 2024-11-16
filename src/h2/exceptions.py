@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 h2/exceptions
 ~~~~~~~~~~~~~
 
 Exceptions for the HTTP/2 module.
 """
-import h2.errors
+from .errors import ErrorCodes
 
 
 class H2Error(Exception):
@@ -19,7 +18,7 @@ class ProtocolError(H2Error):
     An action was attempted in violation of the HTTP/2 protocol.
     """
     #: The error code corresponds to this kind of Protocol Error.
-    error_code = h2.errors.ErrorCodes.PROTOCOL_ERROR
+    error_code = ErrorCodes.PROTOCOL_ERROR
 
 
 class FrameTooLargeError(ProtocolError):
@@ -27,7 +26,7 @@ class FrameTooLargeError(ProtocolError):
     The frame that we tried to send or that we received was too large.
     """
     #: The error code corresponds to this kind of Protocol Error.
-    error_code = h2.errors.ErrorCodes.FRAME_SIZE_ERROR
+    error_code = ErrorCodes.FRAME_SIZE_ERROR
 
 
 class FrameDataMissingError(ProtocolError):
@@ -37,7 +36,7 @@ class FrameDataMissingError(ProtocolError):
     .. versionadded:: 2.0.0
     """
     #: The error code corresponds to this kind of Protocol Error.
-    error_code = h2.errors.ErrorCodes.FRAME_SIZE_ERROR
+    error_code = ErrorCodes.FRAME_SIZE_ERROR
 
 
 class TooManyStreamsError(ProtocolError):
@@ -53,7 +52,7 @@ class FlowControlError(ProtocolError):
     An attempted action violates flow control constraints.
     """
     #: The error code corresponds to this kind of Protocol Error.
-    error_code = h2.errors.ErrorCodes.FLOW_CONTROL_ERROR
+    error_code = ErrorCodes.FLOW_CONTROL_ERROR
 
 
 class StreamIDTooLowError(ProtocolError):
@@ -61,14 +60,14 @@ class StreamIDTooLowError(ProtocolError):
     An attempt was made to open a stream that had an ID that is lower than the
     highest ID we have seen on this connection.
     """
-    def __init__(self, stream_id, max_stream_id):
+    def __init__(self, stream_id: int, max_stream_id: int) -> None:
         #: The ID of the stream that we attempted to open.
         self.stream_id = stream_id
 
         #: The current highest-seen stream ID.
         self.max_stream_id = max_stream_id
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "StreamIDTooLowError: %d is lower than %d" % (
             self.stream_id, self.max_stream_id
         )
@@ -92,7 +91,7 @@ class NoSuchStreamError(ProtocolError):
        Became a subclass of :class:`ProtocolError
        <h2.exceptions.ProtocolError>`
     """
-    def __init__(self, stream_id):
+    def __init__(self, stream_id: int) -> None:
         #: The stream ID corresponds to the non-existent stream.
         self.stream_id = stream_id
 
@@ -104,16 +103,16 @@ class StreamClosedError(NoSuchStreamError):
     that the stream has since been closed, and that all state relating to that
     stream has been removed.
     """
-    def __init__(self, stream_id):
+    def __init__(self, stream_id: int) -> None:
         #: The stream ID corresponds to the nonexistent stream.
         self.stream_id = stream_id
 
         #: The relevant HTTP/2 error code.
-        self.error_code = h2.errors.ErrorCodes.STREAM_CLOSED
+        self.error_code = ErrorCodes.STREAM_CLOSED
 
         # Any events that internal code may need to fire. Not relevant to
         # external users that may receive a StreamClosedError.
-        self._events = []
+        self._events = []  # type: ignore
 
 
 class InvalidSettingsValueError(ProtocolError, ValueError):
@@ -122,7 +121,7 @@ class InvalidSettingsValueError(ProtocolError, ValueError):
 
     .. versionadded:: 2.0.0
     """
-    def __init__(self, msg, error_code):
+    def __init__(self, msg: str, error_code: ErrorCodes) -> None:
         super(InvalidSettingsValueError, self).__init__(msg)
         self.error_code = error_code
 
@@ -134,11 +133,11 @@ class InvalidBodyLengthError(ProtocolError):
 
     .. versionadded:: 2.0.0
     """
-    def __init__(self, expected, actual):
+    def __init__(self, expected: int, actual: int) -> None:
         self.expected_length = expected
         self.actual_length = actual
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "InvalidBodyLengthError: Expected %d bytes, received %d" % (
             self.expected_length, self.actual_length
         )
@@ -184,4 +183,4 @@ class DenialOfServiceError(ProtocolError):
     """
     #: The error code corresponds to this kind of
     #: :class:`ProtocolError <h2.exceptions.ProtocolError>`
-    error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
+    error_code = ErrorCodes.ENHANCE_YOUR_CALM

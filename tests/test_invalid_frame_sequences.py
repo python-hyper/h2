@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 test_invalid_frame_sequences.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
