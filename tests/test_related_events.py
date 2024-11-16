@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 test_related_events.py
 ~~~~~~~~~~~~~~~~~~~~~~
