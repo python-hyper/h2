@@ -1,6 +1,26 @@
 Release History
 ===============
 
+dev
+---
+
+**API Changes (Backward Incompatible)**
+
+- Support for Python 3.6 has been removed.
+- Support for Python 3.7 has been removed.
+- Support for Python 3.8 has been removed.
+
+**API Changes (Backward Compatible)**
+
+- Support for Python 3.11 has been added.
+- Support for Python 3.12 has been added.
+- Support for Python 3.13 has been added.
+- Added typing information.
+
+**Bugfixes**
+
+-
+
 4.1.0 (2021-10-05)
 ------------------
 
