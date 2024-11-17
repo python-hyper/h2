@@ -470,7 +470,6 @@ class H2Connection:
             outbound_window_size=self.remote_settings.initial_window_size
         )
         self.config.logger.debug("Stream ID %d created", stream_id)
-        s.max_inbound_frame_size = self.max_inbound_frame_size
         s.max_outbound_frame_size = self.max_outbound_frame_size
 
         self.streams[stream_id] = s
