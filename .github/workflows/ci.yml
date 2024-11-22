@@ -8,7 +8,7 @@ on:
 
 jobs:
   tox:
-    runs-on: ubuntu-20.04 # bump to -latest or -22.04 once we drop py36
+    runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
       matrix:

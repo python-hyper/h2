@@ -1,0 +1,111 @@
+# https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+# https://packaging.python.org/en/latest/specifications/pyproject-toml/
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h2"
+description = "Pure-Python HTTP/2 protocol implementation"
+readme = { file = "README.rst", content-type = "text/x-rst" }
+license = { file = "LICENSE" }
+
+authors = [
+  { name = "Cory Benfield", email = "cory@lukasa.co.uk" }
+]
+maintainers = [
+  { name = "Thomas Kriechbaumer", email = "thomas@kriechbaumer.name" },
+]
+
+requires-python = ">=3.9"
+dependencies = [
+  "hyperframe>=6.0,<7",
+  "hpack>=4.0,<5",
+]
+dynamic = ["version"]
+
+# For a list of valid classifiers, see https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/python-hyper/h2/"
+"Bug Reports" = "https://github.com/python-hyper/h2/issues"
+"Source" = "https://github.com/python-hyper/h2/"
+"Documentation" = "https://python-hyper.org/"
+
+[dependency-groups]
+testing = [
+  "pytest>=8.3.3,<9",
+  "pytest-cov>=6.0.0,<7",
+  "pytest-xdist>=3.6.1,<4",
+  "hypothesis>=6.119.4,<7",
+]
+
+linting = [
+  "ruff>=0.8.0,<1",
+  "mypy>=1.13.0,<2",
+]
+
+packaging = [
+  "check-manifest==0.50",
+  "readme-renderer==44.0",
+  "build>=1.2.2,<2",
+  "twine>=5.1.1,<6",
+  "wheel>=0.45.0,<1",
+]
+
+docs = [
+  "sphinx>=7.4.7,<9",
+]
+
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+[tool.setuptools.package-data]
+h2 = [ "py.typed" ]
+
+[tool.setuptools.dynamic]
+version = { attr = "h2.__version__" }
+
+[tool.ruff]
+line-length = 140
+target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+
+[tool.coverage.run]
+branch = true
+source = [ "h2" ]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError()",
+  'assert False, "Should not be reachable"',
+  # .*:.* # Python \d.*
+  # .*:.* # Platform-specific:
+]
+
+[tool.coverage.paths]
+source = [
+  "src/",
+  ".tox/**/site-packages/",
+]
