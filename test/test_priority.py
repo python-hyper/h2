@@ -25,6 +25,12 @@ class TestPriority(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_request_headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+    ]
     example_response_headers = [
         (':status', '200'),
         ('server', 'pytest-h2'),
@@ -56,7 +62,8 @@ class TestPriority(object):
         assert event.weight == 256
         assert event.exclusive is False
 
-    def test_headers_with_priority_info(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_headers_with_priority_info(self, frame_factory, request_headers):
         """
         Receiving a HEADERS frame with priority information on it emits a
         PriorityUpdated event.
@@ -67,7 +74,7 @@ class TestPriority(object):
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=3,
             flags=['PRIORITY'],
             stream_weight=15,
@@ -86,7 +93,8 @@ class TestPriority(object):
         assert event.weight == 16
         assert event.exclusive is True
 
-    def test_streams_may_not_depend_on_themselves(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_streams_may_not_depend_on_themselves(self, frame_factory, request_headers):
         """
         A stream adjusted to depend on itself causes a Protocol Error.
         """
@@ -96,7 +104,7 @@ class TestPriority(object):
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=3,
             flags=['PRIORITY'],
             stream_weight=15,
@@ -120,6 +128,7 @@ class TestPriority(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
         'depends_on,weight,exclusive',
         [
@@ -129,15 +138,15 @@ class TestPriority(object):
         ]
     )
     def test_can_prioritize_stream(self, depends_on, weight, exclusive,
-                                   frame_factory):
+                                   frame_factory, request_headers):
         """
         hyper-h2 can emit priority frames.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
 
-        c.send_headers(headers=self.example_request_headers, stream_id=1)
-        c.send_headers(headers=self.example_request_headers, stream_id=3)
+        c.send_headers(headers=request_headers, stream_id=1)
+        c.send_headers(headers=request_headers, stream_id=3)
         c.clear_outbound_data_buffer()
 
         c.prioritize(
@@ -155,6 +164,7 @@ class TestPriority(object):
         )
         assert c.data_to_send() == f.serialize()
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
         'depends_on,weight,exclusive',
         [
@@ -164,7 +174,7 @@ class TestPriority(object):
         ]
     )
     def test_emit_headers_with_priority_info(self, depends_on, weight,
-                                             exclusive, frame_factory):
+                                             exclusive, frame_factory, request_headers):
         """
         It is possible to send a headers frame with priority information on
         it.
@@ -174,7 +184,7 @@ class TestPriority(object):
         c.clear_outbound_data_buffer()
 
         c.send_headers(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=3,
             priority_weight=weight,
             priority_depends_on=depends_on,
@@ -182,7 +192,7 @@ class TestPriority(object):
         )
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=3,
             flags=['PRIORITY'],
             stream_weight=weight - 1,
@@ -191,7 +201,8 @@ class TestPriority(object):
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_may_not_prioritize_stream_to_depend_on_self(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_may_not_prioritize_stream_to_depend_on_self(self, frame_factory, request_headers):
         """
         A stream adjusted to depend on itself causes a Protocol Error.
         """
@@ -199,7 +210,7 @@ class TestPriority(object):
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.send_headers(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=3,
             priority_weight=255,
             priority_depends_on=0,
@@ -215,7 +226,8 @@ class TestPriority(object):
 
         assert not c.data_to_send()
 
-    def test_may_not_initially_set_stream_depend_on_self(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_may_not_initially_set_stream_depend_on_self(self, frame_factory, request_headers):
         """
         A stream that starts by depending on itself causes a Protocol Error.
         """
@@ -226,7 +238,7 @@ class TestPriority(object):
 
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(
-                headers=self.example_request_headers,
+                headers=request_headers,
                 stream_id=3,
                 priority_depends_on=3,
             )
@@ -247,8 +259,9 @@ class TestPriority(object):
 
         assert not c.data_to_send()
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize('weight', [0, -15, 257])
-    def test_send_headers_requires_valid_weight(self, weight):
+    def test_send_headers_requires_valid_weight(self, weight, request_headers):
         """
         A call to send_headers with an invalid weight causes a ProtocolError.
         """
@@ -259,7 +272,7 @@ class TestPriority(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(
                 stream_id=1,
-                headers=self.example_request_headers,
+                headers=request_headers,
                 priority_weight=weight
             )
 
@@ -284,6 +297,7 @@ class TestPriority(object):
         )
         assert c.data_to_send() == f.serialize()
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
         'priority_kwargs',
         [
@@ -292,7 +306,7 @@ class TestPriority(object):
             {'priority_exclusive': False},
         ]
     )
-    def test_send_headers_defaults(self, priority_kwargs, frame_factory):
+    def test_send_headers_defaults(self, priority_kwargs, frame_factory, request_headers):
         """
         When send_headers() is called with only one explicit argument, it emits
         default values for everything else.
@@ -303,12 +317,12 @@ class TestPriority(object):
 
         c.send_headers(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=request_headers,
             **priority_kwargs
         )
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers,
+            headers=request_headers,
             stream_id=1,
             flags=['PRIORITY'],
             stream_weight=15,
@@ -317,7 +331,8 @@ class TestPriority(object):
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_servers_cannot_prioritize(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_servers_cannot_prioritize(self, frame_factory, request_headers):
         """
         Server stacks are not allowed to call ``prioritize()``.
         """
@@ -328,14 +343,15 @@ class TestPriority(object):
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=request_headers,
         )
         c.receive_data(f.serialize())
 
         with pytest.raises(h2.exceptions.RFC1122Error):
             c.prioritize(stream_id=1)
 
-    def test_servers_cannot_prioritize_with_headers(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_servers_cannot_prioritize_with_headers(self, frame_factory, request_headers):
         """
         Server stacks are not allowed to prioritize on headers either.
         """
@@ -346,7 +362,7 @@ class TestPriority(object):
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
-            headers=self.example_request_headers,
+            headers=request_headers,
         )
         c.receive_data(f.serialize())
 
