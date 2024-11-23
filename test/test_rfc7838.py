@@ -23,9 +23,15 @@ class TestRFC7838Client(object):
         (':scheme', 'https'),
         (':method', 'GET'),
     ]
+    example_request_headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
+    ]
     example_response_headers = [
-        (u':status', u'200'),
-        (u'server', u'fake-serv/0.1.0')
+        (':status', '200'),
+        ('server', 'fake-serv/0.1.0')
     ]
 
     def test_receiving_altsvc_stream_zero(self, frame_factory):
@@ -69,14 +75,15 @@ class TestRFC7838Client(object):
         assert not events
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_on_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_on_stream(self, frame_factory, request_headers):
         """
         An ALTSVC frame received on a stream correctly transposes all the
         fields from the frame and attaches the expected origin.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_alt_svc_frame(
@@ -94,14 +101,15 @@ class TestRFC7838Client(object):
         # No data gets sent.
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_on_stream_with_origin(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_on_stream_with_origin(self, frame_factory, request_headers):
         """
         An ALTSVC frame received on a stream with an origin field present gets
         ignored.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_alt_svc_frame(
@@ -159,14 +167,15 @@ class TestRFC7838Client(object):
         assert len(events) == 0
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_after_receiving_headers(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_after_receiving_headers(self, frame_factory, request_headers):
         """
         When an ALTSVC frame is received but the server has already sent
         headers it gets ignored.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_headers_frame(
             headers=self.example_response_headers
@@ -182,14 +191,15 @@ class TestRFC7838Client(object):
         assert len(events) == 0
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_on_closed_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_on_closed_stream(self, frame_factory, request_headers):
         """
         When an ALTSVC frame is received on a closed stream, we ignore it.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(
-            stream_id=1, headers=self.example_request_headers, end_stream=True
+            stream_id=1, headers=request_headers, end_stream=True
         )
 
         f = frame_factory.build_headers_frame(
@@ -207,19 +217,20 @@ class TestRFC7838Client(object):
         assert len(events) == 0
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_on_pushed_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_on_pushed_stream(self, frame_factory, request_headers):
         """
         When an ALTSVC frame is received on a stream that the server pushed,
         the frame is accepted.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
 
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=self.example_request_headers
+            headers=request_headers
         )
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
@@ -239,13 +250,14 @@ class TestRFC7838Client(object):
         # No data gets sent.
         assert not c.data_to_send()
 
-    def test_cannot_send_explicit_alternative_service(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_send_explicit_alternative_service(self, frame_factory, request_headers):
         """
         A client cannot send an explicit alternative service.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
         c.clear_outbound_data_buffer()
 
         with pytest.raises(h2.exceptions.ProtocolError):
@@ -254,13 +266,14 @@ class TestRFC7838Client(object):
                 origin=b"example.com",
             )
 
-    def test_cannot_send_implicit_alternative_service(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_send_implicit_alternative_service(self, frame_factory, request_headers):
         """
         A client cannot send an implicit alternative service.
         """
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(stream_id=1, headers=self.example_request_headers)
+        c.send_headers(stream_id=1, headers=request_headers)
         c.clear_outbound_data_buffer()
 
         with pytest.raises(h2.exceptions.ProtocolError):
@@ -279,6 +292,12 @@ class TestRFC7838Server(object):
         (':path', '/'),
         (':scheme', 'https'),
         (':method', 'GET'),
+    ]
+    example_request_headers_bytes = [
+        (b':authority', b'example.com'),
+        (b':path', b'/'),
+        (b':scheme', b'https'),
+        (b':method', b'GET'),
     ]
     example_response_headers = [
         (u':status', u'200'),
@@ -305,7 +324,8 @@ class TestRFC7838Server(object):
         assert len(events) == 0
         assert not c.data_to_send()
 
-    def test_receiving_altsvc_as_server_on_stream(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_receiving_altsvc_as_server_on_stream(self, frame_factory, request_headers):
         """
         When an ALTSVC frame is received on a stream and we are a server, we
         ignore it.
@@ -315,7 +335,7 @@ class TestRFC7838Server(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=request_headers
         )
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
@@ -347,7 +367,8 @@ class TestRFC7838Server(object):
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_sending_implicit_alternative_service(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_sending_implicit_alternative_service(self, frame_factory, request_headers):
         """
         A server can send an implicit alternative service.
         """
@@ -356,7 +377,7 @@ class TestRFC7838Server(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=request_headers
         )
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
@@ -388,8 +409,10 @@ class TestRFC7838Server(object):
                 stream_id=1,
             )
 
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     def test_no_implicit_alternative_service_after_response(self,
-                                                            frame_factory):
+                                                            frame_factory,
+                                                            request_headers):
         """
         If the server has sent response headers, hyper-h2 forbids sending an
         implicit alternative service.
@@ -399,7 +422,7 @@ class TestRFC7838Server(object):
         c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=request_headers
         )
         c.receive_data(f.serialize())
         c.send_headers(stream_id=1, headers=self.example_response_headers)
@@ -411,7 +434,8 @@ class TestRFC7838Server(object):
                 stream_id=1,
             )
 
-    def test_cannot_provide_origin_and_stream_id(self, frame_factory):
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_cannot_provide_origin_and_stream_id(self, frame_factory, request_headers):
         """
         The user cannot provide both the origin and stream_id arguments when
         advertising alternative services.
@@ -420,7 +444,7 @@ class TestRFC7838Server(object):
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         f = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=request_headers
         )
         c.receive_data(f.serialize())
 

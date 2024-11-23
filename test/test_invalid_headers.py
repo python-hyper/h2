@@ -37,7 +37,7 @@ class TestInvalidFrameSequences(object):
         (':method', 'GET'),
         ('user-agent', 'someua/0.0.1'),
     ]
-    invalid_header_blocks = [
+    base_invalid_header_blocks = [
         base_request_headers + [('Uppercase', 'name')],
         base_request_headers + [(':late', 'pseudo-header')],
         [(':path', 'duplicate-pseudo-header')] + base_request_headers,
@@ -55,6 +55,9 @@ class TestInvalidFrameSequences(object):
         [header for header in base_request_headers
          if header[0] != ':authority'],
         [(':protocol', 'websocket')] + base_request_headers,
+    ]
+    invalid_header_blocks = base_invalid_header_blocks + [
+        h2.utilities.utf8_encode_headers(headers) for headers in base_invalid_header_blocks
     ]
     server_config = h2.config.H2Configuration(
         client_side=False, header_encoding='utf-8'
@@ -117,7 +120,6 @@ class TestInvalidFrameSequences(object):
         config = h2.config.H2Configuration(
             client_side=True,
             validate_inbound_headers=False,
-            header_encoding='utf-8'
         )
 
         c = h2.connection.H2Connection(config=config)
@@ -137,7 +139,7 @@ class TestInvalidFrameSequences(object):
         events = c.receive_data(data)
         assert len(events) == 1
         pp_event = events[0]
-        assert pp_event.headers == headers
+        assert pp_event.headers == h2.utilities.utf8_encode_headers(headers)
 
     @pytest.mark.parametrize('headers', invalid_header_blocks)
     def test_headers_event_skipping_validation(self, frame_factory, headers):
@@ -148,7 +150,6 @@ class TestInvalidFrameSequences(object):
         config = h2.config.H2Configuration(
             client_side=False,
             validate_inbound_headers=False,
-            header_encoding='utf-8'
         )
 
         c = h2.connection.H2Connection(config=config)
@@ -160,7 +161,7 @@ class TestInvalidFrameSequences(object):
         events = c.receive_data(data)
         assert len(events) == 1
         request_event = events[0]
-        assert request_event.headers == headers
+        assert request_event.headers == h2.utilities.utf8_encode_headers(headers)
 
     def test_te_trailers_is_valid(self, frame_factory):
         """
@@ -296,7 +297,9 @@ class TestSendingInvalidFrameSequences(object):
         c.send_headers(1, headers)
 
         # Ensure headers are still normalized.
-        norm_headers = h2.utilities.normalize_outbound_headers(headers, None, False)
+        norm_headers = h2.utilities.normalize_outbound_headers(
+            h2.utilities.utf8_encode_headers(headers), None, False
+        )
         f = frame_factory.build_headers_frame(norm_headers)
         assert c.data_to_send() == f.serialize()
 
@@ -322,7 +325,9 @@ class TestSendingInvalidFrameSequences(object):
 
         # Create push promise frame with normalized headers.
         frame_factory.refresh_encoder()
-        norm_headers = h2.utilities.normalize_outbound_headers(headers, None, False)
+        norm_headers = h2.utilities.normalize_outbound_headers(
+            h2.utilities.utf8_encode_headers(headers), None, False
+        )
         pp_frame = frame_factory.build_push_promise_frame(
             stream_id=1, promised_stream_id=2, headers=norm_headers
         )
@@ -467,43 +472,10 @@ class TestFilter(object):
             (b':path', b''),
         ),
     )
-    invalid_request_header_blocks_unicode = (
-        # First, missing :method
-        (
-            (':authority', 'google.com'),
-            (':path', '/'),
-            (':scheme', 'https'),
-        ),
-        # Next, missing :path
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':scheme', 'https'),
-        ),
-        # Next, missing :scheme
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':path', '/'),
-        ),
-        # Finally, path present but empty.
-        (
-            (':authority', 'google.com'),
-            (':method', 'GET'),
-            (':scheme', 'https'),
-            (':path', ''),
-        ),
-    )
 
     # All headers that are forbidden from either request or response blocks.
     forbidden_request_headers_bytes = (b':status',)
-    forbidden_request_headers_unicode = (':status',)
-    forbidden_response_headers_bytes = (
-        b':path', b':scheme', b':authority', b':method'
-    )
-    forbidden_response_headers_unicode = (
-        ':path', ':scheme', ':authority', ':method'
-    )
+    forbidden_response_headers_bytes = (b':path', b':scheme', b':authority', b':method')
 
     @pytest.mark.parametrize('validation_function', validation_functions)
     @pytest.mark.parametrize('hdr_validation_flags', hdr_validation_combos)
@@ -563,10 +535,7 @@ class TestFilter(object):
     )
     @pytest.mark.parametrize(
         'header_block',
-        (
-            invalid_request_header_blocks_bytes +
-            invalid_request_header_blocks_unicode
-        )
+        (invalid_request_header_blocks_bytes),
     )
     def test_outbound_req_header_missing_pseudo_headers(self,
                                                         hdr_validation_flags,
@@ -599,7 +568,7 @@ class TestFilter(object):
     )
     @pytest.mark.parametrize(
         'invalid_header',
-        forbidden_request_headers_bytes + forbidden_request_headers_unicode
+        forbidden_request_headers_bytes,
     )
     def test_outbound_req_header_extra_pseudo_headers(self,
                                                       hdr_validation_flags,
@@ -651,7 +620,7 @@ class TestFilter(object):
     )
     @pytest.mark.parametrize(
         'invalid_header',
-        forbidden_response_headers_bytes + forbidden_response_headers_unicode
+        forbidden_response_headers_bytes,
     )
     def test_outbound_resp_header_extra_pseudo_headers(self,
                                                        hdr_validation_flags,

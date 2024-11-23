@@ -7,25 +7,32 @@ import h2.connection
 import pytest
 
 
-class TestHeadRequest(object):
-    example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'HEAD'),
-    ]
+EXAMPLE_REQUEST_HEADERS_BYTES = [
+    (b':authority', b'example.com'),
+    (b':path', b'/'),
+    (b':scheme', b'https'),
+    (b':method', b'HEAD'),
+]
 
+EXAMPLE_REQUEST_HEADERS = [
+    (':authority', 'example.com'),
+    (':path', '/'),
+    (':scheme', 'https'),
+    (':method', 'HEAD'),
+]
+
+class TestHeadRequest(object):
     example_response_headers = [
         (b':status', b'200'),
         (b'server', b'fake-serv/0.1.0'),
         (b'content_length', b'1'),
     ]
 
-    def test_non_zero_content_and_no_body(self, frame_factory):
-
+    @pytest.mark.parametrize('headers', [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_non_zero_content_and_no_body(self, frame_factory, headers):
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.send_headers(1, headers, end_stream=True)
 
         f = frame_factory.build_headers_frame(
             self.example_response_headers,
@@ -40,10 +47,11 @@ class TestHeadRequest(object):
         assert event.stream_id == 1
         assert event.headers == self.example_response_headers
 
-    def test_reject_non_zero_content_and_body(self, frame_factory):
+    @pytest.mark.parametrize('headers', [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_reject_non_zero_content_and_body(self, frame_factory, headers):
         c = h2.connection.H2Connection()
         c.initiate_connection()
-        c.send_headers(1, self.example_request_headers)
+        c.send_headers(1, headers)
 
         headers = frame_factory.build_headers_frame(
             self.example_response_headers
