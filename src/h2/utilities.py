@@ -105,27 +105,26 @@ def extract_method_header(headers):
 
 def is_informational_response(headers):
     """
-    Searches a header block for a :status header to confirm that a given
+    Searches headers list for a :status header to confirm that a given
     collection of headers are an informational response. Assumes the header
-    block is well formed: that is, that the HTTP/2 special headers are first
-    in the block, and so that it can stop looking when it finds the first
-    header field whose name does not begin with a colon.
+    are well formed and encoded as bytes: that is, that the HTTP/2 special
+    headers are first in the block, and so that it can stop looking when it
+    finds the first header field whose name does not begin with a colon.
 
-    :param headers: The HTTP/2 header block.
+    :param headers: The HTTP/2 headers.
     :returns: A boolean indicating if this is an informational response.
     """
     for n, v in headers:
-        # If we find a non-special header, we're done here: stop looping.
+        if not isinstance(n, bytes) or not isinstance(v, bytes):
+            raise ProtocolError(f"header not bytes: {n=:r}, {v=:r}")  # pragma: no cover
 
-        if n and n[0] != SIGIL:
+        if not n.startswith(b':'):
             return False
-
-        # This isn't the status header, bail.
         if n != b':status':
+            # If we find a non-special header, we're done here: stop looping.
             continue
-
         # If the first digit is a 1, we've got informational headers.
-        return v[0] == INFORMATIONAL_START
+        return v.startswith(b'1')
 
 
 def guard_increment_window(current, increment):
@@ -515,14 +514,14 @@ def utf8_encode_headers(headers):
     tuples that preserve the original type of the header tuple for tuple and
     any ``HeaderTuple``.
     """
-    return [
-        (
-            header.__class__(_to_bytes(header[0]), _to_bytes(header[1]))
-            if isinstance(header, HeaderTuple)
-            else (_to_bytes(header[0]), _to_bytes(header[1]))
-        )
-        for header in headers
-    ]
+    encoded_headers = []
+    for header in headers:
+        h = (_to_bytes(header[0]), _to_bytes(header[1]))
+        if isinstance(header, HeaderTuple):
+            encoded_headers.append(header.__class__(h[0], h[1]))
+        else:
+            encoded_headers.append(h)
+    return encoded_headers
 
 
 def _lowercase_header_names(headers, hdr_validation_flags):

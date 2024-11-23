@@ -33,7 +33,7 @@ from .exceptions import (
 from .frame_buffer import FrameBuffer
 from .settings import Settings, SettingCodes
 from .stream import H2Stream, StreamClosedBy
-from .utilities import SizeLimitDict, guard_increment_window, utf8_encode_headers
+from .utilities import SizeLimitDict, guard_increment_window
 from .windows import WindowManager
 
 
@@ -975,7 +975,6 @@ class H2Connection:
         )
         self.streams[promised_stream_id] = new_stream
 
-        request_headers = utf8_encode_headers(request_headers)
         frames = stream.push_stream_in_band(
             promised_stream_id, request_headers, self.encoder
         )
