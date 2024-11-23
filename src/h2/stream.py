@@ -854,6 +854,7 @@ class H2Stream:
         input_ = StreamInputs.SEND_HEADERS
 
         headers = utf8_encode_headers(headers)
+
         if ((not self.state_machine.client) and
                 is_informational_response(headers)):
             if end_stream:
@@ -1243,6 +1244,9 @@ class H2Stream:
         """
         Helper method to build headers or push promise frames.
         """
+
+        headers = utf8_encode_headers(headers)
+
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
         if self.config.normalize_outbound_headers:

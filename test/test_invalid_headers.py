@@ -297,8 +297,9 @@ class TestSendingInvalidFrameSequences(object):
         c.send_headers(1, headers)
 
         # Ensure headers are still normalized.
+        headers = h2.utilities.utf8_encode_headers(headers)
         norm_headers = h2.utilities.normalize_outbound_headers(
-            h2.utilities.utf8_encode_headers(headers), None, False
+            headers, None, False
         )
         f = frame_factory.build_headers_frame(norm_headers)
         assert c.data_to_send() == f.serialize()
@@ -323,10 +324,12 @@ class TestSendingInvalidFrameSequences(object):
         )
         c.receive_data(header_frame.serialize())
 
-        # Create push promise frame with normalized headers.
         frame_factory.refresh_encoder()
+
+        # Create push promise frame with normalized headers.
+        headers = h2.utilities.utf8_encode_headers(headers)
         norm_headers = h2.utilities.normalize_outbound_headers(
-            h2.utilities.utf8_encode_headers(headers), None, False
+            headers, None, False
         )
         pp_frame = frame_factory.build_push_promise_frame(
             stream_id=1, promised_stream_id=2, headers=norm_headers

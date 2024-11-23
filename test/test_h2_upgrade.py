@@ -32,6 +32,7 @@ EXAMPLE_REQUEST_HEADERS_BYTES = [
     (b':method', b'GET'),
 ]
 
+
 class TestClientUpgrade(object):
     """
     Tests of the client-side of the HTTP/2 upgrade dance.

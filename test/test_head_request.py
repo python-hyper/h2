@@ -21,6 +21,7 @@ EXAMPLE_REQUEST_HEADERS = [
     (':method', 'HEAD'),
 ]
 
+
 class TestHeadRequest(object):
     example_response_headers = [
         (b':status', b'200'),
