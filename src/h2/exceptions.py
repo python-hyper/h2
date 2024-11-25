@@ -104,7 +104,7 @@ class StreamClosedError(NoSuchStreamError):
     that the stream has since been closed, and that all state relating to that
     stream has been removed.
     """
-    def __init__(self, stream_id):
+    def __init__(self, stream_id, connection_error=True):
         #: The stream ID corresponds to the nonexistent stream.
         self.stream_id = stream_id
 
@@ -114,6 +114,12 @@ class StreamClosedError(NoSuchStreamError):
         # Any events that internal code may need to fire. Not relevant to
         # external users that may receive a StreamClosedError.
         self._events = []
+
+        # If this is a connection error or a stream error. This exception
+        # is used to send a `RST_STREAM` frame on stream errors. If
+        # connection_error is false, H2Connection will suppress this
+        # exception after sending the reset frame.
+        self._connection_error = connection_error
 
 
 class InvalidSettingsValueError(ProtocolError, ValueError):

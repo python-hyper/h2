@@ -207,6 +207,8 @@ class TestStreamsClosedByEndStream(object):
                 self.example_request_headers, flags=['END_STREAM']),
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers),
+            lambda self, ff: ff.build_data_frame(
+                data=b'some data')
         ]
     )
     @pytest.mark.parametrize("clear_streams", [True, False])
@@ -352,9 +354,13 @@ class TestStreamsClosedByRstStream(object):
                 self.example_request_headers, flags=['END_STREAM']),
         ]
     )
+    @pytest.mark.parametrize(
+        "clear_streams_before_send", [True, False]
+    )
     def test_resets_further_frames_after_recv_reset(self,
                                                     frame_factory,
-                                                    frame):
+                                                    frame,
+                                                    clear_streams_before_send):
         """
         A stream that is closed by receive RST_STREAM can receive further
         frames: it simply sends RST_STREAM for it, and additionally
@@ -381,6 +387,9 @@ class TestStreamsClosedByRstStream(object):
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
 
+        if clear_streams_before_send:
+            c.open_outbound_streams
+
         f = frame(self, frame_factory)
         events = c.receive_data(f.serialize())
 
@@ -390,20 +399,29 @@ class TestStreamsClosedByRstStream(object):
         assert not events
         assert c.data_to_send() == rst_frame.serialize()
 
+        # "An endpoint MUST ignore frames that it receives on closed streams
+        # after it has sent a RST_STREAM frame."
+        # The initial RST_STREAM was seen in the previous assert. Additional
+        # frames should be ignored.
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == rst_frame.serialize() * 3
+        assert c.data_to_send() == b""
 
         # Iterate over the streams to make sure it's gone, then confirm the
         # behaviour is unchanged.
         c.open_outbound_streams
 
+        # Additional frames should continue to be ignored
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == rst_frame.serialize() * 3
+        assert c.data_to_send() == b""
 
+    @pytest.mark.parametrize(
+        "clear_streams_before_send", [True, False]
+    )
     def test_resets_further_data_frames_after_recv_reset(self,
-                                                         frame_factory):
+                                                         frame_factory,
+                                                         clear_streams_before_send):
         """
         A stream that is closed by receive RST_STREAM can receive further
         DATA frames: it simply sends WINDOW_UPDATE for the connection flow
@@ -430,6 +448,9 @@ class TestStreamsClosedByRstStream(object):
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
 
+        if clear_streams_before_send:
+            c.open_outbound_streams
+
         f = frame_factory.build_data_frame(
             data=b'some data'
         )
@@ -445,7 +466,7 @@ class TestStreamsClosedByRstStream(object):
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == expected * 3
+        assert c.data_to_send() == b""
 
         # Iterate over the streams to make sure it's gone, then confirm the
         # behaviour is unchanged.
@@ -453,7 +474,7 @@ class TestStreamsClosedByRstStream(object):
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == expected * 3
+        assert c.data_to_send() == b""
 
     @pytest.mark.parametrize(
         "frame",
@@ -486,25 +507,23 @@ class TestStreamsClosedByRstStream(object):
             end_stream=False
         )
 
+        # Send initial RST_STREAM
         c.reset_stream(1, h2.errors.ErrorCodes.INTERNAL_ERROR)
-
-        rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
-        )
         c.clear_outbound_data_buffer()
 
         f = frame(self, frame_factory)
         events = c.receive_data(f.serialize())
 
-        rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
-        )
+        # "An endpoint MUST ignore frames that it receives on closed streams
+        # after it has sent a RST_STREAM frame."
+        # The initial RST_STREAM was sent in the test setup. Additional frames
+        # should be ignored.
         assert not events
-        assert c.data_to_send() == rst_frame.serialize()
+        assert c.data_to_send() == b""
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == rst_frame.serialize() * 3
+        assert c.data_to_send() == b""
 
         # Iterate over the streams to make sure it's gone, then confirm the
         # behaviour is unchanged.
@@ -512,7 +531,7 @@ class TestStreamsClosedByRstStream(object):
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == rst_frame.serialize() * 3
+        assert c.data_to_send() == b""
 
     def test_resets_further_data_frames_after_send_reset(self,
                                                          frame_factory):
@@ -535,6 +554,7 @@ class TestStreamsClosedByRstStream(object):
             end_stream=False
         )
 
+        # Send initial RST_STREAM
         c.reset_stream(1, h2.errors.ErrorCodes.INTERNAL_ERROR)
 
         c.clear_outbound_data_buffer()
@@ -544,15 +564,11 @@ class TestStreamsClosedByRstStream(object):
         )
         events = c.receive_data(f.serialize())
         assert not events
-        expected = frame_factory.build_rst_stream_frame(
-            stream_id=1,
-            error_code=h2.errors.ErrorCodes.STREAM_CLOSED,
-        ).serialize()
-        assert c.data_to_send() == expected
+        assert c.data_to_send() == b""
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == expected * 3
+        assert c.data_to_send() == b""
 
         # Iterate over the streams to make sure it's gone, then confirm the
         # behaviour is unchanged.
@@ -560,4 +576,4 @@ class TestStreamsClosedByRstStream(object):
 
         events = c.receive_data(f.serialize() * 3)
         assert not events
-        assert c.data_to_send() == expected * 3
+        assert c.data_to_send() == b""
