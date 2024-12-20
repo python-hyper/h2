@@ -155,7 +155,7 @@ commands = [
 dependency_groups = ["linting"]
 commands = [
   ["ruff", "check", "src/"],
-  # TODO: ["mypy", "src/"],
+  ["mypy", "src/"],
 ]
 
 [tool.tox.env.docs]
