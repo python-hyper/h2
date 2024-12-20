@@ -49,6 +49,13 @@ classifiers = [
 "Documentation" = "https://python-hyper.org/"
 
 [dependency-groups]
+dev = [
+  { include-group = "testing" },
+  { include-group = "linting" },
+  { include-group = "packaging" },
+  { include-group = "docs" },
+]
+
 testing = [
   "pytest>=8.3.3,<9",
   "pytest-cov>=6.0.0,<7",
@@ -108,4 +115,90 @@ exclude_lines = [
 source = [
   "src/",
   ".tox/**/site-packages/",
+]
+
+[tool.tox]
+min_version = "4.23.2"
+env_list = [ "py39", "py310", "py311", "py312", "py313", "pypy3", "lint", "docs", "packaging" ]
+
+[tool.tox.gh-actions]
+python = """
+  3.9: py39, h2spec, lint, docs, packaging
+  3.10: py310
+  3.11: py311
+  3.12: py312
+  3.13: py313
+  pypy3: pypy3
+"""
+
+[tool.tox.env_run_base]
+pass_env = [
+  "GITHUB_*",
+]
+dependency_groups = ["testing"]
+commands = [
+  ["python", "-bb", "-m", "pytest", "--cov-report=xml", "--cov-report=term", "--cov=h2", { replace = "posargs", extend = true }]
+]
+
+[tool.tox.env.pypy3]
+# temporarily disable coverage testing on PyPy due to performance problems
+commands = [
+  ["pytest", { replace = "posargs", extend = true }]
+]
+
+[tool.tox.env.lint]
+dependency_groups = ["linting"]
+commands = [
+  ["ruff", "check", "src/"],
+  # TODO: ["mypy", "src/"],
+]
+
+[tool.tox.env.docs]
+dependency_groups = ["docs"]
+allowlist_externals = ["make"]
+changedir = "{toxinidir}/docs"
+commands = [
+  ["make", "clean"],
+  ["make", "html"],
+]
+
+[tool.tox.env.packaging]
+base_python = ["python39"]
+dependency_groups = ["packaging"]
+allowlist_externals = ["rm"]
+commands = [
+  ["rm", "-rf", "dist/"],
+  ["check-manifest"],
+  ["python", "-m", "build", "--outdir", "dist/"],
+  ["twine", "check", "dist/*"],
+]
+
+[tool.tox.env.publish]
+base_python = "{[tool.tox.env.packaging]base_python}"
+deps = "{[tool.tox.env.packaging]deps}"
+allowlist_externals = "{[tool.tox.env.packaging]allowlist_externals}"
+commands = [
+    "{[testenv:packaging]commands}",
+    ["twine", "upload", "dist/*"],
+]
+
+[tool.tox.env.graphs]
+basepython = ["python3.9"]
+deps = [
+  "graphviz==0.14.1",
+]
+commands = [
+    ["python", "visualizer/visualize.py", "-i", "docs/source/_static"],
+]
+
+[tool.tox.env.h2spec]
+basepython = ["python3.9"]
+deps = [
+  "twisted[tls]==20.3.0",
+]
+allowlist_externals = [
+  "{toxinidir}/tests/h2spectest.sh"
+]
+commands = [
+  ["{toxinidir}/tests/h2spectest.sh"],
 ]
