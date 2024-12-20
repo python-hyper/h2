@@ -91,8 +91,54 @@ h2 = [ "py.typed" ]
 version = { attr = "h2.__version__" }
 
 [tool.ruff]
-line-length = 140
+line-length = 150
 target-version = "py39"
+format.preview = true
+format.docstring-code-line-length = 100
+format.docstring-code-format = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "PYI034",  # PEP 673 not yet available in Python 3.9 - only in 3.11+
+  "ANN001",  # args with typing.Any
+  "ANN002",  # args with typing.Any
+  "ANN003",  # kwargs with typing.Any
+  "ANN401",  # kwargs with typing.Any
+  "SLF001",  # implementation detail
+  "CPY",     # not required
+  "D101",    # docs readability
+  "D102",    # docs readability
+  "D105",    # docs readability
+  "D107",    # docs readability
+  "D200",    # docs readability
+  "D205",    # docs readability
+  "D205",    # docs readability
+  "D203",    # docs readability
+  "D212",    # docs readability
+  "D400",    # docs readability
+  "D401",    # docs readability
+  "D415",    # docs readability
+  "PLR2004", # readability
+  "SIM108",  # readability
+  "RUF012",  # readability
+  "FBT001",  # readability
+  "FBT002",  # readability
+  "PGH003",  # readability
+  "PGH004",  # readability
+  "FIX001",  # readability
+  "FIX002",  # readability
+  "TD001",  # readability
+  "TD002",  # readability
+  "TD003",  # readability
+  "S101",  # readability
+  "PD901",  # readability
+  "ERA001",  # readability
+  "ARG001",  # readability
+  "ARG002",  # readability
+  "PLR0913",  # readability
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.mypy]
 show_error_codes = true

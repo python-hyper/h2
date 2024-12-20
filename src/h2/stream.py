@@ -4,41 +4,54 @@ h2/stream
 
 An implementation of a HTTP/2 stream.
 """
+from __future__ import annotations
+
 from enum import Enum, IntEnum
-from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 from hpack import HeaderTuple
-from hpack.hpack import Encoder
-from hpack.struct import Header, HeaderWeaklyTyped
-
-from hyperframe.frame import (
-    Frame,
-    AltSvcFrame, ContinuationFrame, DataFrame, HeadersFrame, PushPromiseFrame,
-    RstStreamFrame, WindowUpdateFrame
-)
+from hyperframe.frame import AltSvcFrame, ContinuationFrame, DataFrame, Frame, HeadersFrame, PushPromiseFrame, RstStreamFrame, WindowUpdateFrame
 
 from .errors import ErrorCodes, _error_code_from_int
 from .events import (
+    AlternativeServiceAvailable,
+    DataReceived,
     Event,
-    RequestReceived, ResponseReceived, DataReceived, WindowUpdated,
-    StreamEnded, PushedStreamReceived, StreamReset, TrailersReceived,
-    InformationalResponseReceived, AlternativeServiceAvailable,
-    _ResponseSent, _RequestSent, _TrailersSent, _PushedRequestSent
+    InformationalResponseReceived,
+    PushedStreamReceived,
+    RequestReceived,
+    ResponseReceived,
+    StreamEnded,
+    StreamReset,
+    TrailersReceived,
+    WindowUpdated,
+    _PushedRequestSent,
+    _RequestSent,
+    _ResponseSent,
+    _TrailersSent,
 )
-from .exceptions import (
-    ProtocolError, StreamClosedError, InvalidBodyLengthError, FlowControlError
-)
+from .exceptions import FlowControlError, InvalidBodyLengthError, ProtocolError, StreamClosedError
 from .utilities import (
-    guard_increment_window, is_informational_response, authority_from_headers,
-    validate_headers, validate_outbound_headers, normalize_outbound_headers,
-    HeaderValidationFlags, extract_method_header, normalize_inbound_headers,
-    utf8_encode_headers
+    HeaderValidationFlags,
+    authority_from_headers,
+    extract_method_header,
+    guard_increment_window,
+    is_informational_response,
+    normalize_inbound_headers,
+    normalize_outbound_headers,
+    utf8_encode_headers,
+    validate_headers,
+    validate_outbound_headers,
 )
 from .windows import WindowManager
 
-from .config import H2Configuration
+if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Generator, Iterable
 
-from typing import Any, Iterable, Optional, Union
+    from hpack.hpack import Encoder
+    from hpack.struct import Header, HeaderWeaklyTyped
+
+    from .config import H2Configuration
 
 
 class StreamState(IntEnum):
@@ -85,7 +98,7 @@ class StreamClosedBy(Enum):
 # this is that we potentially check whether a stream in a given state is open
 # quite frequently: given that we check so often, we should do so in the
 # fastest and most performant way possible.
-STREAM_OPEN = [False for _ in range(0, len(StreamState))]
+STREAM_OPEN = [False for _ in range(len(StreamState))]
 STREAM_OPEN[StreamState.OPEN] = True
 STREAM_OPEN[StreamState.HALF_CLOSED_LOCAL] = True
 STREAM_OPEN[StreamState.HALF_CLOSED_REMOTE] = True
@@ -101,37 +114,38 @@ class H2StreamStateMachine:
     :param stream_id: The stream ID of this stream. This is stored primarily
         for logging purposes.
     """
+
     def __init__(self, stream_id: int) -> None:
         self.state = StreamState.IDLE
         self.stream_id = stream_id
 
         #: Whether this peer is the client side of this stream.
-        self.client: Optional[bool] = None
+        self.client: bool | None = None
 
         # Whether trailers have been sent/received on this stream or not.
-        self.headers_sent: Optional[bool] = None
-        self.trailers_sent: Optional[bool] = None
-        self.headers_received: Optional[bool] = None
-        self.trailers_received: Optional[bool] = None
+        self.headers_sent: bool | None = None
+        self.trailers_sent: bool | None = None
+        self.headers_received: bool | None = None
+        self.trailers_received: bool | None = None
 
         # How the stream was closed. One of StreamClosedBy.
-        self.stream_closed_by: Optional[StreamClosedBy] = None
+        self.stream_closed_by: StreamClosedBy | None = None
 
     def process_input(self, input_: StreamInputs) -> Any:
         """
         Process a specific input in the state machine.
         """
         if not isinstance(input_, StreamInputs):
-            raise ValueError("Input must be an instance of StreamInputs")
+            msg = "Input must be an instance of StreamInputs"
+            raise ValueError(msg)  # noqa: TRY004
 
         try:
             func, target_state = _transitions[(self.state, input_)]
-        except KeyError:
+        except KeyError as err:
             old_state = self.state
             self.state = StreamState.CLOSED
-            raise ProtocolError(
-                "Invalid input %s in state %s" % (input_, old_state)
-            )
+            msg = f"Invalid input {input_} in state {old_state}"
+            raise ProtocolError(msg) from err
         else:
             previous_state = self.state
             self.state = target_state
@@ -141,9 +155,9 @@ class H2StreamStateMachine:
                 except ProtocolError:
                     self.state = StreamState.CLOSED
                     raise
-                except AssertionError as e:  # pragma: no cover
+                except AssertionError as err:  # pragma: no cover
                     self.state = StreamState.CLOSED
-                    raise ProtocolError(e)
+                    raise ProtocolError(err) from err
 
             return []
 
@@ -164,13 +178,13 @@ class H2StreamStateMachine:
         """
         if not self.headers_sent:
             if self.client is True or self.client is None:
-                raise ProtocolError("Client cannot send responses.")
+                msg = "Client cannot send responses."
+                raise ProtocolError(msg)
             self.headers_sent = True
             return [_ResponseSent()]
-        else:
-            assert not self.trailers_sent
-            self.trailers_sent = True
-            return [_TrailersSent()]
+        assert not self.trailers_sent
+        self.trailers_sent = True
+        return [_TrailersSent()]
 
     def request_received(self, previous_state: StreamState) -> list[Event]:
         """
@@ -190,7 +204,7 @@ class H2StreamStateMachine:
         Fires when a response is received. Also disambiguates between responses
         and trailers.
         """
-        event: Union[ResponseReceived, TrailersReceived]
+        event: ResponseReceived | TrailersReceived
         if not self.headers_received:
             assert self.client is True
             self.headers_received = True
@@ -208,7 +222,8 @@ class H2StreamStateMachine:
         Fires when data is received.
         """
         if not self.headers_received:
-            raise ProtocolError("cannot receive data before headers")
+            msg = "cannot receive data before headers"
+            raise ProtocolError(msg)
         event = DataReceived()
         event.stream_id = self.stream_id
         return [event]
@@ -276,7 +291,8 @@ class H2StreamStateMachine:
         We may only send PUSH_PROMISE frames if we're a server.
         """
         if self.client is True:
-            raise ProtocolError("Cannot push streams from client peers.")
+            msg = "Cannot push streams from client peers."
+            raise ProtocolError(msg)
 
         event = _PushedRequestSent()
         return [event]
@@ -374,8 +390,8 @@ class H2StreamStateMachine:
 
         if self.stream_closed_by == StreamClosedBy.SEND_RST_STREAM:
             raise StreamClosedError(self.stream_id)
-        else:
-            raise ProtocolError("Attempted to push on closed stream.")
+        msg = "Attempted to push on closed stream."
+        raise ProtocolError(msg)
 
     def send_push_on_closed_stream(self, previous_state: StreamState) -> None:
         """
@@ -387,7 +403,8 @@ class H2StreamStateMachine:
         allowed to be there. The only recourse is to tear the whole connection
         down.
         """
-        raise ProtocolError("Attempted to push on closed stream.")
+        msg = "Attempted to push on closed stream."
+        raise ProtocolError(msg)
 
     def send_informational_response(self, previous_state: StreamState) -> list[Event]:
         """
@@ -397,7 +414,8 @@ class H2StreamStateMachine:
         Only enforces that these are sent *before* final headers are sent.
         """
         if self.headers_sent:
-            raise ProtocolError("Information response after final response")
+            msg = "Information response after final response"
+            raise ProtocolError(msg)
 
         event = _ResponseSent()
         return [event]
@@ -408,7 +426,8 @@ class H2StreamStateMachine:
         where the :status header has a 1XX value).
         """
         if self.headers_received:
-            raise ProtocolError("Informational response after final response")
+            msg = "Informational response after final response"
+            raise ProtocolError(msg)
 
         event = InformationalResponseReceived()
         event.stream_id = self.stream_id
@@ -468,11 +487,9 @@ class H2StreamStateMachine:
         # We should not send ALTSVC after we've sent response headers, as the
         # client may have disposed of its state.
         if self.headers_sent:
-            raise ProtocolError(
-                "Cannot send ALTSVC after sending response headers."
-            )
+            msg = "Cannot send ALTSVC after sending response headers."
+            raise ProtocolError(msg)
 
-        return
 
 
 # STATE MACHINE
@@ -755,6 +772,7 @@ class H2Stream:
     Attempts to create frames that cannot be sent will raise a
     ``ProtocolError``.
     """
+
     def __init__(self,
                  stream_id: int,
                  config: H2Configuration,
@@ -762,8 +780,8 @@ class H2Stream:
                  outbound_window_size: int) -> None:
         self.state_machine = H2StreamStateMachine(stream_id)
         self.stream_id = stream_id
-        self.max_outbound_frame_size: Optional[int] = None
-        self.request_method: Optional[bytes] = None
+        self.max_outbound_frame_size: int | None = None
+        self.request_method: bytes | None = None
 
         # The current value of the outbound stream flow control window
         self.outbound_flow_control_window = outbound_window_size
@@ -772,23 +790,19 @@ class H2Stream:
         self._inbound_window_manager = WindowManager(inbound_window_size)
 
         # The expected content length, if any.
-        self._expected_content_length: Optional[int] = None
+        self._expected_content_length: int | None = None
 
         # The actual received content length. Always tracked.
         self._actual_content_length = 0
 
         # The authority we believe this stream belongs to.
-        self._authority: Optional[bytes] = None
+        self._authority: bytes | None = None
 
         # The configuration for this stream.
         self.config = config
 
     def __repr__(self) -> str:
-        return "<%s id:%d state:%r>" % (
-            type(self).__name__,
-            self.stream_id,
-            self.state_machine.state
-        )
+        return f"<{type(self).__name__} id:{self.stream_id} state:{self.state_machine.state!r}>"
 
     @property
     def inbound_flow_control_window(self) -> int:
@@ -821,7 +835,7 @@ class H2Stream:
         return self.state_machine.state == StreamState.CLOSED
 
     @property
-    def closed_by(self) -> Optional[StreamClosedBy]:
+    def closed_by(self) -> StreamClosedBy | None:
         """
         Returns how the stream was closed, as one of StreamClosedBy.
         """
@@ -843,12 +857,11 @@ class H2Stream:
 
         # This may return events, we deliberately don't want them.
         self.state_machine.process_input(input_)
-        return
 
     def send_headers(self,
                      headers: Iterable[HeaderWeaklyTyped],
                      encoder: Encoder,
-                     end_stream: bool = False) -> list[Union[HeadersFrame, ContinuationFrame, PushPromiseFrame]]:
+                     end_stream: bool = False) -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
         or trailers.
@@ -869,9 +882,8 @@ class H2Stream:
         if ((not self.state_machine.client) and
                 is_informational_response(bytes_headers)):
             if end_stream:
-                raise ProtocolError(
-                    "Cannot set END_STREAM on informational responses."
-                )
+                msg = "Cannot set END_STREAM on informational responses."
+                raise ProtocolError(msg)
 
             input_ = StreamInputs.SEND_INFORMATIONAL_HEADERS
 
@@ -880,17 +892,18 @@ class H2Stream:
         hf = HeadersFrame(self.stream_id)
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         frames = self._build_headers_frames(
-            bytes_headers, encoder, hf, hdr_validation_flags
+            bytes_headers, encoder, hf, hdr_validation_flags,
         )
 
         if end_stream:
             # Not a bug: the END_STREAM flag is valid on the initial HEADERS
             # frame, not the CONTINUATION frames that follow.
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
-            frames[0].flags.add('END_STREAM')
+            frames[0].flags.add("END_STREAM")
 
         if self.state_machine.trailers_sent and not end_stream:
-            raise ProtocolError("Trailers must have END_STREAM set.")
+            msg = "Trailers must have END_STREAM set."
+            raise ProtocolError(msg)
 
         if self.state_machine.client and self._authority is None:
             self._authority = authority_from_headers(bytes_headers)
@@ -903,7 +916,7 @@ class H2Stream:
     def push_stream_in_band(self,
                             related_stream_id: int,
                             headers: Iterable[HeaderWeaklyTyped],
-                            encoder: Encoder) -> list[Union[HeadersFrame, ContinuationFrame, PushPromiseFrame]]:
+                            encoder: Encoder) -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
         """
         Returns a list of PUSH_PROMISE/CONTINUATION frames to emit as a pushed
         stream header. Called on the stream that has the PUSH_PROMISE frame
@@ -915,7 +928,7 @@ class H2Stream:
         # compression context, we make the state transition *first*.
 
         events = self.state_machine.process_input(
-            StreamInputs.SEND_PUSH_PROMISE
+            StreamInputs.SEND_PUSH_PROMISE,
         )
 
         ppf = PushPromiseFrame(self.stream_id)
@@ -924,11 +937,10 @@ class H2Stream:
 
         bytes_headers = utf8_encode_headers(headers)
 
-        frames = self._build_headers_frames(
-            bytes_headers, encoder, ppf, hdr_validation_flags
+        return self._build_headers_frames(
+            bytes_headers, encoder, ppf, hdr_validation_flags,
         )
 
-        return frames
 
     def locally_pushed(self) -> list[Frame]:
         """
@@ -938,22 +950,22 @@ class H2Stream:
         """
         # This does not trigger any events.
         events = self.state_machine.process_input(
-            StreamInputs.SEND_PUSH_PROMISE
+            StreamInputs.SEND_PUSH_PROMISE,
         )
         assert not events
         return []
 
     def send_data(self,
-                  data: Union[bytes, memoryview],
+                  data: bytes | memoryview,
                   end_stream: bool = False,
-                  pad_length: Optional[int] = None) -> list[Frame]:
+                  pad_length: int | None = None) -> list[Frame]:
         """
         Prepare some data frames. Optionally end the stream.
 
         .. warning:: Does not perform flow control checks.
         """
         self.config.logger.debug(
-            "Send data on %r with end stream set to %s", self, end_stream
+            "Send data on %r with end stream set to %s", self, end_stream,
         )
 
         self.state_machine.process_input(StreamInputs.SEND_DATA)
@@ -962,9 +974,9 @@ class H2Stream:
         df.data = data
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
-            df.flags.add('END_STREAM')
+            df.flags.add("END_STREAM")
         if pad_length is not None:
-            df.flags.add('PADDED')
+            df.flags.add("PADDED")
             df.pad_length = pad_length
 
         # Subtract flow_controlled_length to account for possible padding
@@ -981,7 +993,7 @@ class H2Stream:
 
         self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
         df = DataFrame(self.stream_id)
-        df.flags.add('END_STREAM')
+        df.flags.add("END_STREAM")
         return [df]
 
     def advertise_alternative_service(self, field_value: bytes) -> list[Frame]:
@@ -990,7 +1002,7 @@ class H2Stream:
         better documented in the ``H2Connection`` class.
         """
         self.config.logger.debug(
-            "Advertise alternative service of %r for %r", field_value, self
+            "Advertise alternative service of %r for %r", field_value, self,
         )
         self.state_machine.process_input(StreamInputs.SEND_ALTERNATIVE_SERVICE)
         asf = AltSvcFrame(self.stream_id)
@@ -1003,7 +1015,7 @@ class H2Stream:
         """
         self.config.logger.debug(
             "Increase flow control window for %r by %d",
-            self, increment
+            self, increment,
         )
         self.state_machine.process_input(StreamInputs.SEND_WINDOW_UPDATE)
         self._inbound_window_manager.window_opened(increment)
@@ -1015,7 +1027,7 @@ class H2Stream:
     def receive_push_promise_in_band(self,
                                      promised_stream_id: int,
                                      headers: Iterable[Header],
-                                     header_encoding: Optional[Union[bool, str]]) -> tuple[list[Frame], list[Event]]:
+                                     header_encoding: bool | str | None) -> tuple[list[Frame], list[Event]]:
         """
         Receives a push promise frame sent on this stream, pushing a remote
         stream. This is called on the stream that has the PUSH_PROMISE sent
@@ -1023,16 +1035,16 @@ class H2Stream:
         """
         self.config.logger.debug(
             "Receive Push Promise on %r for remote stream %d",
-            self, promised_stream_id
+            self, promised_stream_id,
         )
         events = self.state_machine.process_input(
-            StreamInputs.RECV_PUSH_PROMISE
+            StreamInputs.RECV_PUSH_PROMISE,
         )
         events[0].pushed_stream_id = promised_stream_id
 
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         events[0].headers = self._process_received_headers(
-            headers, hdr_validation_flags, header_encoding
+            headers, hdr_validation_flags, header_encoding,
         )
         return [], events
 
@@ -1044,7 +1056,7 @@ class H2Stream:
         """
         self.config.logger.debug("%r pushed by remote peer", self)
         events = self.state_machine.process_input(
-            StreamInputs.RECV_PUSH_PROMISE
+            StreamInputs.RECV_PUSH_PROMISE,
         )
         self._authority = authority_from_headers(pushed_headers)
         return [], events
@@ -1052,15 +1064,14 @@ class H2Stream:
     def receive_headers(self,
                         headers: Iterable[Header],
                         end_stream: bool,
-                        header_encoding: Optional[Union[bool, str]]) -> tuple[list[Frame], list[Event]]:
+                        header_encoding: bool | str | None) -> tuple[list[Frame], list[Event]]:
         """
         Receive a set of headers (or trailers).
         """
         if is_informational_response(headers):
             if end_stream:
-                raise ProtocolError(
-                    "Cannot set END_STREAM on informational responses"
-                )
+                msg = "Cannot set END_STREAM on informational responses"
+                raise ProtocolError(msg)
             input_ = StreamInputs.RECV_INFORMATIONAL_HEADERS
         else:
             input_ = StreamInputs.RECV_HEADERS
@@ -1069,20 +1080,20 @@ class H2Stream:
 
         if end_stream:
             es_events = self.state_machine.process_input(
-                StreamInputs.RECV_END_STREAM
+                StreamInputs.RECV_END_STREAM,
             )
             events[0].stream_ended = es_events[0]
             events += es_events
 
         self._initialize_content_length(headers)
 
-        if isinstance(events[0], TrailersReceived):
-            if not end_stream:
-                raise ProtocolError("Trailers must have END_STREAM set")
+        if isinstance(events[0], TrailersReceived) and not end_stream:
+            msg = "Trailers must have END_STREAM set"
+            raise ProtocolError(msg)
 
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         events[0].headers = self._process_received_headers(
-            headers, hdr_validation_flags, header_encoding
+            headers, hdr_validation_flags, header_encoding,
         )
         return [], events
 
@@ -1092,7 +1103,7 @@ class H2Stream:
         """
         self.config.logger.debug(
             "Receive data on %r with end stream %s and flow control length "
-            "set to %d", self, end_stream, flow_control_len
+            "set to %d", self, end_stream, flow_control_len,
         )
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
         self._inbound_window_manager.window_consumed(flow_control_len)
@@ -1100,7 +1111,7 @@ class H2Stream:
 
         if end_stream:
             es_events = self.state_machine.process_input(
-                StreamInputs.RECV_END_STREAM
+                StreamInputs.RECV_END_STREAM,
             )
             events[0].stream_ended = es_events[0]
             events.extend(es_events)
@@ -1115,10 +1126,10 @@ class H2Stream:
         """
         self.config.logger.debug(
             "Receive Window Update on %r for increment of %d",
-            self, increment
+            self, increment,
         )
         events = self.state_machine.process_input(
-            StreamInputs.RECV_WINDOW_UPDATE
+            StreamInputs.RECV_WINDOW_UPDATE,
         )
         frames = []
 
@@ -1130,7 +1141,7 @@ class H2Stream:
             try:
                 self.outbound_flow_control_window = guard_increment_window(
                     self.outbound_flow_control_window,
-                    increment
+                    increment,
                 )
             except FlowControlError:
                 # Ok, this is bad. We're going to need to perform a local
@@ -1153,9 +1164,10 @@ class H2Stream:
         """
         self.config.logger.debug("Receive Continuation frame on %r", self)
         self.state_machine.process_input(
-            StreamInputs.RECV_CONTINUATION
+            StreamInputs.RECV_CONTINUATION,
         )
-        assert False, "Should not be reachable"
+        msg = "Should not be reachable"  # pragma: no cover
+        raise AssertionError(msg)  # pragma: no cover
 
     def receive_alt_svc(self, frame: AltSvcFrame) -> tuple[list[Frame], list[Event]]:
         """
@@ -1163,7 +1175,7 @@ class H2Stream:
         inherits the origin associated with this stream.
         """
         self.config.logger.debug(
-            "Receive Alternative Service frame on stream %r", self
+            "Receive Alternative Service frame on stream %r", self,
         )
 
         # If the origin is present, RFC 7838 says we have to ignore it.
@@ -1171,7 +1183,7 @@ class H2Stream:
             return [], []
 
         events = self.state_machine.process_input(
-            StreamInputs.RECV_ALTERNATIVE_SERVICE
+            StreamInputs.RECV_ALTERNATIVE_SERVICE,
         )
 
         # There are lots of situations where we want to ignore the ALTSVC
@@ -1184,12 +1196,12 @@ class H2Stream:
 
         return [], events
 
-    def reset_stream(self, error_code: Union[ErrorCodes, int] = 0) -> list[Frame]:
+    def reset_stream(self, error_code: ErrorCodes | int = 0) -> list[Frame]:
         """
         Close the stream locally. Reset the stream with an error code.
         """
         self.config.logger.debug(
-            "Local reset %r with error code: %d", self, error_code
+            "Local reset %r with error code: %d", self, error_code,
         )
         self.state_machine.process_input(StreamInputs.SEND_RST_STREAM)
 
@@ -1202,7 +1214,7 @@ class H2Stream:
         Handle a stream being reset remotely.
         """
         self.config.logger.debug(
-            "Remote reset %r with error code: %d", self, frame.error_code
+            "Remote reset %r with error code: %d", self, frame.error_code,
         )
         events = self.state_machine.process_input(StreamInputs.RECV_RST_STREAM)
 
@@ -1220,10 +1232,10 @@ class H2Stream:
         """
         self.config.logger.debug(
             "Acknowledge received data with size %d on %r",
-            acknowledged_size, self
+            acknowledged_size, self,
         )
         increment = self._inbound_window_manager.process_bytes(
-            acknowledged_size
+            acknowledged_size,
         )
         if increment:
             f = WindowUpdateFrame(self.stream_id)
@@ -1238,22 +1250,22 @@ class H2Stream:
         and validating header blocks.
         """
         is_trailer = isinstance(
-            events[0], (_TrailersSent, TrailersReceived)
+            events[0], (_TrailersSent, TrailersReceived),
         )
         is_response_header = isinstance(
             events[0],
             (
                 _ResponseSent,
                 ResponseReceived,
-                InformationalResponseReceived
-            )
+                InformationalResponseReceived,
+            ),
         )
         is_push_promise = isinstance(
-            events[0], (PushedStreamReceived, _PushedRequestSent)
+            events[0], (PushedStreamReceived, _PushedRequestSent),
         )
 
         return HeaderValidationFlags(
-            is_client=self.state_machine.client,
+            is_client=self.state_machine.client or False,
             is_trailer=is_trailer,
             is_response_header=is_response_header,
             is_push_promise=is_push_promise,
@@ -1262,13 +1274,12 @@ class H2Stream:
     def _build_headers_frames(self,
                               headers: Iterable[Header],
                               encoder: Encoder,
-                              first_frame: Union[HeadersFrame, PushPromiseFrame],
+                              first_frame: HeadersFrame | PushPromiseFrame,
                               hdr_validation_flags: HeaderValidationFlags) \
-            -> list[Union[HeadersFrame, ContinuationFrame, PushPromiseFrame]]:
+            -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
         """
         Helper method to build headers or push promise frames.
         """
-
         # We need to lowercase the header names, and to ensure that secure
         # header fields are kept out of compression contexts.
         if self.config.normalize_outbound_headers:
@@ -1277,11 +1288,11 @@ class H2Stream:
             should_split_outbound_cookies = self.config.split_outbound_cookies
 
             headers = normalize_outbound_headers(
-                headers, hdr_validation_flags, should_split_outbound_cookies
+                headers, hdr_validation_flags, should_split_outbound_cookies,
             )
         if self.config.validate_outbound_headers:
             headers = validate_outbound_headers(
-                headers, hdr_validation_flags
+                headers, hdr_validation_flags,
             )
 
         encoded_headers = encoder.encode(headers)
@@ -1292,11 +1303,11 @@ class H2Stream:
         header_blocks = [
             encoded_headers[i:i+(self.max_outbound_frame_size or 0)]
             for i in range(
-                0, len(encoded_headers), (self.max_outbound_frame_size or 0)
+                0, len(encoded_headers), (self.max_outbound_frame_size or 0),
             )
         ]
 
-        frames: list[Union[HeadersFrame, ContinuationFrame, PushPromiseFrame]] = []
+        frames: list[HeadersFrame | ContinuationFrame | PushPromiseFrame] = []
         first_frame.data = header_blocks[0]
         frames.append(first_frame)
 
@@ -1305,13 +1316,13 @@ class H2Stream:
             cf.data = block
             frames.append(cf)
 
-        frames[-1].flags.add('END_HEADERS')
+        frames[-1].flags.add("END_HEADERS")
         return frames
 
     def _process_received_headers(self,
                                   headers: Iterable[Header],
                                   header_validation_flags: HeaderValidationFlags,
-                                  header_encoding: Optional[Union[bool, str]]) -> Iterable[Header]:
+                                  header_encoding: bool | str | None) -> Iterable[Header]:
         """
         When headers have been received from the remote peer, run a processing
         pipeline on them to transform them into the appropriate form for
@@ -1319,7 +1330,7 @@ class H2Stream:
         """
         if self.config.normalize_inbound_headers:
             headers = normalize_inbound_headers(
-                headers, header_validation_flags
+                headers, header_validation_flags,
             )
 
         if self.config.validate_inbound_headers:
@@ -1338,18 +1349,17 @@ class H2Stream:
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
-        if self.request_method == b'HEAD':
+        if self.request_method == b"HEAD":
             self._expected_content_length = 0
             return
 
         for n, v in headers:
-            if n == b'content-length':
+            if n == b"content-length":
                 try:
                     self._expected_content_length = int(v, 10)
-                except ValueError:
-                    raise ProtocolError(
-                        f"Invalid content-length header: {repr(v)}"
-                    )
+                except ValueError as err:
+                    msg = f"Invalid content-length header: {v!r}"
+                    raise ProtocolError(msg) from err
 
                 return
 

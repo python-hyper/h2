@@ -5,16 +5,12 @@ h2/frame_buffer
 A data structure that provides a way to iterate over a byte buffer in terms of
 frames.
 """
-from hyperframe.exceptions import InvalidFrameError, InvalidDataError
-from hyperframe.frame import (
-    Frame, HeadersFrame, ContinuationFrame, PushPromiseFrame
-)
+from __future__ import annotations
 
-from .exceptions import (
-    ProtocolError, FrameTooLargeError, FrameDataMissingError
-)
+from hyperframe.exceptions import InvalidDataError, InvalidFrameError
+from hyperframe.frame import ContinuationFrame, Frame, HeadersFrame, PushPromiseFrame
 
-from typing import Optional, Union
+from .exceptions import FrameDataMissingError, FrameTooLargeError, ProtocolError
 
 # To avoid a DOS attack based on sending loads of continuation frames, we limit
 # the maximum number we're perpared to receive. In this case, we'll set the
@@ -29,15 +25,16 @@ CONTINUATION_BACKLOG = 64
 
 class FrameBuffer:
     """
-    This is a data structure that expects to act as a buffer for HTTP/2 data
-    that allows iteraton in terms of H2 frames.
+    A buffer data structure for HTTP/2 data that allows iteraton in terms of
+    H2 frames.
     """
+
     def __init__(self, server: bool = False) -> None:
-        self.data = b''
+        self.data = b""
         self.max_frame_size = 0
-        self._preamble = b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' if server else b''
+        self._preamble = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" if server else b""
         self._preamble_len = len(self._preamble)
-        self._headers_buffer: list[Union[HeadersFrame, ContinuationFrame, PushPromiseFrame]] = []
+        self._headers_buffer: list[HeadersFrame | ContinuationFrame | PushPromiseFrame] = []
 
     def add_data(self, data: bytes) -> None:
         """
@@ -50,7 +47,8 @@ class FrameBuffer:
             of_which_preamble = min(self._preamble_len, data_len)
 
             if self._preamble[:of_which_preamble] != data[:of_which_preamble]:
-                raise ProtocolError("Invalid HTTP/2 preamble.")
+                msg = "Invalid HTTP/2 preamble."
+                raise ProtocolError(msg)
 
             data = data[of_which_preamble:]
             self._preamble_len -= of_which_preamble
@@ -63,12 +61,10 @@ class FrameBuffer:
         Confirm that the frame is an appropriate length.
         """
         if length > self.max_frame_size:
-            raise FrameTooLargeError(
-                "Received overlong frame: length %d, max %d" %
-                (length, self.max_frame_size)
-            )
+            msg = f"Received overlong frame: length {length}, max {self.max_frame_size}"
+            raise FrameTooLargeError(msg)
 
-    def _update_header_buffer(self, f: Optional[Frame]) -> Optional[Frame]:
+    def _update_header_buffer(self, f: Frame | None) -> Frame | None:
         """
         Updates the internal header buffer. Returns a frame that should replace
         the current one. May throw exceptions if this frame is invalid.
@@ -86,27 +82,29 @@ class FrameBuffer:
                 f.stream_id == stream_id
             )
             if not valid_frame:
-                raise ProtocolError("Invalid frame during header block.")
+                msg = "Invalid frame during header block."
+                raise ProtocolError(msg)
             assert isinstance(f, ContinuationFrame)
 
             # Append the frame to the buffer.
             self._headers_buffer.append(f)
             if len(self._headers_buffer) > CONTINUATION_BACKLOG:
-                raise ProtocolError("Too many continuation frames received.")
+                msg = "Too many continuation frames received."
+                raise ProtocolError(msg)
 
             # If this is the end of the header block, then we want to build a
             # mutant HEADERS frame that's massive. Use the original one we got,
             # then set END_HEADERS and set its data appopriately. If it's not
             # the end of the block, lose the current frame: we can't yield it.
-            if 'END_HEADERS' in f.flags:
+            if "END_HEADERS" in f.flags:
                 f = self._headers_buffer[0]
-                f.flags.add('END_HEADERS')
-                f.data = b''.join(x.data for x in self._headers_buffer)
+                f.flags.add("END_HEADERS")
+                f.data = b"".join(x.data for x in self._headers_buffer)
                 self._headers_buffer = []
             else:
                 f = None
         elif (isinstance(f, (HeadersFrame, PushPromiseFrame)) and
-                'END_HEADERS' not in f.flags):
+                "END_HEADERS" not in f.flags):
             # This is the start of a headers block! Save the frame off and then
             # act like we didn't receive one.
             self._headers_buffer.append(f)
@@ -115,26 +113,25 @@ class FrameBuffer:
         return f
 
     # The methods below support the iterator protocol.
-    def __iter__(self) -> "FrameBuffer":
+    def __iter__(self) -> FrameBuffer:
         return self
 
     def __next__(self) -> Frame:
         # First, check that we have enough data to successfully parse the
         # next frame header. If not, bail. Otherwise, parse it.
         if len(self.data) < 9:
-            raise StopIteration()
+            raise StopIteration
 
         try:
             f, length = Frame.parse_frame_header(memoryview(self.data[:9]))
-        except (InvalidDataError, InvalidFrameError) as e:  # pragma: no cover
-            raise ProtocolError(
-                "Received frame with invalid header: %s" % str(e)
-            )
+        except (InvalidDataError, InvalidFrameError) as err:  # pragma: no cover
+            msg = f"Received frame with invalid header: {err!s}"
+            raise ProtocolError(msg) from err
 
         # Next, check that we have enough length to parse the frame body. If
         # not, bail, leaving the frame header data in the buffer for next time.
         if len(self.data) < length + 9:
-            raise StopIteration()
+            raise StopIteration
 
         # Confirm the frame has an appropriate length.
         self._validate_frame_length(length)
@@ -142,10 +139,12 @@ class FrameBuffer:
         # Try to parse the frame body
         try:
             f.parse_body(memoryview(self.data[9:9+length]))
-        except InvalidDataError:
-            raise ProtocolError("Received frame with non-compliant data")
-        except InvalidFrameError:
-            raise FrameDataMissingError("Frame data missing or invalid")
+        except InvalidDataError as err:
+            msg = "Received frame with non-compliant data"
+            raise ProtocolError(msg) from err
+        except InvalidFrameError as err:
+            msg = "Frame data missing or invalid"
+            raise FrameDataMissingError(msg) from err
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.

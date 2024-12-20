@@ -6,16 +6,17 @@ This module contains a HTTP/2 settings object. This object provides a simple
 API for manipulating HTTP/2 settings, keeping track of both the current active
 state of the settings and the unacknowledged future values of the settings.
 """
+from __future__ import annotations
+
 import collections
-from collections.abc import MutableMapping
 import enum
+from collections.abc import Iterator, MutableMapping
+from typing import Union
 
 from hyperframe.frame import SettingsFrame
 
 from .errors import ErrorCodes
 from .exceptions import InvalidSettingsValueError
-
-from typing import Iterator, Optional, Union
 
 
 class SettingCodes(enum.IntEnum):
@@ -56,7 +57,7 @@ class SettingCodes(enum.IntEnum):
     ENABLE_CONNECT_PROTOCOL = SettingsFrame.ENABLE_CONNECT_PROTOCOL
 
 
-def _setting_code_from_int(code: int) -> Union[SettingCodes, int]:
+def _setting_code_from_int(code: int) -> SettingCodes | int:
     """
     Given an integer setting code, returns either one of :class:`SettingCodes
     <h2.settings.SettingCodes>` or, if not present in the known set of codes,
@@ -70,7 +71,7 @@ def _setting_code_from_int(code: int) -> Union[SettingCodes, int]:
 
 class ChangedSetting:
 
-    def __init__(self, setting: Union[SettingCodes, int], original_value: Optional[int], new_value: int) -> None:
+    def __init__(self, setting: SettingCodes | int, original_value: int | None, new_value: int) -> None:
         #: The setting code given. Either one of :class:`SettingCodes
         #: <h2.settings.SettingCodes>` or ``int``
         #:
@@ -85,12 +86,7 @@ class ChangedSetting:
 
     def __repr__(self) -> str:
         return (
-            "ChangedSetting(setting=%s, original_value=%s, "
-            "new_value=%s)"
-        ) % (
-            self.setting,
-            self.original_value,
-            self.new_value
+            f"ChangedSetting(setting={self.setting!s}, original_value={self.original_value}, new_value={self.new_value})"
         )
 
 
@@ -129,14 +125,15 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
         set, rather than RFC 7540's defaults.
     :type initial_vales: ``MutableMapping``
     """
-    def __init__(self, client: bool = True, initial_values: Optional[dict[SettingCodes, int]] = None) -> None:
+
+    def __init__(self, client: bool = True, initial_values: dict[SettingCodes, int] | None = None) -> None:
         # Backing object for the settings. This is a dictionary of
         # (setting: [list of values]), where the first value in the list is the
         # current value of the setting. Strictly this doesn't use lists but
         # instead uses collections.deque to avoid repeated memory allocations.
         #
         # This contains the default values for HTTP/2.
-        self._settings: dict[Union[SettingCodes, int], collections.deque[int]] = {
+        self._settings: dict[SettingCodes | int, collections.deque[int]] = {
             SettingCodes.HEADER_TABLE_SIZE: collections.deque([4096]),
             SettingCodes.ENABLE_PUSH: collections.deque([int(client)]),
             SettingCodes.INITIAL_WINDOW_SIZE: collections.deque([65535]),
@@ -147,20 +144,21 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
             for key, value in initial_values.items():
                 invalid = _validate_setting(key, value)
                 if invalid:
+                    msg = f"Setting {key} has invalid value {value}"
                     raise InvalidSettingsValueError(
-                        "Setting %d has invalid value %d" % (key, value),
-                        error_code=invalid
+                        msg,
+                        error_code=invalid,
                     )
                 self._settings[key] = collections.deque([value])
 
-    def acknowledge(self) -> dict[Union[SettingCodes, int], ChangedSetting]:
+    def acknowledge(self) -> dict[SettingCodes | int, ChangedSetting]:
         """
         The settings have been acknowledged, either by the user (remote
         settings) or by the remote peer (local settings).
 
         :returns: A dict of {setting: ChangedSetting} that were applied.
         """
-        changed_settings: dict[Union[SettingCodes, int], ChangedSetting] = {}
+        changed_settings: dict[SettingCodes | int, ChangedSetting] = {}
 
         # If there is more than one setting in the list, we have a setting
         # value outstanding. Update them.
@@ -169,7 +167,7 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
                 old_setting = v.popleft()
                 new_setting = v[0]
                 changed_settings[k] = ChangedSetting(
-                    k, old_setting, new_setting
+                    k, old_setting, new_setting,
                 )
 
         return changed_settings
@@ -236,7 +234,7 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
         self[SettingCodes.MAX_CONCURRENT_STREAMS] = value
 
     @property
-    def max_header_list_size(self) -> Optional[int]:
+    def max_header_list_size(self) -> int | None:
         """
         The current value of the :data:`MAX_HEADER_LIST_SIZE
         <h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE>` setting. If not set,
@@ -263,7 +261,7 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
         self[SettingCodes.ENABLE_CONNECT_PROTOCOL] = value
 
     # Implement the MutableMapping API.
-    def __getitem__(self, key: Union[SettingCodes, int]) -> int:
+    def __getitem__(self, key: SettingCodes | int) -> int:
         val = self._settings[key][0]
 
         # Things that were created when a setting was received should stay
@@ -273,12 +271,13 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
 
         return val
 
-    def __setitem__(self, key: Union[SettingCodes, int], value: int) -> None:
+    def __setitem__(self, key: SettingCodes | int, value: int) -> None:
         invalid = _validate_setting(key, value)
         if invalid:
+            msg = f"Setting {key} has invalid value {value}"
             raise InvalidSettingsValueError(
-                "Setting %d has invalid value %d" % (key, value),
-                error_code=invalid
+                msg,
+                error_code=invalid,
             )
 
         try:
@@ -289,10 +288,10 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
 
         items.append(value)
 
-    def __delitem__(self, key: Union[SettingCodes, int]) -> None:
+    def __delitem__(self, key: SettingCodes | int) -> None:
         del self._settings[key]
 
-    def __iter__(self) -> Iterator[Union[SettingCodes, int]]:
+    def __iter__(self) -> Iterator[SettingCodes | int]:
         return self._settings.__iter__()
 
     def __len__(self) -> int:
@@ -301,17 +300,15 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Settings):
             return self._settings == other._settings
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __ne__(self, other: object) -> bool:
         if isinstance(other, Settings):
             return not self == other
-        else:
-            return NotImplemented
+        return NotImplemented
 
 
-def _validate_setting(setting: Union[SettingCodes, int], value: int) -> ErrorCodes:  # noqa: C901
+def _validate_setting(setting: SettingCodes | int, value: int) -> ErrorCodes:
     """
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
@@ -328,8 +325,7 @@ def _validate_setting(setting: Union[SettingCodes, int], value: int) -> ErrorCod
     elif setting == SettingCodes.MAX_HEADER_LIST_SIZE:
         if value < 0:
             return ErrorCodes.PROTOCOL_ERROR
-    elif setting == SettingCodes.ENABLE_CONNECT_PROTOCOL:
-        if value not in (0, 1):
-            return ErrorCodes.PROTOCOL_ERROR
+    elif setting == SettingCodes.ENABLE_CONNECT_PROTOCOL and value not in (0, 1):
+        return ErrorCodes.PROTOCOL_ERROR
 
     return ErrorCodes.NO_ERROR

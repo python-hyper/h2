@@ -7,9 +7,9 @@ Global error code registry containing the established HTTP/2 error codes.
 The current registry is available at:
 https://tools.ietf.org/html/rfc7540#section-11.4
 """
-import enum
+from __future__ import annotations
 
-from typing import Union
+import enum
 
 
 class ErrorCodes(enum.IntEnum):
@@ -18,6 +18,7 @@ class ErrorCodes(enum.IntEnum):
 
     .. versionadded:: 2.5.0
     """
+
     #: Graceful shutdown.
     NO_ERROR = 0x0
 
@@ -61,7 +62,7 @@ class ErrorCodes(enum.IntEnum):
     HTTP_1_1_REQUIRED = 0xd
 
 
-def _error_code_from_int(code: int) -> Union[ErrorCodes, int]:
+def _error_code_from_int(code: int) -> ErrorCodes | int:
     """
     Given an integer error code, returns either one of :class:`ErrorCodes
     <h2.errors.ErrorCodes>` or, if not present in the known set of codes,
@@ -73,4 +74,4 @@ def _error_code_from_int(code: int) -> Union[ErrorCodes, int]:
         return code
 
 
-__all__ = ['ErrorCodes']
+__all__ = ["ErrorCodes"]
