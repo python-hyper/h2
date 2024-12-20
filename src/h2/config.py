@@ -4,9 +4,10 @@ h2/config
 
 Objects for controlling the configuration of the HTTP/2 stack.
 """
+from __future__ import annotations
 
 import sys
-from typing import Any, Optional, Union
+from typing import Any
 
 
 class _BooleanConfigOption:
@@ -14,16 +15,18 @@ class _BooleanConfigOption:
     Descriptor for handling a boolean config option.  This will block
     attempts to set boolean config options to non-bools.
     """
+
     def __init__(self, name: str) -> None:
         self.name = name
-        self.attr_name = '_%s' % self.name
+        self.attr_name = f"_{self.name}"
 
     def __get__(self, instance: Any, owner: Any) -> bool:
         return getattr(instance, self.attr_name)  # type: ignore
 
     def __set__(self, instance: Any, value: bool) -> None:
         if not isinstance(value, bool):
-            raise ValueError("%s must be a bool" % self.name)
+            msg = f"{self.name} must be a bool"
+            raise ValueError(msg)  # noqa: TRY004
         setattr(instance, self.attr_name, value)
 
 
@@ -35,6 +38,7 @@ class DummyLogger:
     conditionals being sprinkled throughout the h2 code for calls to
     logging functions when no logger is passed into the corresponding object.
     """
+
     def __init__(self, *vargs) -> None:  # type: ignore
         pass
 
@@ -42,13 +46,11 @@ class DummyLogger:
         """
         No-op logging. Only level needed for now.
         """
-        pass
 
     def trace(self, *vargs, **kwargs) -> None:  # type: ignore
         """
         No-op logging. Only level needed for now.
         """
-        pass
 
 
 class OutputLogger:
@@ -61,15 +63,16 @@ class OutputLogger:
         Defaults to ``sys.stderr``.
     :param trace: Enables trace-level output. Defaults to ``False``.
     """
-    def __init__(self, file=None, trace_level=False):  # type: ignore
+
+    def __init__(self, file=None, trace_level=False) -> None:  # type: ignore
         super().__init__()
         self.file = file or sys.stderr
         self.trace_level = trace_level
 
-    def debug(self, fmtstr, *args):  # type: ignore
+    def debug(self, fmtstr, *args) -> None:  # type: ignore
         print(f"h2 (debug): {fmtstr % args}", file=self.file)
 
-    def trace(self, fmtstr, *args):  # type: ignore
+    def trace(self, fmtstr, *args) -> None:  # type: ignore
         if self.trace_level:
             print(f"h2 (trace): {fmtstr % args}", file=self.file)
 
@@ -147,32 +150,33 @@ class H2Configuration:
 
     :type logger: ``logging.Logger``
     """
-    client_side = _BooleanConfigOption('client_side')
+
+    client_side = _BooleanConfigOption("client_side")
     validate_outbound_headers = _BooleanConfigOption(
-        'validate_outbound_headers'
+        "validate_outbound_headers",
     )
     normalize_outbound_headers = _BooleanConfigOption(
-        'normalize_outbound_headers'
+        "normalize_outbound_headers",
     )
     split_outbound_cookies = _BooleanConfigOption(
-        'split_outbound_cookies'
+        "split_outbound_cookies",
     )
     validate_inbound_headers = _BooleanConfigOption(
-        'validate_inbound_headers'
+        "validate_inbound_headers",
     )
     normalize_inbound_headers = _BooleanConfigOption(
-        'normalize_inbound_headers'
+        "normalize_inbound_headers",
     )
 
     def __init__(self,
                  client_side: bool = True,
-                 header_encoding: Optional[Union[bool, str]] = None,
+                 header_encoding: bool | str | None = None,
                  validate_outbound_headers: bool = True,
                  normalize_outbound_headers: bool = True,
                  split_outbound_cookies: bool = False,
                  validate_inbound_headers: bool = True,
                  normalize_inbound_headers: bool = True,
-                 logger: Optional[Union[DummyLogger, OutputLogger]] = None) -> None:
+                 logger: DummyLogger | OutputLogger | None = None) -> None:
         self.client_side = client_side
         self.header_encoding = header_encoding
         self.validate_outbound_headers = validate_outbound_headers
@@ -183,7 +187,7 @@ class H2Configuration:
         self.logger = logger or DummyLogger(__name__)
 
     @property
-    def header_encoding(self) -> Optional[Union[bool, str]]:
+    def header_encoding(self) -> bool | str | None:
         """
         Controls whether the headers emitted by this object in events are
         transparently decoded to ``unicode`` strings, and what encoding is used
@@ -195,12 +199,14 @@ class H2Configuration:
         return self._header_encoding
 
     @header_encoding.setter
-    def header_encoding(self, value: Optional[Union[bool, str]]) -> None:
+    def header_encoding(self, value: bool | str | None) -> None:
         """
         Enforces constraints on the value of header encoding.
         """
         if not isinstance(value, (bool, str, type(None))):
-            raise ValueError("header_encoding must be bool, string, or None")
+            msg = "header_encoding must be bool, string, or None"
+            raise ValueError(msg)  # noqa: TRY004
         if value is True:
-            raise ValueError("header_encoding cannot be True")
+            msg = "header_encoding cannot be True"
+            raise ValueError(msg)
         self._header_encoding = value
