@@ -623,7 +623,7 @@ def _split_outbound_cookie_fields(headers: Iterable[Header],
 
 def normalize_outbound_headers(headers: Iterable[Header],
                                hdr_validation_flags: HeaderValidationFlags | None,
-                               should_split_outbound_cookies: bool) -> Generator[Header, None, None]:
+                               should_split_outbound_cookies: bool=False) -> Generator[Header, None, None]:
     """
     Normalizes a header sequence that we are about to send.
 
