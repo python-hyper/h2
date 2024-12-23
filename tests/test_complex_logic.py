@@ -1,13 +1,12 @@
 """
-test_complex_logic
-~~~~~~~~~~~~~~~~
-
 More complex tests that try to do more.
 
 Certain tests don't really eliminate incorrect behaviour unless they do quite
 a bit. These tests should live here, to keep the pain in once place rather than
 hide it in the other parts of the test suite.
 """
+from __future__ import annotations
+
 import pytest
 
 import h2
@@ -15,22 +14,23 @@ import h2.config
 import h2.connection
 
 
-class TestComplexClient(object):
+class TestComplexClient:
     """
     Complex tests for client-side stacks.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
 
-    def test_correctly_count_server_streams(self, frame_factory):
+    def test_correctly_count_server_streams(self, frame_factory) -> None:
         """
         We correctly count the number of server streams, both inbound and
         outbound.
@@ -82,7 +82,7 @@ class TestComplexClient(object):
             f = frame_factory.build_headers_frame(
                 stream_id=stream_id,
                 headers=self.example_response_headers,
-                flags=['END_STREAM'],
+                flags=["END_STREAM"],
             )
             c.receive_data(f.serialize())
             expected_outbound_streams -= 1
@@ -92,8 +92,8 @@ class TestComplexClient(object):
             # Pushed streams can only be closed remotely.
             f = frame_factory.build_data_frame(
                 stream_id=stream_id+1,
-                data=b'the content',
-                flags=['END_STREAM'],
+                data=b"the content",
+                flags=["END_STREAM"],
             )
             c.receive_data(f.serialize())
             expected_inbound_streams -= 1
@@ -104,23 +104,24 @@ class TestComplexClient(object):
         assert c.open_outbound_streams == 0
 
 
-class TestComplexServer(object):
+class TestComplexServer:
     """
     Complex tests for server-side stacks.
     """
+
     example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
     ]
     example_response_headers = [
-        (b':status', b'200'),
-        (b'server', b'fake-serv/0.1.0')
+        (b":status", b"200"),
+        (b"server", b"fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_correctly_count_server_streams(self, frame_factory):
+    def test_correctly_count_server_streams(self, frame_factory) -> None:
         """
         We correctly count the number of server streams, both inbound and
         outbound.
@@ -159,8 +160,8 @@ class TestComplexServer(object):
         for stream_id in range(13, 0, -2):
             # Close an inbound stream.
             f = frame_factory.build_data_frame(
-                data=b'',
-                flags=['END_STREAM'],
+                data=b"",
+                flags=["END_STREAM"],
                 stream_id=stream_id,
             )
             c.receive_data(f.serialize())
@@ -169,7 +170,7 @@ class TestComplexServer(object):
             assert c.open_inbound_streams == expected_inbound_streams
             assert c.open_outbound_streams == expected_outbound_streams
 
-            c.send_data(stream_id, b'', end_stream=True)
+            c.send_data(stream_id, b"", end_stream=True)
             expected_inbound_streams -= 1
             assert c.open_inbound_streams == expected_inbound_streams
             assert c.open_outbound_streams == expected_outbound_streams
@@ -177,7 +178,7 @@ class TestComplexServer(object):
             # Pushed streams, however, we can close ourselves.
             c.send_data(
                 stream_id=stream_id+1,
-                data=b'',
+                data=b"",
                 end_stream=True,
             )
             expected_outbound_streams -= 1
@@ -188,15 +189,16 @@ class TestComplexServer(object):
         assert c.open_outbound_streams == 0
 
 
-class TestContinuationFrames(object):
+class TestContinuationFrames:
     """
     Tests for the relatively complex CONTINUATION frame logic.
     """
+
     example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -211,12 +213,12 @@ class TestContinuationFrames(object):
         frames = [
             frame_factory.build_continuation_frame(c) for c in chunks
         ]
-        f.flags = {'END_STREAM'}
-        frames[-1].flags.add('END_HEADERS')
+        f.flags = {"END_STREAM"}
+        frames[-1].flags.add("END_HEADERS")
         frames.insert(0, f)
         return frames
 
-    def test_continuation_frame_basic(self, frame_factory):
+    def test_continuation_frame_basic(self, frame_factory) -> None:
         """
         Test that we correctly decode a header block split across continuation
         frames.
@@ -230,7 +232,7 @@ class TestContinuationFrames(object):
             block_size=5,
             frame_factory=frame_factory,
         )
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
         events = c.receive_data(data)
 
         assert len(events) == 2
@@ -243,10 +245,10 @@ class TestContinuationFrames(object):
         assert isinstance(second_event, h2.events.StreamEnded)
         assert second_event.stream_id == 1
 
-    @pytest.mark.parametrize('stream_id', [3, 1])
+    @pytest.mark.parametrize("stream_id", [3, 1])
     def test_continuation_cannot_interleave_headers(self,
                                                     frame_factory,
-                                                    stream_id):
+                                                    stream_id) -> None:
         """
         We cannot interleave a new headers block with a CONTINUATION sequence.
         """
@@ -265,17 +267,17 @@ class TestContinuationFrames(object):
         bogus_frame = frame_factory.build_headers_frame(
             headers=self.example_request_headers,
             stream_id=stream_id,
-            flags=['END_STREAM'],
+            flags=["END_STREAM"],
         )
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    def test_continuation_cannot_interleave_data(self, frame_factory):
+    def test_continuation_cannot_interleave_data(self, frame_factory) -> None:
         """
         We cannot interleave a data frame with a CONTINUATION sequence.
         """
@@ -292,18 +294,18 @@ class TestContinuationFrames(object):
         assert len(frames) > 2  # This is mostly defensive.
 
         bogus_frame = frame_factory.build_data_frame(
-            data=b'hello',
+            data=b"hello",
             stream_id=1,
         )
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory):
+    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory) -> None:
         """
         We cannot interleave an unknown frame with a CONTINUATION sequence.
         """
@@ -320,19 +322,19 @@ class TestContinuationFrames(object):
         assert len(frames) > 2  # This is mostly defensive.
 
         bogus_frame = frame_factory.build_data_frame(
-            data=b'hello',
+            data=b"hello",
             stream_id=1,
         )
         bogus_frame.type = 88
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    def test_continuation_frame_multiple_blocks(self, frame_factory):
+    def test_continuation_frame_multiple_blocks(self, frame_factory) -> None:
         """
         Test that we correctly decode several header blocks split across
         continuation frames.
@@ -350,7 +352,7 @@ class TestContinuationFrames(object):
             for frame in frames:
                 frame.stream_id = stream_id
 
-            data = b''.join(f.serialize() for f in frames)
+            data = b"".join(f.serialize() for f in frames)
             events = c.receive_data(data)
 
             assert len(events) == 2
@@ -364,25 +366,26 @@ class TestContinuationFrames(object):
             assert second_event.stream_id == stream_id
 
 
-class TestContinuationFramesPushPromise(object):
+class TestContinuationFramesPushPromise:
     """
     Tests for the relatively complex CONTINUATION frame logic working with
     PUSH_PROMISE frames.
     """
+
     example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
     ]
     example_response_headers = [
-        (b':status', b'200'),
-        (b'server', b'fake-serv/0.1.0')
+        (b":status", b"200"),
+        (b"server", b"fake-serv/0.1.0"),
     ]
 
     def _build_continuation_sequence(self, headers, block_size, frame_factory):
         f = frame_factory.build_push_promise_frame(
-            stream_id=1, promised_stream_id=2, headers=headers
+            stream_id=1, promised_stream_id=2, headers=headers,
         )
         header_data = f.data
         chunks = [
@@ -393,12 +396,12 @@ class TestContinuationFramesPushPromise(object):
         frames = [
             frame_factory.build_continuation_frame(c) for c in chunks
         ]
-        f.flags = {'END_STREAM'}
-        frames[-1].flags.add('END_HEADERS')
+        f.flags = {"END_STREAM"}
+        frames[-1].flags.add("END_HEADERS")
         frames.insert(0, f)
         return frames
 
-    def test_continuation_frame_basic_push_promise(self, frame_factory):
+    def test_continuation_frame_basic_push_promise(self, frame_factory) -> None:
         """
         Test that we correctly decode a header block split across continuation
         frames when that header block is initiated with a PUSH_PROMISE.
@@ -412,7 +415,7 @@ class TestContinuationFramesPushPromise(object):
             block_size=5,
             frame_factory=frame_factory,
         )
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
         events = c.receive_data(data)
 
         assert len(events) == 1
@@ -423,10 +426,10 @@ class TestContinuationFramesPushPromise(object):
         assert event.parent_stream_id == 1
         assert event.pushed_stream_id == 2
 
-    @pytest.mark.parametrize('stream_id', [3, 1, 2])
+    @pytest.mark.parametrize("stream_id", [3, 1, 2])
     def test_continuation_cannot_interleave_headers_pp(self,
                                                        frame_factory,
-                                                       stream_id):
+                                                       stream_id) -> None:
         """
         We cannot interleave a new headers block with a CONTINUATION sequence
         when the headers block is based on a PUSH_PROMISE frame.
@@ -445,17 +448,17 @@ class TestContinuationFramesPushPromise(object):
         bogus_frame = frame_factory.build_headers_frame(
             headers=self.example_response_headers,
             stream_id=stream_id,
-            flags=['END_STREAM'],
+            flags=["END_STREAM"],
         )
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    def test_continuation_cannot_interleave_data(self, frame_factory):
+    def test_continuation_cannot_interleave_data(self, frame_factory) -> None:
         """
         We cannot interleave a data frame with a CONTINUATION sequence when
         that sequence began with a PUSH_PROMISE frame.
@@ -472,18 +475,18 @@ class TestContinuationFramesPushPromise(object):
         assert len(frames) > 2  # This is mostly defensive.
 
         bogus_frame = frame_factory.build_data_frame(
-            data=b'hello',
+            data=b"hello",
             stream_id=1,
         )
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory):
+    def test_continuation_cannot_interleave_unknown_frame(self, frame_factory) -> None:
         """
         We cannot interleave an unknown frame with a CONTINUATION sequence when
         that sequence began with a PUSH_PROMISE frame.
@@ -500,22 +503,22 @@ class TestContinuationFramesPushPromise(object):
         assert len(frames) > 2  # This is mostly defensive.
 
         bogus_frame = frame_factory.build_data_frame(
-            data=b'hello',
+            data=b"hello",
             stream_id=1,
         )
         bogus_frame.type = 88
         frames.insert(len(frames) - 2, bogus_frame)
-        data = b''.join(f.serialize() for f in frames)
+        data = b"".join(f.serialize() for f in frames)
 
         with pytest.raises(h2.exceptions.ProtocolError) as e:
             c.receive_data(data)
 
         assert "invalid frame" in str(e.value).lower()
 
-    @pytest.mark.parametrize('evict', [True, False])
+    @pytest.mark.parametrize("evict", [True, False])
     def test_stream_remotely_closed_disallows_push_promise(self,
                                                            evict,
-                                                           frame_factory):
+                                                           frame_factory) -> None:
         """
         Streams closed normally by the remote peer disallow PUSH_PROMISE
         frames, and cause a GOAWAY.
@@ -525,13 +528,13 @@ class TestContinuationFramesPushPromise(object):
         c.send_headers(
             stream_id=1,
             headers=self.example_request_headers,
-            end_stream=True
+            end_stream=True,
         )
 
         f = frame_factory.build_headers_frame(
             stream_id=1,
             headers=self.example_response_headers,
-            flags=['END_STREAM']
+            flags=["END_STREAM"],
         )
         c.receive_data(f.serialize())
         c.clear_outbound_data_buffer()
@@ -556,7 +559,7 @@ class TestContinuationFramesPushPromise(object):
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_continuation_frame_multiple_push_promise(self, frame_factory):
+    def test_continuation_frame_multiple_push_promise(self, frame_factory) -> None:
         """
         Test that we correctly decode  header blocks split across continuation
         frames when those header block is initiated with a PUSH_PROMISE, for
@@ -573,7 +576,7 @@ class TestContinuationFramesPushPromise(object):
                 frame_factory=frame_factory,
             )
             frames[0].promised_stream_id = promised_stream_id
-            data = b''.join(f.serialize() for f in frames)
+            data = b"".join(f.serialize() for f in frames)
             events = c.receive_data(data)
 
             assert len(events) == 1

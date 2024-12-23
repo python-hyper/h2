@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # A test script that runs the example Python Twisted server and then runs
 # h2spec against it. Prints the output of h2spec. This script does not expect
 # to be run directly, but instead via `tox -e h2spec`.

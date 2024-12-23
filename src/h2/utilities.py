@@ -11,12 +11,14 @@ import re
 from string import whitespace
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from hpack.struct import Header, HeaderTuple, HeaderWeaklyTyped, NeverIndexedHeaderTuple
+from hpack.struct import HeaderTuple, NeverIndexedHeaderTuple
 
 from .exceptions import FlowControlError, ProtocolError
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Generator, Iterable
+
+    from hpack.struct import Header, HeaderWeaklyTyped
 
 UPPER_RE = re.compile(b"[A-Z]")
 SIGIL = ord(b":")

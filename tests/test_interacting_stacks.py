@@ -1,7 +1,4 @@
 """
-test_interacting_stacks
-~~~~~~~~~~~~~~~~~~~~~~~
-
 These tests run two entities, a client and a server, in parallel threads. These
 two entities talk to each other, running what amounts to a number of carefully
 controlled simulations of real flows.
@@ -17,7 +14,7 @@ We should also consider writing helper functions to reduce the complexity of
 these tests, so that they can be written more easily, as they are remarkably
 useful.
 """
-from . import coroutine_tests
+from __future__ import annotations
 
 import pytest
 
@@ -26,37 +23,40 @@ import h2.connection
 import h2.events
 import h2.settings
 
+from . import coroutine_tests
+
 
 class TestCommunication(coroutine_tests.CoroutineTestCase):
     """
     Test that two communicating state machines can work together.
     """
+
     server_config = h2.config.H2Configuration(client_side=False)
 
     request_headers = [
-        (':method', 'GET'),
-        (':path', '/'),
-        (':authority', 'example.com'),
-        (':scheme', 'https'),
-        ('user-agent', 'test-client/0.1.0'),
+        (":method", "GET"),
+        (":path", "/"),
+        (":authority", "example.com"),
+        (":scheme", "https"),
+        ("user-agent", "test-client/0.1.0"),
     ]
 
     request_headers_bytes = [
-        (b':method', b'GET'),
-        (b':path', b'/'),
-        (b':authority', b'example.com'),
-        (b':scheme', b'https'),
-        (b'user-agent', b'test-client/0.1.0'),
+        (b":method", b"GET"),
+        (b":path", b"/"),
+        (b":authority", b"example.com"),
+        (b":scheme", b"https"),
+        (b"user-agent", b"test-client/0.1.0"),
     ]
 
     response_headers = [
-        (b':status', b'204'),
-        (b'server', b'test-server/0.1.0'),
-        (b'content-length', b'0'),
+        (b":status", b"204"),
+        (b"server", b"test-server/0.1.0"),
+        (b"content-length", b"0"),
     ]
 
-    @pytest.mark.parametrize('request_headers', [request_headers, request_headers_bytes])
-    def test_basic_request_response(self, request_headers):
+    @pytest.mark.parametrize("request_headers", [request_headers, request_headers_bytes])
+    def test_basic_request_response(self, request_headers) -> None:
         """
         A request issued by hyper-h2 can be responded to by hyper-h2.
         """

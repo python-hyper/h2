@@ -1,14 +1,12 @@
 """
-test_h2_upgrade.py
-~~~~~~~~~~~~~~~~~~
-
-This module contains tests that exercise the HTTP Upgrade functionality of
+Tests that exercise the HTTP Upgrade functionality of
 hyper-h2, ensuring that clients and servers can upgrade their plaintext
 HTTP/1.1 connections to HTTP/2.
 """
+from __future__ import annotations
+
 import base64
 
-from h2.utilities import utf8_encode_headers
 import pytest
 
 import h2.config
@@ -16,32 +14,33 @@ import h2.connection
 import h2.errors
 import h2.events
 import h2.exceptions
-
+from h2.utilities import utf8_encode_headers
 
 EXAMPLE_REQUEST_HEADERS = [
-    (':authority', 'example.com'),
-    (':path', '/'),
-    (':scheme', 'https'),
-    (':method', 'GET'),
+    (":authority", "example.com"),
+    (":path", "/"),
+    (":scheme", "https"),
+    (":method", "GET"),
 ]
 EXAMPLE_REQUEST_HEADERS_BYTES = [
-    (b':authority', b'example.com'),
-    (b':path', b'/'),
-    (b':scheme', b'https'),
-    (b':method', b'GET'),
+    (b":authority", b"example.com"),
+    (b":path", b"/"),
+    (b":scheme", b"https"),
+    (b":method", b"GET"),
 ]
 
 
-class TestClientUpgrade(object):
+class TestClientUpgrade:
     """
     Tests of the client-side of the HTTP/2 upgrade dance.
     """
+
     example_response_headers = [
-        (b':status', b'200'),
-        (b'server', b'fake-serv/0.1.0')
+        (b":status", b"200"),
+        (b"server", b"fake-serv/0.1.0"),
     ]
 
-    def test_returns_http2_settings(self, frame_factory):
+    def test_returns_http2_settings(self, frame_factory) -> None:
         """
         Calling initiate_upgrade_connection returns a base64url encoded
         Settings frame with the settings used by the connection.
@@ -50,16 +49,16 @@ class TestClientUpgrade(object):
         data = conn.initiate_upgrade_connection()
 
         # The base64 encoding must not be padded.
-        assert not data.endswith(b'=')
+        assert not data.endswith(b"=")
 
         # However, SETTINGS frames should never need to be padded.
         decoded_frame = base64.urlsafe_b64decode(data)
         expected_frame = frame_factory.build_settings_frame(
-            settings=conn.local_settings
+            settings=conn.local_settings,
         )
         assert decoded_frame == expected_frame.serialize_body()
 
-    def test_emits_preamble(self, frame_factory):
+    def test_emits_preamble(self, frame_factory) -> None:
         """
         Calling initiate_upgrade_connection emits the connection preamble.
         """
@@ -71,11 +70,11 @@ class TestClientUpgrade(object):
 
         data = data[len(frame_factory.preamble()):]
         expected_frame = frame_factory.build_settings_frame(
-            settings=conn.local_settings
+            settings=conn.local_settings,
         )
         assert data == expected_frame.serialize()
 
-    def test_can_receive_response(self, frame_factory):
+    def test_can_receive_response(self, frame_factory) -> None:
         """
         After upgrading, we can safely receive a response.
         """
@@ -89,8 +88,8 @@ class TestClientUpgrade(object):
         )
         f2 = frame_factory.build_data_frame(
             stream_id=1,
-            data=b'some data',
-            flags=['END_STREAM']
+            data=b"some data",
+            flags=["END_STREAM"],
         )
         events = c.receive_data(f1.serialize() + f2.serialize())
         assert len(events) == 3
@@ -100,13 +99,13 @@ class TestClientUpgrade(object):
         assert isinstance(events[2], h2.events.StreamEnded)
 
         assert events[0].headers == self.example_response_headers
-        assert events[1].data == b'some data'
+        assert events[1].data == b"some data"
         assert all(e.stream_id == 1 for e in events)
 
         assert not c.data_to_send()
 
     @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
-    def test_can_receive_pushed_stream(self, frame_factory, headers):
+    def test_can_receive_pushed_stream(self, frame_factory, headers) -> None:
         """
         After upgrading, we can safely receive a pushed stream.
         """
@@ -117,7 +116,7 @@ class TestClientUpgrade(object):
         f = frame_factory.build_push_promise_frame(
             stream_id=1,
             promised_stream_id=2,
-            headers=headers
+            headers=headers,
         )
         events = c.receive_data(f.serialize())
         assert len(events) == 1
@@ -128,7 +127,7 @@ class TestClientUpgrade(object):
         assert events[0].pushed_stream_id == 2
 
     @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
-    def test_cannot_send_headers_stream_1(self, frame_factory, headers):
+    def test_cannot_send_headers_stream_1(self, frame_factory, headers) -> None:
         """
         After upgrading, we cannot send headers on stream 1.
         """
@@ -139,7 +138,7 @@ class TestClientUpgrade(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.send_headers(stream_id=1, headers=headers)
 
-    def test_cannot_send_data_stream_1(self, frame_factory):
+    def test_cannot_send_data_stream_1(self, frame_factory) -> None:
         """
         After upgrading, we cannot send data on stream 1.
         """
@@ -148,20 +147,21 @@ class TestClientUpgrade(object):
         c.clear_outbound_data_buffer()
 
         with pytest.raises(h2.exceptions.ProtocolError):
-            c.send_data(stream_id=1, data=b'some data')
+            c.send_data(stream_id=1, data=b"some data")
 
 
-class TestServerUpgrade(object):
+class TestServerUpgrade:
     """
     Tests of the server-side of the HTTP/2 upgrade dance.
     """
+
     example_response_headers = [
-        (b':status', b'200'),
-        (b'server', b'fake-serv/0.1.0')
+        (b":status", b"200"),
+        (b"server", b"fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_returns_nothing(self, frame_factory):
+    def test_returns_nothing(self, frame_factory) -> None:
         """
         Calling initiate_upgrade_connection returns nothing.
         """
@@ -170,7 +170,7 @@ class TestServerUpgrade(object):
         data = conn.initiate_upgrade_connection(curl_header)
         assert data is None
 
-    def test_emits_preamble(self, frame_factory):
+    def test_emits_preamble(self, frame_factory) -> None:
         """
         Calling initiate_upgrade_connection emits the connection preamble.
         """
@@ -179,11 +179,11 @@ class TestServerUpgrade(object):
 
         data = conn.data_to_send()
         expected_frame = frame_factory.build_settings_frame(
-            settings=conn.local_settings
+            settings=conn.local_settings,
         )
         assert data == expected_frame.serialize()
 
-    def test_can_send_response(self, frame_factory):
+    def test_can_send_response(self, frame_factory) -> None:
         """
         After upgrading, we can safely send a response.
         """
@@ -192,7 +192,7 @@ class TestServerUpgrade(object):
         c.clear_outbound_data_buffer()
 
         c.send_headers(stream_id=1, headers=self.example_response_headers)
-        c.send_data(stream_id=1, data=b'some data', end_stream=True)
+        c.send_data(stream_id=1, data=b"some data", end_stream=True)
 
         f1 = frame_factory.build_headers_frame(
             stream_id=1,
@@ -200,15 +200,15 @@ class TestServerUpgrade(object):
         )
         f2 = frame_factory.build_data_frame(
             stream_id=1,
-            data=b'some data',
-            flags=['END_STREAM']
+            data=b"some data",
+            flags=["END_STREAM"],
         )
 
         expected_data = f1.serialize() + f2.serialize()
         assert c.data_to_send() == expected_data
 
     @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
-    def test_can_push_stream(self, frame_factory, headers):
+    def test_can_push_stream(self, frame_factory, headers) -> None:
         """
         After upgrading, we can safely push a stream.
         """
@@ -219,7 +219,7 @@ class TestServerUpgrade(object):
         c.push_stream(
             stream_id=1,
             promised_stream_id=2,
-            request_headers=headers
+            request_headers=headers,
         )
 
         f = frame_factory.build_push_promise_frame(
@@ -230,7 +230,7 @@ class TestServerUpgrade(object):
         assert c.data_to_send() == f.serialize()
 
     @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
-    def test_cannot_receive_headers_stream_1(self, frame_factory, headers):
+    def test_cannot_receive_headers_stream_1(self, frame_factory, headers) -> None:
         """
         After upgrading, we cannot receive headers on stream 1.
         """
@@ -251,7 +251,7 @@ class TestServerUpgrade(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_cannot_receive_data_stream_1(self, frame_factory):
+    def test_cannot_receive_data_stream_1(self, frame_factory) -> None:
         """
         After upgrading, we cannot receive data on stream 1.
         """
@@ -262,7 +262,7 @@ class TestServerUpgrade(object):
 
         f = frame_factory.build_data_frame(
             stream_id=1,
-            data=b'some data',
+            data=b"some data",
         )
         c.receive_data(f.serialize())
 
@@ -272,7 +272,7 @@ class TestServerUpgrade(object):
         ).serialize()
         assert c.data_to_send() == expected
 
-    def test_client_settings_are_applied(self, frame_factory):
+    def test_client_settings_are_applied(self, frame_factory) -> None:
         """
         The settings provided by the client are applied and immediately
         ACK'ed.
@@ -299,7 +299,7 @@ class TestServerUpgrade(object):
         # and has not sent a SETTINGS ack, and also that the server has the
         # correct settings.
         expected_frame = frame_factory.build_settings_frame(
-            server.local_settings
+            server.local_settings,
         )
         assert server.data_to_send() == expected_frame.serialize()
 

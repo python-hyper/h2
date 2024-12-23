@@ -1,10 +1,9 @@
 """
-test_invalid_content_lengths.py
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 This module contains tests that use invalid content lengths, and validates that
 they fail appropriately.
 """
+from __future__ import annotations
+
 import pytest
 
 import h2.config
@@ -14,33 +13,34 @@ import h2.events
 import h2.exceptions
 
 
-class TestInvalidContentLengths(object):
+class TestInvalidContentLengths:
     """
     Hyper-h2 raises Protocol Errors when the content-length sent by a remote
     peer is not valid.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'POST'),
-        ('content-length', '15'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+        ("content-length", "15"),
     ]
     example_request_headers_bytes = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'POST'),
-        (b'content-length', b'15'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"POST"),
+        (b"content-length", b"15"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_too_much_data(self, frame_factory, request_headers):
+    def test_too_much_data(self, frame_factory, request_headers) -> None:
         """
         Remote peers sending data in excess of content-length causes Protocol
         Errors.
@@ -50,13 +50,13 @@ class TestInvalidContentLengths(object):
         c.receive_data(frame_factory.preamble())
 
         headers = frame_factory.build_headers_frame(
-            headers=request_headers
+            headers=request_headers,
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*15)
+        first_data = frame_factory.build_data_frame(data=b"\x01"*15)
         c.receive_data(headers.serialize() + first_data.serialize())
         c.clear_outbound_data_buffer()
 
-        second_data = frame_factory.build_data_frame(data=b'\x01')
+        second_data = frame_factory.build_data_frame(data=b"\x01")
         with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
             c.receive_data(second_data.serialize())
 
@@ -73,7 +73,7 @@ class TestInvalidContentLengths(object):
         assert c.data_to_send() == expected_frame.serialize()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_insufficient_data(self, frame_factory, request_headers):
+    def test_insufficient_data(self, frame_factory, request_headers) -> None:
         """
         Remote peers sending less data than content-length causes Protocol
         Errors.
@@ -83,15 +83,15 @@ class TestInvalidContentLengths(object):
         c.receive_data(frame_factory.preamble())
 
         headers = frame_factory.build_headers_frame(
-            headers=request_headers
+            headers=request_headers,
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*13)
+        first_data = frame_factory.build_data_frame(data=b"\x01"*13)
         c.receive_data(headers.serialize() + first_data.serialize())
         c.clear_outbound_data_buffer()
 
         second_data = frame_factory.build_data_frame(
-            data=b'\x01',
-            flags=['END_STREAM'],
+            data=b"\x01",
+            flags=["END_STREAM"],
         )
         with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
             c.receive_data(second_data.serialize())
@@ -109,7 +109,7 @@ class TestInvalidContentLengths(object):
         assert c.data_to_send() == expected_frame.serialize()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_insufficient_data_empty_frame(self, frame_factory, request_headers):
+    def test_insufficient_data_empty_frame(self, frame_factory, request_headers) -> None:
         """
         Remote peers sending less data than content-length where the last data
         frame is empty causes Protocol Errors.
@@ -119,15 +119,15 @@ class TestInvalidContentLengths(object):
         c.receive_data(frame_factory.preamble())
 
         headers = frame_factory.build_headers_frame(
-            headers=request_headers
+            headers=request_headers,
         )
-        first_data = frame_factory.build_data_frame(data=b'\x01'*14)
+        first_data = frame_factory.build_data_frame(data=b"\x01"*14)
         c.receive_data(headers.serialize() + first_data.serialize())
         c.clear_outbound_data_buffer()
 
         second_data = frame_factory.build_data_frame(
-            data=b'',
-            flags=['END_STREAM'],
+            data=b"",
+            flags=["END_STREAM"],
         )
         with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
             c.receive_data(second_data.serialize())

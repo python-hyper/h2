@@ -34,7 +34,7 @@ class RequestReceived(Event):
     The RequestReceived event is fired whenever all of a request's headers
     are received. This event carries the HTTP headers for the given request
     and the stream ID of the new stream.
-    
+
     In HTTP/2, headers may be sent as a HEADERS frame followed by zero or more
     CONTINUATION frames with the final frame setting the END_HEADERS flag.
     This event is fired after the entire sequence is received.

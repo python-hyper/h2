@@ -4,9 +4,10 @@ test_flow_control
 
 Tests of the flow control management in h2
 """
-import pytest
+from __future__ import annotations
 
-from hypothesis import given, settings, HealthCheck
+import pytest
+from hypothesis import HealthCheck, given, settings
 from hypothesis.strategies import integers
 
 import h2.config
@@ -17,21 +18,22 @@ import h2.exceptions
 import h2.settings
 
 
-class TestFlowControl(object):
+class TestFlowControl:
     """
     Tests of the flow control management in the connection objects.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
     DEFAULT_FLOW_WINDOW = 65535
 
-    def test_flow_control_initializes_properly(self):
+    def test_flow_control_initializes_properly(self) -> None:
         """
         The flow control window for a stream should initially be the default
         flow control value.
@@ -42,20 +44,20 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == self.DEFAULT_FLOW_WINDOW
         assert c.remote_flow_control_window(1) == self.DEFAULT_FLOW_WINDOW
 
-    def test_flow_control_decreases_with_sent_data(self):
+    def test_flow_control_decreases_with_sent_data(self) -> None:
         """
         When data is sent on a stream, the flow control window should drop.
         """
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
-        c.send_data(1, b'some data')
+        c.send_data(1, b"some data")
 
-        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
+        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b"some data")
         assert (c.local_flow_control_window(1) == remaining_length)
 
     @pytest.mark.parametrize("pad_length", [5, 0])
     def test_flow_control_decreases_with_sent_data_with_padding(self,
-                                                                pad_length):
+                                                                pad_length) -> None:
         """
         When padded data is sent on a stream, the flow control window drops
         by the length of the padding plus 1 for the 1-byte padding length
@@ -64,13 +66,13 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
 
-        c.send_data(1, b'some data', pad_length=pad_length)
+        c.send_data(1, b"some data", pad_length=pad_length)
         remaining_length = (
-            self.DEFAULT_FLOW_WINDOW - len(b'some data') - pad_length - 1
+            self.DEFAULT_FLOW_WINDOW - len(b"some data") - pad_length - 1
         )
         assert c.local_flow_control_window(1) == remaining_length
 
-    def test_flow_control_decreases_with_received_data(self, frame_factory):
+    def test_flow_control_decreases_with_received_data(self, frame_factory) -> None:
         """
         When data is received on a stream, the remote flow control window
         should drop.
@@ -78,14 +80,14 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
-        f2 = frame_factory.build_data_frame(b'some data')
+        f2 = frame_factory.build_data_frame(b"some data")
 
         c.receive_data(f1.serialize() + f2.serialize())
 
-        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
+        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b"some data")
         assert (c.remote_flow_control_window(1) == remaining_length)
 
-    def test_flow_control_decreases_with_padded_data(self, frame_factory):
+    def test_flow_control_decreases_with_padded_data(self, frame_factory) -> None:
         """
         When padded data is received on a stream, the remote flow control
         window drops by an amount that includes the padding.
@@ -93,29 +95,29 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
-        f2 = frame_factory.build_data_frame(b'some data', padding_len=10)
+        f2 = frame_factory.build_data_frame(b"some data", padding_len=10)
 
         c.receive_data(f1.serialize() + f2.serialize())
 
         remaining_length = (
-            self.DEFAULT_FLOW_WINDOW - len(b'some data') - 10 - 1
+            self.DEFAULT_FLOW_WINDOW - len(b"some data") - 10 - 1
         )
         assert (c.remote_flow_control_window(1) == remaining_length)
 
-    def test_flow_control_is_limited_by_connection(self):
+    def test_flow_control_is_limited_by_connection(self) -> None:
         """
         The flow control window is limited by the flow control of the
         connection.
         """
         c = h2.connection.H2Connection()
         c.send_headers(1, self.example_request_headers)
-        c.send_data(1, b'some data')
+        c.send_data(1, b"some data")
         c.send_headers(3, self.example_request_headers)
 
-        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
+        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b"some data")
         assert (c.local_flow_control_window(3) == remaining_length)
 
-    def test_remote_flow_control_is_limited_by_connection(self, frame_factory):
+    def test_remote_flow_control_is_limited_by_connection(self, frame_factory) -> None:
         """
         The remote flow control window is limited by the flow control of the
         connection.
@@ -123,17 +125,17 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection(config=self.server_config)
         c.receive_data(frame_factory.preamble())
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
-        f2 = frame_factory.build_data_frame(b'some data')
+        f2 = frame_factory.build_data_frame(b"some data")
         f3 = frame_factory.build_headers_frame(
             self.example_request_headers,
             stream_id=3,
         )
         c.receive_data(f1.serialize() + f2.serialize() + f3.serialize())
 
-        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b'some data')
+        remaining_length = self.DEFAULT_FLOW_WINDOW - len(b"some data")
         assert (c.remote_flow_control_window(3) == remaining_length)
 
-    def test_cannot_send_more_data_than_window(self):
+    def test_cannot_send_more_data_than_window(self) -> None:
         """
         Sending more data than the remaining flow control window raises a
         FlowControlError.
@@ -143,9 +145,9 @@ class TestFlowControl(object):
         c.outbound_flow_control_window = 5
 
         with pytest.raises(h2.exceptions.FlowControlError):
-            c.send_data(1, b'some data')
+            c.send_data(1, b"some data")
 
-    def test_increasing_connection_window_allows_sending(self, frame_factory):
+    def test_increasing_connection_window_allows_sending(self, frame_factory) -> None:
         """
         Confirm that sending a WindowUpdate frame on the connection frees
         up space for further frames.
@@ -155,7 +157,7 @@ class TestFlowControl(object):
         c.outbound_flow_control_window = 5
 
         with pytest.raises(h2.exceptions.FlowControlError):
-            c.send_data(1, b'some data')
+            c.send_data(1, b"some data")
 
         f = frame_factory.build_window_update_frame(
             stream_id=0,
@@ -164,10 +166,10 @@ class TestFlowControl(object):
         c.receive_data(f.serialize())
 
         c.clear_outbound_data_buffer()
-        c.send_data(1, b'some data')
+        c.send_data(1, b"some data")
         assert c.data_to_send()
 
-    def test_increasing_stream_window_allows_sending(self, frame_factory):
+    def test_increasing_stream_window_allows_sending(self, frame_factory) -> None:
         """
         Confirm that sending a WindowUpdate frame on the connection frees
         up space for further frames.
@@ -177,7 +179,7 @@ class TestFlowControl(object):
         c._get_stream_by_id(1).outbound_flow_control_window = 5
 
         with pytest.raises(h2.exceptions.FlowControlError):
-            c.send_data(1, b'some data')
+            c.send_data(1, b"some data")
 
         f = frame_factory.build_window_update_frame(
             stream_id=1,
@@ -186,10 +188,10 @@ class TestFlowControl(object):
         c.receive_data(f.serialize())
 
         c.clear_outbound_data_buffer()
-        c.send_data(1, b'some data')
+        c.send_data(1, b"some data")
         assert c.data_to_send()
 
-    def test_flow_control_shrinks_in_response_to_settings(self, frame_factory):
+    def test_flow_control_shrinks_in_response_to_settings(self, frame_factory) -> None:
         """
         Acknowledging SETTINGS_INITIAL_WINDOW_SIZE shrinks the flow control
         window.
@@ -200,13 +202,13 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1280},
         )
         c.receive_data(f.serialize())
 
         assert c.local_flow_control_window(1) == 1280
 
-    def test_flow_control_grows_in_response_to_settings(self, frame_factory):
+    def test_flow_control_grows_in_response_to_settings(self, frame_factory) -> None:
         """
         Acknowledging SETTINGS_INITIAL_WINDOW_SIZE grows the flow control
         window.
@@ -216,7 +218,7 @@ class TestFlowControl(object):
 
         # Greatly increase the connection flow control window.
         f = frame_factory.build_window_update_frame(
-            stream_id=0, increment=128000
+            stream_id=0, increment=128000,
         )
         c.receive_data(f.serialize())
 
@@ -224,14 +226,14 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000},
         )
         c.receive_data(f.serialize())
 
         # The stream window is still the bottleneck, but larger now.
         assert c.local_flow_control_window(1) == 128000
 
-    def test_flow_control_settings_blocked_by_conn_window(self, frame_factory):
+    def test_flow_control_settings_blocked_by_conn_window(self, frame_factory) -> None:
         """
         Changing SETTINGS_INITIAL_WINDOW_SIZE does not affect the effective
         flow control window if the connection window isn't changed.
@@ -242,13 +244,13 @@ class TestFlowControl(object):
         assert c.local_flow_control_window(1) == 65535
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000},
         )
         c.receive_data(f.serialize())
 
         assert c.local_flow_control_window(1) == 65535
 
-    def test_new_streams_have_flow_control_per_settings(self, frame_factory):
+    def test_new_streams_have_flow_control_per_settings(self, frame_factory) -> None:
         """
         After a SETTINGS_INITIAL_WINDOW_SIZE change is received, new streams
         have appropriate new flow control windows.
@@ -256,20 +258,20 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
 
         f = frame_factory.build_settings_frame(
-            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+            settings={h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000},
         )
         c.receive_data(f.serialize())
 
         # Greatly increase the connection flow control window.
         f = frame_factory.build_window_update_frame(
-            stream_id=0, increment=128000
+            stream_id=0, increment=128000,
         )
         c.receive_data(f.serialize())
 
         c.send_headers(1, self.example_request_headers)
         assert c.local_flow_control_window(1) == 128000
 
-    def test_window_update_no_stream(self, frame_factory):
+    def test_window_update_no_stream(self, frame_factory) -> None:
         """
         WindowUpdate frames received without streams fire an appropriate
         WindowUpdated event.
@@ -279,7 +281,7 @@ class TestFlowControl(object):
 
         f = frame_factory.build_window_update_frame(
             stream_id=0,
-            increment=5
+            increment=5,
         )
         events = c.receive_data(f.serialize())
 
@@ -290,7 +292,7 @@ class TestFlowControl(object):
         assert event.stream_id == 0
         assert event.delta == 5
 
-    def test_window_update_with_stream(self, frame_factory):
+    def test_window_update_with_stream(self, frame_factory) -> None:
         """
         WindowUpdate frames received with streams fire an appropriate
         WindowUpdated event.
@@ -301,9 +303,9 @@ class TestFlowControl(object):
         f1 = frame_factory.build_headers_frame(self.example_request_headers)
         f2 = frame_factory.build_window_update_frame(
             stream_id=1,
-            increment=66
+            increment=66,
         )
-        data = b''.join(map(lambda f: f.serialize(), [f1, f2]))
+        data = b"".join(f.serialize() for f in [f1, f2])
         events = c.receive_data(data)
 
         assert len(events) == 2
@@ -313,7 +315,7 @@ class TestFlowControl(object):
         assert event.stream_id == 1
         assert event.delta == 66
 
-    def test_we_can_increment_stream_flow_control(self, frame_factory):
+    def test_we_can_increment_stream_flow_control(self, frame_factory) -> None:
         """
         It is possible for the user to increase the flow control window for
         streams.
@@ -325,14 +327,14 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_window_update_frame(
             stream_id=1,
-            increment=5
+            increment=5,
         )
 
         events = c.increment_flow_control_window(increment=5, stream_id=1)
         assert not events
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_we_can_increment_connection_flow_control(self, frame_factory):
+    def test_we_can_increment_connection_flow_control(self, frame_factory) -> None:
         """
         It is possible for the user to increase the flow control window for
         the entire connection.
@@ -344,14 +346,14 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_window_update_frame(
             stream_id=0,
-            increment=5
+            increment=5,
         )
 
         events = c.increment_flow_control_window(increment=5)
         assert not events
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_we_enforce_our_flow_control_window(self, frame_factory):
+    def test_we_enforce_our_flow_control_window(self, frame_factory) -> None:
         """
         The user can set a low flow control window, which leads to connection
         teardown if violated.
@@ -361,7 +363,7 @@ class TestFlowControl(object):
 
         # Change the flow control window to 80 bytes.
         c.update_settings(
-            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 80}
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 80},
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -372,7 +374,7 @@ class TestFlowControl(object):
 
         # Attempt to violate the flow control window.
         c.clear_outbound_data_buffer()
-        f = frame_factory.build_data_frame(b'\x01' * 100)
+        f = frame_factory.build_data_frame(b"\x01" * 100)
 
         with pytest.raises(h2.exceptions.FlowControlError):
             c.receive_data(f.serialize())
@@ -384,7 +386,7 @@ class TestFlowControl(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_shrink_remote_flow_control_settings(self, frame_factory):
+    def test_shrink_remote_flow_control_settings(self, frame_factory) -> None:
         """
         The remote peer acknowledging our SETTINGS_INITIAL_WINDOW_SIZE shrinks
         the flow control window.
@@ -401,7 +403,7 @@ class TestFlowControl(object):
 
         assert c.remote_flow_control_window(1) == 1280
 
-    def test_grow_remote_flow_control_settings(self, frame_factory):
+    def test_grow_remote_flow_control_settings(self, frame_factory) -> None:
         """
         The remote peer acknowledging our SETTINGS_INITIAL_WINDOW_SIZE grows
         the flow control window.
@@ -415,14 +417,14 @@ class TestFlowControl(object):
         assert c.remote_flow_control_window(1) == 65535
 
         c.update_settings(
-            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000},
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
 
         assert c.remote_flow_control_window(1) == 128000
 
-    def test_new_streams_have_remote_flow_control(self, frame_factory):
+    def test_new_streams_have_remote_flow_control(self, frame_factory) -> None:
         """
         After a SETTINGS_INITIAL_WINDOW_SIZE change is acknowledged by the
         remote peer, new streams have appropriate new flow control windows.
@@ -430,7 +432,7 @@ class TestFlowControl(object):
         c = h2.connection.H2Connection()
 
         c.update_settings(
-            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000}
+            {h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 128000},
         )
         f = frame_factory.build_settings_frame({}, ack=True)
         c.receive_data(f.serialize())
@@ -442,9 +444,9 @@ class TestFlowControl(object):
         assert c.remote_flow_control_window(1) == 128000
 
     @pytest.mark.parametrize(
-        'increment', [0, -15, 2**31]
+        "increment", [0, -15, 2**31],
     )
-    def test_reject_bad_attempts_to_increment_flow_control(self, increment):
+    def test_reject_bad_attempts_to_increment_flow_control(self, increment) -> None:
         """
         Attempting to increment a flow control increment outside the valid
         range causes a ValueError to be raised.
@@ -461,8 +463,8 @@ class TestFlowControl(object):
         with pytest.raises(ValueError):
             c.increment_flow_control_window(increment=increment)
 
-    @pytest.mark.parametrize('stream_id', [0, 1])
-    def test_reject_bad_remote_increments(self, frame_factory, stream_id):
+    @pytest.mark.parametrize("stream_id", [0, 1])
+    def test_reject_bad_remote_increments(self, frame_factory, stream_id) -> None:
         """
         Remote peers attempting to increment flow control outside the valid
         range cause connection errors of type PROTOCOL_ERROR.
@@ -475,7 +477,7 @@ class TestFlowControl(object):
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_window_update_frame(
-            stream_id=stream_id, increment=0
+            stream_id=stream_id, increment=0,
         )
 
         with pytest.raises(h2.exceptions.ProtocolError):
@@ -487,7 +489,7 @@ class TestFlowControl(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_increasing_connection_window_too_far(self, frame_factory):
+    def test_reject_increasing_connection_window_too_far(self, frame_factory) -> None:
         """
         Attempts by the remote peer to increase the connection flow control
         window beyond 2**31 - 1 are rejected.
@@ -499,7 +501,7 @@ class TestFlowControl(object):
         increment = 2**31 - c.outbound_flow_control_window
 
         f = frame_factory.build_window_update_frame(
-            stream_id=0, increment=increment
+            stream_id=0, increment=increment,
         )
 
         with pytest.raises(h2.exceptions.FlowControlError):
@@ -511,7 +513,7 @@ class TestFlowControl(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_increasing_stream_window_too_far(self, frame_factory):
+    def test_reject_increasing_stream_window_too_far(self, frame_factory) -> None:
         """
         Attempts by the remote peer to increase the stream flow control window
         beyond 2**31 - 1 are rejected.
@@ -524,7 +526,7 @@ class TestFlowControl(object):
         increment = 2**31 - c.outbound_flow_control_window
 
         f = frame_factory.build_window_update_frame(
-            stream_id=1, increment=increment
+            stream_id=1, increment=increment,
         )
 
         events = c.receive_data(f.serialize())
@@ -542,7 +544,7 @@ class TestFlowControl(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_overlarge_conn_window_settings(self, frame_factory):
+    def test_reject_overlarge_conn_window_settings(self, frame_factory) -> None:
         """
         SETTINGS frames cannot change the size of the connection flow control
         window.
@@ -554,7 +556,7 @@ class TestFlowControl(object):
         increment = 2**31 - 1 - c.outbound_flow_control_window
 
         f = frame_factory.build_window_update_frame(
-            stream_id=0, increment=increment
+            stream_id=0, increment=increment,
         )
         c.receive_data(f.serialize())
 
@@ -562,8 +564,8 @@ class TestFlowControl(object):
         f = frame_factory.build_settings_frame(
             settings={
                 h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
-                    self.DEFAULT_FLOW_WINDOW + 1
-            }
+                    self.DEFAULT_FLOW_WINDOW + 1,
+            },
         )
         c.clear_outbound_data_buffer()
 
@@ -574,11 +576,11 @@ class TestFlowControl(object):
 
         expected_frame = frame_factory.build_settings_frame(
             settings={},
-            ack=True
+            ack=True,
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_overlarge_stream_window_settings(self, frame_factory):
+    def test_reject_overlarge_stream_window_settings(self, frame_factory) -> None:
         """
         Remote attempts to create overlarge stream windows via SETTINGS frames
         are rejected.
@@ -591,7 +593,7 @@ class TestFlowControl(object):
         increment = 2**31 - 1 - c.outbound_flow_control_window
 
         f = frame_factory.build_window_update_frame(
-            stream_id=1, increment=increment
+            stream_id=1, increment=increment,
         )
         c.receive_data(f.serialize())
 
@@ -599,8 +601,8 @@ class TestFlowControl(object):
         f = frame_factory.build_settings_frame(
             settings={
                 h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
-                    self.DEFAULT_FLOW_WINDOW + 1
-            }
+                    self.DEFAULT_FLOW_WINDOW + 1,
+            },
         )
         c.clear_outbound_data_buffer()
         with pytest.raises(h2.exceptions.FlowControlError):
@@ -612,7 +614,7 @@ class TestFlowControl(object):
         )
         assert c.data_to_send() == expected_frame.serialize()
 
-    def test_reject_local_overlarge_increase_connection_window(self):
+    def test_reject_local_overlarge_increase_connection_window(self) -> None:
         """
         Local attempts to increase the connection window too far are rejected.
         """
@@ -624,7 +626,7 @@ class TestFlowControl(object):
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment)
 
-    def test_reject_local_overlarge_increase_stream_window(self):
+    def test_reject_local_overlarge_increase_stream_window(self) -> None:
         """
         Local attempts to increase the connection window too far are rejected.
         """
@@ -637,7 +639,7 @@ class TestFlowControl(object):
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
 
-    def test_send_update_on_closed_streams(self, frame_factory):
+    def test_send_update_on_closed_streams(self, frame_factory) -> None:
         c = h2.connection.H2Connection()
         c.initiate_connection()
         c.send_headers(1, self.example_request_headers)
@@ -647,7 +649,7 @@ class TestFlowControl(object):
         c.open_outbound_streams
         c.open_inbound_streams
 
-        f = frame_factory.build_data_frame(b'some data'*1500)
+        f = frame_factory.build_data_frame(b"some data"*1500)
         events = c.receive_data(f.serialize()*3)
         assert not events
 
@@ -663,7 +665,7 @@ class TestFlowControl(object):
         ).serialize()
         assert c.data_to_send() == expected
 
-        f = frame_factory.build_data_frame(b'')
+        f = frame_factory.build_data_frame(b"")
         events = c.receive_data(f.serialize())
         assert not events
 
@@ -674,15 +676,16 @@ class TestFlowControl(object):
         assert c.data_to_send() == expected
 
 
-class TestAutomaticFlowControl(object):
+class TestAutomaticFlowControl:
     """
     Tests for the automatic flow control logic.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -698,16 +701,16 @@ class TestAutomaticFlowControl(object):
         c.receive_data(frame_factory.preamble())
 
         c.update_settings(
-            {h2.settings.SettingCodes.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW}
+            {h2.settings.SettingCodes.MAX_FRAME_SIZE: self.DEFAULT_FLOW_WINDOW},
         )
         settings_frame = frame_factory.build_settings_frame(
-            settings={}, ack=True
+            settings={}, ack=True,
         )
         c.receive_data(settings_frame.serialize())
         c.clear_outbound_data_buffer()
 
         headers_frame = frame_factory.build_headers_frame(
-            headers=self.example_request_headers
+            headers=self.example_request_headers,
         )
         c.receive_data(headers_frame.serialize())
         c.clear_outbound_data_buffer()
@@ -715,7 +718,7 @@ class TestAutomaticFlowControl(object):
 
     @given(stream_id=integers(max_value=0))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_must_acknowledge_for_stream(self, frame_factory, stream_id):
+    def test_must_acknowledge_for_stream(self, frame_factory, stream_id) -> None:
         """
         Flow control acknowledgements must be done on a stream ID that is
         greater than zero.
@@ -730,18 +733,18 @@ class TestAutomaticFlowControl(object):
         # data acknolwedgement.
         c = self._setup_connection_and_send_headers(frame_factory)
         data_frame = frame_factory.build_data_frame(
-            b'some data', flags=['END_STREAM']
+            b"some data", flags=["END_STREAM"],
         )
         c.receive_data(data_frame.serialize())
 
         with pytest.raises(ValueError):
             c.acknowledge_received_data(
-                acknowledged_size=5, stream_id=stream_id
+                acknowledged_size=5, stream_id=stream_id,
             )
 
     @given(size=integers(max_value=-1))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_cannot_acknowledge_less_than_zero(self, frame_factory, size):
+    def test_cannot_acknowledge_less_than_zero(self, frame_factory, size) -> None:
         """
         The user must acknowledge at least 0 bytes.
         """
@@ -755,14 +758,14 @@ class TestAutomaticFlowControl(object):
         # data acknolwedgement.
         c = self._setup_connection_and_send_headers(frame_factory)
         data_frame = frame_factory.build_data_frame(
-            b'some data', flags=['END_STREAM']
+            b"some data", flags=["END_STREAM"],
         )
         c.receive_data(data_frame.serialize())
 
         with pytest.raises(ValueError):
             c.acknowledge_received_data(acknowledged_size=size, stream_id=1)
 
-    def test_acknowledging_small_chunks_does_nothing(self, frame_factory):
+    def test_acknowledging_small_chunks_does_nothing(self, frame_factory) -> None:
         """
         When a small amount of data is received and acknowledged, no window
         update is emitted.
@@ -770,17 +773,17 @@ class TestAutomaticFlowControl(object):
         c = self._setup_connection_and_send_headers(frame_factory)
 
         data_frame = frame_factory.build_data_frame(
-            b'some data', flags=['END_STREAM']
+            b"some data", flags=["END_STREAM"],
         )
         data_event = c.receive_data(data_frame.serialize())[0]
 
         c.acknowledge_received_data(
-            data_event.flow_controlled_length, stream_id=1
+            data_event.flow_controlled_length, stream_id=1,
         )
 
         assert not c.data_to_send()
 
-    def test_acknowledging_no_data_does_nothing(self, frame_factory):
+    def test_acknowledging_no_data_does_nothing(self, frame_factory) -> None:
         """
         If a user accidentally acknowledges no data, nothing happens.
         """
@@ -788,28 +791,28 @@ class TestAutomaticFlowControl(object):
 
         # Send an empty data frame, just to give the user impetus to ack the
         # data.
-        data_frame = frame_factory.build_data_frame(b'')
+        data_frame = frame_factory.build_data_frame(b"")
         c.receive_data(data_frame.serialize())
 
         c.acknowledge_received_data(0, stream_id=1)
         assert not c.data_to_send()
 
-    @pytest.mark.parametrize('force_cleanup', (True, False))
+    @pytest.mark.parametrize("force_cleanup", [True, False])
     def test_acknowledging_data_on_closed_stream(self,
                                                  frame_factory,
-                                                 force_cleanup):
+                                                 force_cleanup) -> None:
         """
         When acknowledging data on a stream that has just been closed, no
         acknowledgement is given for that stream, only for the connection.
         """
         c = self._setup_connection_and_send_headers(frame_factory)
 
-        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_to_send = b"\x00" * self.DEFAULT_FLOW_WINDOW
         data_frame = frame_factory.build_data_frame(data_to_send)
         c.receive_data(data_frame.serialize())
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            stream_id=1
+            stream_id=1,
         )
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
@@ -822,11 +825,11 @@ class TestAutomaticFlowControl(object):
         c.acknowledge_received_data(2048, stream_id=1)
 
         expected = frame_factory.build_window_update_frame(
-            stream_id=0, increment=2048
+            stream_id=0, increment=2048,
         )
         assert c.data_to_send() == expected.serialize()
 
-    def test_acknowledging_streams_we_never_saw(self, frame_factory):
+    def test_acknowledging_streams_we_never_saw(self, frame_factory) -> None:
         """
         If the user acknowledges a stream ID we've never seen, that raises a
         NoSuchStreamError.
@@ -841,7 +844,7 @@ class TestAutomaticFlowControl(object):
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_acknowledging_1024_bytes_when_empty_increments(self,
                                                             frame_factory,
-                                                            increment):
+                                                            increment) -> None:
         """
         If the flow control window is empty and we acknowledge 1024 bytes or
         more, we will emit a WINDOW_UPDATE frame just to move the connection
@@ -855,20 +858,20 @@ class TestAutomaticFlowControl(object):
 
         c = self._setup_connection_and_send_headers(frame_factory)
 
-        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_to_send = b"\x00" * self.DEFAULT_FLOW_WINDOW
         data_frame = frame_factory.build_data_frame(data_to_send)
         c.receive_data(data_frame.serialize())
 
         c.acknowledge_received_data(increment, stream_id=1)
 
         first_expected = frame_factory.build_window_update_frame(
-            stream_id=0, increment=increment
+            stream_id=0, increment=increment,
         )
         second_expected = frame_factory.build_window_update_frame(
-            stream_id=1, increment=increment
+            stream_id=1, increment=increment,
         )
-        expected_data = b''.join(
-            [first_expected.serialize(), second_expected.serialize()]
+        expected_data = b"".join(
+            [first_expected.serialize(), second_expected.serialize()],
         )
         assert c.data_to_send() == expected_data
 
@@ -876,7 +879,7 @@ class TestAutomaticFlowControl(object):
     # increment the stream window anyway.
     @given(integers(min_value=1025, max_value=(DEFAULT_FLOW_WINDOW // 4) - 1))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_connection_only_empty(self, frame_factory, increment):
+    def test_connection_only_empty(self, frame_factory, increment) -> None:
         """
         If the connection flow control window is empty, but the stream flow
         control windows aren't, and 1024 bytes or more are acknowledged by the
@@ -893,20 +896,20 @@ class TestAutomaticFlowControl(object):
 
         for stream_id in [3, 5, 7]:
             f = frame_factory.build_headers_frame(
-                headers=self.example_request_headers, stream_id=stream_id
+                headers=self.example_request_headers, stream_id=stream_id,
             )
             c.receive_data(f.serialize())
 
         # Now we send 1/4 of the connection window per stream. Annoyingly,
         # that's an odd number, so we need to round the last frame up.
-        data_to_send = b'\x00' * (self.DEFAULT_FLOW_WINDOW // 4)
+        data_to_send = b"\x00" * (self.DEFAULT_FLOW_WINDOW // 4)
         for stream_id in [1, 3, 5]:
             f = frame_factory.build_data_frame(
-                data_to_send, stream_id=stream_id
+                data_to_send, stream_id=stream_id,
             )
             c.receive_data(f.serialize())
 
-        data_to_send = b'\x00' * c.remote_flow_control_window(7)
+        data_to_send = b"\x00" * c.remote_flow_control_window(7)
         data_frame = frame_factory.build_data_frame(data_to_send, stream_id=7)
         c.receive_data(data_frame.serialize())
 
@@ -914,13 +917,13 @@ class TestAutomaticFlowControl(object):
         c.acknowledge_received_data(increment, stream_id=1)
 
         expected_data = frame_factory.build_window_update_frame(
-            stream_id=0, increment=increment
+            stream_id=0, increment=increment,
         ).serialize()
         assert c.data_to_send() == expected_data
 
     @given(integers(min_value=1025, max_value=DEFAULT_FLOW_WINDOW))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_mixing_update_forms(self, frame_factory, increment):
+    def test_mixing_update_forms(self, frame_factory, increment) -> None:
         """
         If the user mixes acknowledging data with manually incrementing windows,
         we still keep track of what's going on.
@@ -933,14 +936,14 @@ class TestAutomaticFlowControl(object):
 
         # Empty the flow control window.
         c = self._setup_connection_and_send_headers(frame_factory)
-        data_to_send = b'\x00' * self.DEFAULT_FLOW_WINDOW
+        data_to_send = b"\x00" * self.DEFAULT_FLOW_WINDOW
         data_frame = frame_factory.build_data_frame(data_to_send)
         c.receive_data(data_frame.serialize())
 
         # Manually increment the connection flow control window back to fully
         # open, but leave the stream window closed.
         c.increment_flow_control_window(
-            stream_id=None, increment=self.DEFAULT_FLOW_WINDOW
+            stream_id=None, increment=self.DEFAULT_FLOW_WINDOW,
         )
         c.clear_outbound_data_buffer()
 
@@ -951,6 +954,6 @@ class TestAutomaticFlowControl(object):
 
         # We expect to see one window update frame only, for the stream.
         expected_data = frame_factory.build_window_update_frame(
-            stream_id=1, increment=increment
+            stream_id=1, increment=increment,
         ).serialize()
         assert c.data_to_send() == expected_data
