@@ -1,13 +1,12 @@
 """
-test_stream_reset
-~~~~~~~~~~~~~~~~~
-
 More complex tests that exercise stream resetting functionality to validate
 that connection state is appropriately maintained.
 
 Specifically, these tests validate that streams that have been reset accurately
 keep track of connection-level state.
 """
+from __future__ import annotations
+
 import pytest
 
 import h2.connection
@@ -15,23 +14,24 @@ import h2.errors
 import h2.events
 
 
-class TestStreamReset(object):
+class TestStreamReset:
     """
     Tests for resetting streams.
     """
+
     example_request_headers = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
     ]
     example_response_headers = [
-        (b':status', b'200'),
-        (b'server', b'fake-serv/0.1.0'),
-        (b'content-length', b'0')
+        (b":status", b"200"),
+        (b"server", b"fake-serv/0.1.0"),
+        (b"content-length", b"0"),
     ]
 
-    def test_reset_stream_keeps_header_state_correct(self, frame_factory):
+    def test_reset_stream_keeps_header_state_correct(self, frame_factory) -> None:
         """
         A stream that has been reset still affects the header decoder.
         """
@@ -43,10 +43,10 @@ class TestStreamReset(object):
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_response_headers, stream_id=1
+            headers=self.example_response_headers, stream_id=1,
         )
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         events = c.receive_data(f.serialize())
         assert not events
@@ -55,7 +55,7 @@ class TestStreamReset(object):
         # This works because the header state should be intact from the headers
         # frame that was send on stream 1, so they should decode cleanly.
         f = frame_factory.build_headers_frame(
-            headers=self.example_response_headers, stream_id=3
+            headers=self.example_response_headers, stream_id=3,
         )
         event = c.receive_data(f.serialize())[0]
 
@@ -63,11 +63,11 @@ class TestStreamReset(object):
         assert event.stream_id == 3
         assert event.headers == self.example_response_headers
 
-    @pytest.mark.parametrize('close_id,other_id', [(1, 3), (3, 1)])
+    @pytest.mark.parametrize(("close_id", "other_id"), [(1, 3), (3, 1)])
     def test_reset_stream_keeps_flow_control_correct(self,
                                                      close_id,
                                                      other_id,
-                                                     frame_factory):
+                                                     frame_factory) -> None:
         """
         A stream that has been reset does not affect the connection flow
         control window.
@@ -81,15 +81,15 @@ class TestStreamReset(object):
         initial_window = c.remote_flow_control_window(stream_id=other_id)
 
         f = frame_factory.build_headers_frame(
-            headers=self.example_response_headers, stream_id=close_id
+            headers=self.example_response_headers, stream_id=close_id,
         )
         c.receive_data(f.serialize())
         c.reset_stream(stream_id=close_id)
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_data_frame(
-            data=b'some data',
-            stream_id=close_id
+            data=b"some data",
+            stream_id=close_id,
         )
         c.receive_data(f.serialize())
 
@@ -100,12 +100,12 @@ class TestStreamReset(object):
         assert c.data_to_send() == expected
 
         new_window = c.remote_flow_control_window(stream_id=other_id)
-        assert initial_window - len(b'some data') == new_window
+        assert initial_window - len(b"some data") == new_window
 
-    @pytest.mark.parametrize('clear_streams', [True, False])
+    @pytest.mark.parametrize("clear_streams", [True, False])
     def test_reset_stream_automatically_resets_pushed_streams(self,
                                                               frame_factory,
-                                                              clear_streams):
+                                                              clear_streams) -> None:
         """
         Resetting a stream causes RST_STREAM frames to be automatically emitted
         to close any streams pushed after the reset.

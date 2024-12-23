@@ -1,7 +1,4 @@
 """
-coroutine_tests
-~~~~~~~~~~~~~~~
-
 This file gives access to a coroutine-based test class. This allows each test
 case to be defined as a pair of interacting coroutines, sending data to each
 other by yielding the flow of control.
@@ -12,13 +9,15 @@ organise the communication. This makes the tests entirely deterministic and
 makes them behave identically on all platforms, as well as ensuring they both
 succeed and fail quickly.
 """
-import itertools
+from __future__ import annotations
+
 import functools
+import itertools
 
 import pytest
 
 
-class CoroutineTestCase(object):
+class CoroutineTestCase:
     """
     A base class for tests that use interacting coroutines.
 
@@ -28,7 +27,8 @@ class CoroutineTestCase(object):
     its first action is to receive data), the calling code should prime it by
     using the 'server' decorator on this class.
     """
-    def run_until_complete(self, *coroutines):
+
+    def run_until_complete(self, *coroutines) -> None:
         """
         Executes a set of coroutines that communicate between each other. Each
         one is, in order, passed the output of the previous coroutine until
@@ -55,7 +55,7 @@ class CoroutineTestCase(object):
             except StopIteration:
                 continue
             else:
-                pytest.fail("Coroutine %s not exhausted" % coro)
+                pytest.fail(f"Coroutine {coro} not exhausted")
 
     def server(self, func):
         """

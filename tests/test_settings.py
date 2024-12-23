@@ -1,26 +1,23 @@
 """
-test_settings
-~~~~~~~~~~~~~
-
 Test the Settings object.
 """
+from __future__ import annotations
+
 import pytest
+from hypothesis import assume, given
+from hypothesis.strategies import booleans, builds, fixed_dictionaries, integers
 
 import h2.errors
 import h2.exceptions
 import h2.settings
 
-from hypothesis import given, assume
-from hypothesis.strategies import (
-    integers, booleans, fixed_dictionaries, builds
-)
 
-
-class TestSettings(object):
+class TestSettings:
     """
     Test the Settings object behaves as expected.
     """
-    def test_settings_defaults_client(self):
+
+    def test_settings_defaults_client(self) -> None:
         """
         The Settings object begins with the appropriate defaults for clients.
         """
@@ -32,7 +29,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
         assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
-    def test_settings_defaults_server(self):
+    def test_settings_defaults_server(self) -> None:
         """
         The Settings object begins with the appropriate defaults for servers.
         """
@@ -44,8 +41,8 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
         assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
-    @pytest.mark.parametrize('client', [True, False])
-    def test_can_set_initial_values(self, client):
+    @pytest.mark.parametrize("client", [True, False])
+    def test_can_set_initial_values(self, client) -> None:
         """
         The Settings object can be provided initial values that override the
         defaults.
@@ -68,7 +65,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 1
 
     @pytest.mark.parametrize(
-        'setting,value',
+        ("setting", "value"),
         [
             (h2.settings.SettingCodes.ENABLE_PUSH, 2),
             (h2.settings.SettingCodes.ENABLE_PUSH, -1),
@@ -78,9 +75,9 @@ class TestSettings(object):
             (h2.settings.SettingCodes.MAX_FRAME_SIZE, 2**30),
             (h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE, -1),
             (h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL, -1),
-        ]
+        ],
     )
-    def test_cannot_set_invalid_initial_values(self, setting, value):
+    def test_cannot_set_invalid_initial_values(self, setting, value) -> None:
         """
         The Settings object can be provided initial values that override the
         defaults.
@@ -90,7 +87,7 @@ class TestSettings(object):
         with pytest.raises(h2.exceptions.InvalidSettingsValueError):
             h2.settings.Settings(initial_values=overrides)
 
-    def test_applying_value_doesnt_take_effect_immediately(self):
+    def test_applying_value_doesnt_take_effect_immediately(self) -> None:
         """
         When a value is applied to the settings object, it doesn't immediately
         take effect.
@@ -100,7 +97,7 @@ class TestSettings(object):
 
         assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
-    def test_acknowledging_values(self):
+    def test_acknowledging_values(self) -> None:
         """
         When we acknowledge settings, the values change.
         """
@@ -120,7 +117,7 @@ class TestSettings(object):
         s.acknowledge()
         assert dict(s) == new_settings
 
-    def test_acknowledging_returns_the_changed_settings(self):
+    def test_acknowledging_returns_the_changed_settings(self) -> None:
         """
         Acknowledging settings returns the changes.
         """
@@ -146,7 +143,7 @@ class TestSettings(object):
         assert push_change.original_value == 1
         assert push_change.new_value == 0
 
-    def test_acknowledging_only_returns_changed_settings(self):
+    def test_acknowledging_only_returns_changed_settings(self) -> None:
         """
         Acknowledging settings does not return unchanged settings.
         """
@@ -156,10 +153,10 @@ class TestSettings(object):
         changes = s.acknowledge()
         assert len(changes) == 1
         assert list(changes.keys()) == [
-            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE
+            h2.settings.SettingCodes.INITIAL_WINDOW_SIZE,
         ]
 
-    def test_deleting_values_deletes_all_of_them(self):
+    def test_deleting_values_deletes_all_of_them(self) -> None:
         """
         When we delete a key we lose all state about it.
         """
@@ -171,7 +168,7 @@ class TestSettings(object):
         with pytest.raises(KeyError):
             s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
 
-    def test_length_correctly_reported(self):
+    def test_length_correctly_reported(self) -> None:
         """
         Length is related only to the number of keys.
         """
@@ -187,7 +184,7 @@ class TestSettings(object):
         del s[h2.settings.SettingCodes.HEADER_TABLE_SIZE]
         assert len(s) == 4
 
-    def test_new_values_work(self):
+    def test_new_values_work(self) -> None:
         """
         New values initially don't appear
         """
@@ -197,7 +194,7 @@ class TestSettings(object):
         with pytest.raises(KeyError):
             s[80]
 
-    def test_new_values_follow_basic_acknowledgement_rules(self):
+    def test_new_values_follow_basic_acknowledgement_rules(self) -> None:
         """
         A new value properly appears when acknowledged.
         """
@@ -213,7 +210,7 @@ class TestSettings(object):
         assert changed.original_value is None
         assert changed.new_value == 81
 
-    def test_single_values_arent_affected_by_acknowledgement(self):
+    def test_single_values_arent_affected_by_acknowledgement(self) -> None:
         """
         When acknowledged, unchanged settings remain unchanged.
         """
@@ -223,7 +220,7 @@ class TestSettings(object):
         s.acknowledge()
         assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
-    def test_settings_getters(self):
+    def test_settings_getters(self) -> None:
         """
         Getters exist for well-known settings.
         """
@@ -243,7 +240,7 @@ class TestSettings(object):
             h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL
         ]
 
-    def test_settings_setters(self):
+    def test_settings_setters(self) -> None:
         """
         Setters exist for well-known settings.
         """
@@ -267,7 +264,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 1
 
     @given(integers())
-    def test_cannot_set_invalid_values_for_enable_push(self, val):
+    def test_cannot_set_invalid_values_for_enable_push(self, val) -> None:
         """
         SETTINGS_ENABLE_PUSH only allows two values: 0, 1.
         """
@@ -289,7 +286,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_PUSH] == 1
 
     @given(integers())
-    def test_cannot_set_invalid_vals_for_initial_window_size(self, val):
+    def test_cannot_set_invalid_vals_for_initial_window_size(self, val) -> None:
         """
         SETTINGS_INITIAL_WINDOW_SIZE only allows values between 0 and 2**32 - 1
         inclusive.
@@ -320,7 +317,7 @@ class TestSettings(object):
             assert s[h2.settings.SettingCodes.INITIAL_WINDOW_SIZE] == 65535
 
     @given(integers())
-    def test_cannot_set_invalid_values_for_max_frame_size(self, val):
+    def test_cannot_set_invalid_values_for_max_frame_size(self, val) -> None:
         """
         SETTINGS_MAX_FRAME_SIZE only allows values between 2**14 and 2**24 - 1.
         """
@@ -346,7 +343,7 @@ class TestSettings(object):
             assert s[h2.settings.SettingCodes.MAX_FRAME_SIZE] == 16384
 
     @given(integers())
-    def test_cannot_set_invalid_values_for_max_header_list_size(self, val):
+    def test_cannot_set_invalid_values_for_max_header_list_size(self, val) -> None:
         """
         SETTINGS_MAX_HEADER_LIST_SIZE only allows non-negative values.
         """
@@ -374,7 +371,7 @@ class TestSettings(object):
                 s[h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE]
 
     @given(integers())
-    def test_cannot_set_invalid_values_for_enable_connect_protocol(self, val):
+    def test_cannot_set_invalid_values_for_enable_connect_protocol(self, val) -> None:
         """
         SETTINGS_ENABLE_CONNECT_PROTOCOL only allows two values: 0, 1.
         """
@@ -396,7 +393,7 @@ class TestSettings(object):
         assert s[h2.settings.SettingCodes.ENABLE_CONNECT_PROTOCOL] == 0
 
 
-class TestSettingsEquality(object):
+class TestSettingsEquality:
     """
     A class defining tests for the standard implementation of == and != .
     """
@@ -416,48 +413,48 @@ class TestSettingsEquality(object):
                 integers(0, 2**32 - 1),
             h2.settings.SettingCodes.MAX_HEADER_LIST_SIZE:
                 integers(0, 2**32 - 1),
-        })
+        }),
     )
 
     @given(settings=SettingsStrategy)
-    def test_equality_reflexive(self, settings):
+    def test_equality_reflexive(self, settings) -> None:
         """
         An object compares equal to itself using the == operator and the !=
         operator.
         """
         assert (settings == settings)
-        assert not (settings != settings)
+        assert settings == settings
 
     @given(settings=SettingsStrategy, o_settings=SettingsStrategy)
-    def test_equality_multiple(self, settings, o_settings):
+    def test_equality_multiple(self, settings, o_settings) -> None:
         """
         Two objects compare themselves using the == operator and the !=
         operator.
         """
         if settings == o_settings:
             assert settings == o_settings
-            assert not (settings != o_settings)
+            assert settings == o_settings
         else:
             assert settings != o_settings
-            assert not (settings == o_settings)
+            assert settings != o_settings
 
     @given(settings=SettingsStrategy)
-    def test_another_type_equality(self, settings):
+    def test_another_type_equality(self, settings) -> None:
         """
         The object does not compare equal to an object of an unrelated type
         (which does not implement the comparison) using the == operator.
         """
         obj = object()
         assert (settings != obj)
-        assert not (settings == obj)
+        assert settings != obj
 
     @given(settings=SettingsStrategy)
-    def test_delegated_eq(self, settings):
+    def test_delegated_eq(self, settings) -> None:
         """
         The result of comparison is delegated to the right-hand operand if
         it is of an unrelated type.
         """
-        class Delegate(object):
+        class Delegate:
             def __eq__(self, other):
                 return [self]
 

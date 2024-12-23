@@ -1,28 +1,27 @@
 """
-test_state_machines
-~~~~~~~~~~~~~~~~~~~
-
 These tests validate the state machines directly. Writing meaningful tests for
 this case can be tricky, so the majority of these tests use Hypothesis to try
 to talk about general behaviours rather than specific cases.
 """
+from __future__ import annotations
+
 import pytest
+from hypothesis import given
+from hypothesis.strategies import sampled_from
 
 import h2.connection
 import h2.exceptions
 import h2.stream
 
-from hypothesis import given
-from hypothesis.strategies import sampled_from
 
-
-class TestConnectionStateMachine(object):
+class TestConnectionStateMachine:
     """
     Tests of the connection state machine.
     """
+
     @given(state=sampled_from(h2.connection.ConnectionState),
            input_=sampled_from(h2.connection.ConnectionInputs))
-    def test_state_transitions(self, state, input_):
+    def test_state_transitions(self, state, input_) -> None:
         c = h2.connection.H2ConnectionStateMachine()
         c.state = state
 
@@ -33,7 +32,7 @@ class TestConnectionStateMachine(object):
         else:
             assert c.state in h2.connection.ConnectionState
 
-    def test_state_machine_only_allows_connection_states(self):
+    def test_state_machine_only_allows_connection_states(self) -> None:
         """
         The Connection state machine only allows ConnectionState inputs.
         """
@@ -53,10 +52,10 @@ class TestConnectionStateMachine(object):
         "input_",
         [
             h2.connection.ConnectionInputs.RECV_PRIORITY,
-            h2.connection.ConnectionInputs.SEND_PRIORITY
-        ]
+            h2.connection.ConnectionInputs.SEND_PRIORITY,
+        ],
     )
-    def test_priority_frames_allowed_in_all_states(self, state, input_):
+    def test_priority_frames_allowed_in_all_states(self, state, input_) -> None:
         """
         Priority frames can be sent/received in all connection states except
         closed.
@@ -67,13 +66,14 @@ class TestConnectionStateMachine(object):
         c.process_input(input_)
 
 
-class TestStreamStateMachine(object):
+class TestStreamStateMachine:
     """
     Tests of the stream state machine.
     """
+
     @given(state=sampled_from(h2.stream.StreamState),
            input_=sampled_from(h2.stream.StreamInputs))
-    def test_state_transitions(self, state, input_):
+    def test_state_transitions(self, state, input_) -> None:
         s = h2.stream.H2StreamStateMachine(stream_id=1)
         s.state = state
 
@@ -104,7 +104,7 @@ class TestStreamStateMachine(object):
         else:
             assert s.state in h2.stream.StreamState
 
-    def test_state_machine_only_allows_stream_states(self):
+    def test_state_machine_only_allows_stream_states(self) -> None:
         """
         The Stream state machine only allows StreamState inputs.
         """
@@ -113,7 +113,7 @@ class TestStreamStateMachine(object):
         with pytest.raises(ValueError):
             s.process_input(1)
 
-    def test_stream_state_machine_forbids_pushes_on_server_streams(self):
+    def test_stream_state_machine_forbids_pushes_on_server_streams(self) -> None:
         """
         Streams where this peer is a server do not allow receiving pushed
         frames.
@@ -124,7 +124,7 @@ class TestStreamStateMachine(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             s.process_input(h2.stream.StreamInputs.RECV_PUSH_PROMISE)
 
-    def test_stream_state_machine_forbids_sending_pushes_from_clients(self):
+    def test_stream_state_machine_forbids_sending_pushes_from_clients(self) -> None:
         """
         Streams where this peer is a client do not allow sending pushed frames.
         """
@@ -143,9 +143,9 @@ class TestStreamStateMachine(object):
             h2.stream.StreamInputs.SEND_DATA,
             h2.stream.StreamInputs.SEND_WINDOW_UPDATE,
             h2.stream.StreamInputs.SEND_END_STREAM,
-        ]
+        ],
     )
-    def test_cannot_send_on_closed_streams(self, input_):
+    def test_cannot_send_on_closed_streams(self, input_) -> None:
         """
         Sending anything but a PRIORITY frame is forbidden on closed streams.
         """

@@ -1,9 +1,8 @@
 """
-test_closed_streams
-~~~~~~~~~~~~~~~~~~~
-
 Tests that we handle closed streams correctly.
 """
+from __future__ import annotations
+
 import pytest
 
 import h2.config
@@ -13,20 +12,20 @@ import h2.events
 import h2.exceptions
 
 
-class TestClosedStreams(object):
+class TestClosedStreams:
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_can_receive_multiple_rst_stream_frames(self, frame_factory):
+    def test_can_receive_multiple_rst_stream_frames(self, frame_factory) -> None:
         """
         Multiple RST_STREAM frames can be received, either at once or well
         after one another. Only the first fires an event.
@@ -49,7 +48,7 @@ class TestClosedStreams(object):
 
         assert isinstance(event, h2.events.StreamReset)
 
-    def test_receiving_low_stream_id_causes_goaway(self, frame_factory):
+    def test_receiving_low_stream_id_causes_goaway(self, frame_factory) -> None:
         """
         The remote peer creating a stream with a lower ID than one we've seen
         causes a GOAWAY frame.
@@ -82,7 +81,7 @@ class TestClosedStreams(object):
         )
         assert c.data_to_send() == f.serialize()
 
-    def test_closed_stream_not_present_in_streams_dict(self, frame_factory):
+    def test_closed_stream_not_present_in_streams_dict(self, frame_factory) -> None:
         """
         When streams have been closed, they get removed from the streams
         dictionary the next time we count the open streams.
@@ -106,7 +105,7 @@ class TestClosedStreams(object):
         # The streams dictionary should be empty.
         assert not c.streams
 
-    def test_receive_rst_stream_on_closed_stream(self, frame_factory):
+    def test_receive_rst_stream_on_closed_stream(self, frame_factory) -> None:
         """
         RST_STREAM frame should be ignored if stream is in a closed state.
         See RFC 7540 Section 5.1 (closed state)
@@ -119,15 +118,15 @@ class TestClosedStreams(object):
 
         # Some time passes and client sends DATA frame and closes stream,
         # so it is in a half-closed state
-        c.send_data(1, b'some data', end_stream=True)
+        c.send_data(1, b"some data", end_stream=True)
 
         # Server received HEADERS frame but DATA frame is still on the way.
         # Stream is in open state on the server-side. In this state server is
         # allowed to end stream and reset it - this trick helps immediately
         # close stream on the server-side.
         headers_frame = frame_factory.build_headers_frame(
-            [(':status', '200')],
-            flags=['END_STREAM'],
+            [(":status", "200")],
+            flags=["END_STREAM"],
             stream_id=1,
         )
         events = c.receive_data(headers_frame.serialize())
@@ -140,7 +139,7 @@ class TestClosedStreams(object):
         events = c.receive_data(rst_stream_frame.serialize())
         assert not events
 
-    def test_receive_window_update_on_closed_stream(self, frame_factory):
+    def test_receive_window_update_on_closed_stream(self, frame_factory) -> None:
         """
         WINDOW_UPDATE frame should be ignored if stream is in a closed state.
         See RFC 7540 Section 5.1 (closed state)
@@ -153,15 +152,15 @@ class TestClosedStreams(object):
 
         # Some time passes and client sends DATA frame and closes stream,
         # so it is in a half-closed state
-        c.send_data(1, b'some data', end_stream=True)
+        c.send_data(1, b"some data", end_stream=True)
 
         # Server received HEADERS frame but DATA frame is still on the way.
         # Stream is in open state on the server-side. In this state server is
         # allowed to end stream and after that acknowledge received data by
         # sending WINDOW_UPDATE frames.
         headers_frame = frame_factory.build_headers_frame(
-            [(':status', '200')],
-            flags=['END_STREAM'],
+            [(":status", "200")],
+            flags=["END_STREAM"],
             stream_id=1,
         )
         events = c.receive_data(headers_frame.serialize())
@@ -186,16 +185,16 @@ class TestClosedStreams(object):
         assert not events
 
 
-class TestStreamsClosedByEndStream(object):
+class TestStreamsClosedByEndStream:
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -203,16 +202,16 @@ class TestStreamsClosedByEndStream(object):
         "frame",
         [
             lambda self, ff: ff.build_headers_frame(
-                self.example_request_headers, flags=['END_STREAM']),
+                self.example_request_headers, flags=["END_STREAM"]),
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers),
-        ]
+        ],
     )
     @pytest.mark.parametrize("clear_streams", [True, False])
     def test_frames_after_recv_end_will_error(self,
                                               frame_factory,
                                               frame,
-                                              clear_streams):
+                                              clear_streams) -> None:
         """
         A stream that is closed by receiving END_STREAM raises
         ProtocolError when it receives an unexpected frame.
@@ -222,13 +221,13 @@ class TestStreamsClosedByEndStream(object):
         c.initiate_connection()
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(f.serialize())
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=True
+            end_stream=True,
         )
 
         if clear_streams:
@@ -252,16 +251,16 @@ class TestStreamsClosedByEndStream(object):
         "frame",
         [
             lambda self, ff: ff.build_headers_frame(
-                self.example_response_headers, flags=['END_STREAM']),
+                self.example_response_headers, flags=["END_STREAM"]),
             lambda self, ff: ff.build_headers_frame(
                 self.example_response_headers),
-        ]
+        ],
     )
     @pytest.mark.parametrize("clear_streams", [True, False])
     def test_frames_after_send_end_will_error(self,
                                               frame_factory,
                                               frame,
-                                              clear_streams):
+                                              clear_streams) -> None:
         """
         A stream that is closed by sending END_STREAM raises
         ProtocolError when it receives an unexpected frame.
@@ -272,7 +271,7 @@ class TestStreamsClosedByEndStream(object):
                        end_stream=True)
 
         f = frame_factory.build_headers_frame(
-            self.example_response_headers, flags=['END_STREAM']
+            self.example_response_headers, flags=["END_STREAM"],
         )
         c.receive_data(f.serialize())
 
@@ -297,12 +296,12 @@ class TestStreamsClosedByEndStream(object):
         "frame",
         [
             lambda self, ff: ff.build_window_update_frame(1, 1),
-            lambda self, ff: ff.build_rst_stream_frame(1)
-        ]
+            lambda self, ff: ff.build_rst_stream_frame(1),
+        ],
     )
     def test_frames_after_send_end_will_be_ignored(self,
                                                    frame_factory,
-                                                   frame):
+                                                   frame) -> None:
         """
         A stream that is closed by sending END_STREAM will raise
         ProtocolError when received unexpected frame.
@@ -312,13 +311,13 @@ class TestStreamsClosedByEndStream(object):
         c.initiate_connection()
 
         f = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(f.serialize())
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=True
+            end_stream=True,
         )
 
         c.clear_outbound_data_buffer()
@@ -329,16 +328,16 @@ class TestStreamsClosedByEndStream(object):
         assert not events
 
 
-class TestStreamsClosedByRstStream(object):
+class TestStreamsClosedByRstStream:
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -348,12 +347,12 @@ class TestStreamsClosedByRstStream(object):
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers),
             lambda self, ff: ff.build_headers_frame(
-                self.example_request_headers, flags=['END_STREAM']),
-        ]
+                self.example_request_headers, flags=["END_STREAM"]),
+        ],
     )
     def test_resets_further_frames_after_recv_reset(self,
                                                     frame_factory,
-                                                    frame):
+                                                    frame) -> None:
         """
         A stream that is closed by receive RST_STREAM can receive further
         frames: it simply sends RST_STREAM for it, and additionally
@@ -364,18 +363,18 @@ class TestStreamsClosedByRstStream(object):
         c.initiate_connection()
 
         header_frame = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(header_frame.serialize())
 
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=False
+            end_stream=False,
         )
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
@@ -384,7 +383,7 @@ class TestStreamsClosedByRstStream(object):
         events = c.receive_data(f.serialize())
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         assert not events
         assert c.data_to_send() == rst_frame.serialize()
@@ -402,7 +401,7 @@ class TestStreamsClosedByRstStream(object):
         assert c.data_to_send() == rst_frame.serialize() * 3
 
     def test_resets_further_data_frames_after_recv_reset(self,
-                                                         frame_factory):
+                                                         frame_factory) -> None:
         """
         A stream that is closed by receive RST_STREAM can receive further
         DATA frames: it simply sends WINDOW_UPDATE for the connection flow
@@ -413,24 +412,24 @@ class TestStreamsClosedByRstStream(object):
         c.initiate_connection()
 
         header_frame = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(header_frame.serialize())
 
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=False
+            end_stream=False,
         )
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         c.receive_data(rst_frame.serialize())
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_data_frame(
-            data=b'some data'
+            data=b"some data",
         )
 
         events = c.receive_data(f.serialize())
@@ -460,12 +459,12 @@ class TestStreamsClosedByRstStream(object):
             lambda self, ff: ff.build_headers_frame(
                 self.example_request_headers),
             lambda self, ff: ff.build_headers_frame(
-                self.example_request_headers, flags=['END_STREAM']),
-        ]
+                self.example_request_headers, flags=["END_STREAM"]),
+        ],
     )
     def test_resets_further_frames_after_send_reset(self,
                                                     frame_factory,
-                                                    frame):
+                                                    frame) -> None:
         """
         A stream that is closed by sent RST_STREAM can receive further frames:
         it simply sends RST_STREAM for it.
@@ -475,20 +474,20 @@ class TestStreamsClosedByRstStream(object):
         c.initiate_connection()
 
         header_frame = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(header_frame.serialize())
 
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=False
+            end_stream=False,
         )
 
         c.reset_stream(1, h2.errors.ErrorCodes.INTERNAL_ERROR)
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         c.clear_outbound_data_buffer()
 
@@ -496,7 +495,7 @@ class TestStreamsClosedByRstStream(object):
         events = c.receive_data(f.serialize())
 
         rst_frame = frame_factory.build_rst_stream_frame(
-            1, h2.errors.ErrorCodes.STREAM_CLOSED
+            1, h2.errors.ErrorCodes.STREAM_CLOSED,
         )
         assert not events
         assert c.data_to_send() == rst_frame.serialize()
@@ -514,7 +513,7 @@ class TestStreamsClosedByRstStream(object):
         assert c.data_to_send() == rst_frame.serialize() * 3
 
     def test_resets_further_data_frames_after_send_reset(self,
-                                                         frame_factory):
+                                                         frame_factory) -> None:
         """
         A stream that is closed by sent RST_STREAM can receive further
         data frames: it simply sends WINDOW_UPDATE and RST_STREAM for it.
@@ -524,14 +523,14 @@ class TestStreamsClosedByRstStream(object):
         c.initiate_connection()
 
         header_frame = frame_factory.build_headers_frame(
-            self.example_request_headers, flags=['END_STREAM']
+            self.example_request_headers, flags=["END_STREAM"],
         )
         c.receive_data(header_frame.serialize())
 
         c.send_headers(
             stream_id=1,
             headers=self.example_response_headers,
-            end_stream=False
+            end_stream=False,
         )
 
         c.reset_stream(1, h2.errors.ErrorCodes.INTERNAL_ERROR)
@@ -539,7 +538,7 @@ class TestStreamsClosedByRstStream(object):
         c.clear_outbound_data_buffer()
 
         f = frame_factory.build_data_frame(
-            data=b'some data'
+            data=b"some data",
         )
         events = c.receive_data(f.serialize())
         assert not events

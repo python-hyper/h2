@@ -1,16 +1,22 @@
 """
-helpers
-~~~~~~~
-
-This module contains helpers for the h2 tests.
+Helper module for the h2 tests.
 """
-from hyperframe.frame import (
-    HeadersFrame, DataFrame, SettingsFrame, WindowUpdateFrame, PingFrame,
-    GoAwayFrame, RstStreamFrame, PushPromiseFrame, PriorityFrame,
-    ContinuationFrame, AltSvcFrame
-)
-from hpack.hpack import Encoder
+from __future__ import annotations
 
+from hpack.hpack import Encoder
+from hyperframe.frame import (
+    AltSvcFrame,
+    ContinuationFrame,
+    DataFrame,
+    GoAwayFrame,
+    HeadersFrame,
+    PingFrame,
+    PriorityFrame,
+    PushPromiseFrame,
+    RstStreamFrame,
+    SettingsFrame,
+    WindowUpdateFrame,
+)
 
 SAMPLE_SETTINGS = {
     SettingsFrame.HEADER_TABLE_SIZE: 4096,
@@ -19,32 +25,35 @@ SAMPLE_SETTINGS = {
 }
 
 
-class FrameFactory(object):
+class FrameFactory:
     """
     A class containing lots of helper methods and state to build frames. This
     allows test cases to easily build correct HTTP/2 frames to feed to
     hyper-h2.
     """
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.encoder = Encoder()
 
-    def refresh_encoder(self):
+    def refresh_encoder(self) -> None:
         self.encoder = Encoder()
 
-    def preamble(self):
-        return b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
+    def preamble(self) -> bytes:
+        return b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 
     def build_headers_frame(self,
                             headers,
-                            flags=[],
+                            flags=None,
                             stream_id=1,
                             **priority_kwargs):
         """
         Builds a single valid headers frame out of the contained headers.
         """
+        if flags is None:
+            flags = []
         f = HeadersFrame(stream_id)
         f.data = self.encoder.encode(headers)
-        f.flags.add('END_HEADERS')
+        f.flags.add("END_HEADERS")
         for flag in flags:
             f.flags.add(flag)
 
@@ -53,10 +62,12 @@ class FrameFactory(object):
 
         return f
 
-    def build_continuation_frame(self, header_block, flags=[], stream_id=1):
+    def build_continuation_frame(self, header_block, flags=None, stream_id=1):
         """
         Builds a single continuation frame out of the binary header block.
         """
+        if flags is None:
+            flags = []
         f = ContinuationFrame(stream_id)
         f.data = header_block
         f.flags = set(flags)
@@ -73,7 +84,7 @@ class FrameFactory(object):
         f.flags = flags
 
         if padding_len:
-            flags.add('PADDED')
+            flags.add("PADDED")
             f.pad_length = padding_len
 
         return f
@@ -84,7 +95,7 @@ class FrameFactory(object):
         """
         f = SettingsFrame(0)
         if ack:
-            f.flags.add('ACK')
+            f.flags.add("ACK")
 
         f.settings = settings
         return f
@@ -111,7 +122,7 @@ class FrameFactory(object):
     def build_goaway_frame(self,
                            last_stream_id,
                            error_code=0,
-                           additional_data=b''):
+                           additional_data=b""):
         """
         Builds a single GOAWAY frame.
         """
@@ -133,15 +144,17 @@ class FrameFactory(object):
                                  stream_id,
                                  promised_stream_id,
                                  headers,
-                                 flags=[]):
+                                 flags=None):
         """
         Builds a single PUSH_PROMISE frame.
         """
+        if flags is None:
+            flags = []
         f = PushPromiseFrame(stream_id)
         f.promised_stream_id = promised_stream_id
         f.data = self.encoder.encode(headers)
         f.flags = set(flags)
-        f.flags.add('END_HEADERS')
+        f.flags.add("END_HEADERS")
         return f
 
     def build_priority_frame(self,
@@ -167,7 +180,7 @@ class FrameFactory(object):
         f.field = field
         return f
 
-    def change_table_size(self, new_size):
+    def change_table_size(self, new_size) -> None:
         """
         Causes the encoder to send a dynamic size update in the next header
         block it sends.

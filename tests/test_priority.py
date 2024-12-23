@@ -1,9 +1,5 @@
-"""
-test_priority
-~~~~~~~~~~~~~
+from __future__ import annotations
 
-Test the priority logic of Hyper-h2.
-"""
 import pytest
 
 import h2.config
@@ -14,29 +10,30 @@ import h2.exceptions
 import h2.stream
 
 
-class TestPriority(object):
+class TestPriority:
     """
     Basic priority tests.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_request_headers_bytes = [
-        (b':authority', b'example.com'),
-        (b':path', b'/'),
-        (b':scheme', b'https'),
-        (b':method', b'GET'),
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'pytest-h2'),
+        (":status", "200"),
+        ("server", "pytest-h2"),
     ]
     server_config = h2.config.H2Configuration(client_side=False)
 
-    def test_receiving_priority_emits_priority_update(self, frame_factory):
+    def test_receiving_priority_emits_priority_update(self, frame_factory) -> None:
         """
         Receiving a priority frame emits a PriorityUpdated event.
         """
@@ -62,7 +59,7 @@ class TestPriority(object):
         assert event.exclusive is False
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_headers_with_priority_info(self, frame_factory, request_headers):
+    def test_headers_with_priority_info(self, frame_factory, request_headers) -> None:
         """
         Receiving a HEADERS frame with priority information on it emits a
         PriorityUpdated event.
@@ -75,7 +72,7 @@ class TestPriority(object):
         f = frame_factory.build_headers_frame(
             headers=request_headers,
             stream_id=3,
-            flags=['PRIORITY'],
+            flags=["PRIORITY"],
             stream_weight=15,
             depends_on=1,
             exclusive=True,
@@ -93,7 +90,7 @@ class TestPriority(object):
         assert event.exclusive is True
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_streams_may_not_depend_on_themselves(self, frame_factory, request_headers):
+    def test_streams_may_not_depend_on_themselves(self, frame_factory, request_headers) -> None:
         """
         A stream adjusted to depend on itself causes a Protocol Error.
         """
@@ -105,7 +102,7 @@ class TestPriority(object):
         f = frame_factory.build_headers_frame(
             headers=request_headers,
             stream_id=3,
-            flags=['PRIORITY'],
+            flags=["PRIORITY"],
             stream_weight=15,
             depends_on=1,
             exclusive=True,
@@ -116,7 +113,7 @@ class TestPriority(object):
         f = frame_factory.build_priority_frame(
             stream_id=3,
             depends_on=3,
-            weight=15
+            weight=15,
         )
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
@@ -129,15 +126,15 @@ class TestPriority(object):
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
-        'depends_on,weight,exclusive',
+        ("depends_on", "weight", "exclusive"),
         [
             (0, 256, False),
             (3, 128, False),
             (3, 128, True),
-        ]
+        ],
     )
     def test_can_prioritize_stream(self, depends_on, weight, exclusive,
-                                   frame_factory, request_headers):
+                                   frame_factory, request_headers) -> None:
         """
         hyper-h2 can emit priority frames.
         """
@@ -152,7 +149,7 @@ class TestPriority(object):
             stream_id=1,
             depends_on=depends_on,
             weight=weight,
-            exclusive=exclusive
+            exclusive=exclusive,
         )
 
         f = frame_factory.build_priority_frame(
@@ -165,15 +162,15 @@ class TestPriority(object):
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
-        'depends_on,weight,exclusive',
+        ("depends_on", "weight", "exclusive"),
         [
             (0, 256, False),
             (1, 128, False),
             (1, 128, True),
-        ]
+        ],
     )
     def test_emit_headers_with_priority_info(self, depends_on, weight,
-                                             exclusive, frame_factory, request_headers):
+                                             exclusive, frame_factory, request_headers) -> None:
         """
         It is possible to send a headers frame with priority information on
         it.
@@ -193,7 +190,7 @@ class TestPriority(object):
         f = frame_factory.build_headers_frame(
             headers=request_headers,
             stream_id=3,
-            flags=['PRIORITY'],
+            flags=["PRIORITY"],
             stream_weight=weight - 1,
             depends_on=depends_on,
             exclusive=exclusive,
@@ -201,7 +198,7 @@ class TestPriority(object):
         assert c.data_to_send() == f.serialize()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_may_not_prioritize_stream_to_depend_on_self(self, frame_factory, request_headers):
+    def test_may_not_prioritize_stream_to_depend_on_self(self, frame_factory, request_headers) -> None:
         """
         A stream adjusted to depend on itself causes a Protocol Error.
         """
@@ -226,7 +223,7 @@ class TestPriority(object):
         assert not c.data_to_send()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_may_not_initially_set_stream_depend_on_self(self, frame_factory, request_headers):
+    def test_may_not_initially_set_stream_depend_on_self(self, frame_factory, request_headers) -> None:
         """
         A stream that starts by depending on itself causes a Protocol Error.
         """
@@ -244,8 +241,8 @@ class TestPriority(object):
 
         assert not c.data_to_send()
 
-    @pytest.mark.parametrize('weight', [0, -15, 257])
-    def test_prioritize_requires_valid_weight(self, weight):
+    @pytest.mark.parametrize("weight", [0, -15, 257])
+    def test_prioritize_requires_valid_weight(self, weight) -> None:
         """
         A call to prioritize with an invalid weight causes a ProtocolError.
         """
@@ -259,8 +256,8 @@ class TestPriority(object):
         assert not c.data_to_send()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    @pytest.mark.parametrize('weight', [0, -15, 257])
-    def test_send_headers_requires_valid_weight(self, weight, request_headers):
+    @pytest.mark.parametrize("weight", [0, -15, 257])
+    def test_send_headers_requires_valid_weight(self, weight, request_headers) -> None:
         """
         A call to send_headers with an invalid weight causes a ProtocolError.
         """
@@ -272,12 +269,12 @@ class TestPriority(object):
             c.send_headers(
                 stream_id=1,
                 headers=request_headers,
-                priority_weight=weight
+                priority_weight=weight,
             )
 
         assert not c.data_to_send()
 
-    def test_prioritize_defaults(self, frame_factory):
+    def test_prioritize_defaults(self, frame_factory) -> None:
         """
         When prioritize() is called with no explicit arguments, it emits a
         weight of 16, depending on stream zero non-exclusively.
@@ -298,14 +295,14 @@ class TestPriority(object):
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     @pytest.mark.parametrize(
-        'priority_kwargs',
+        "priority_kwargs",
         [
-            {'priority_weight': 16},
-            {'priority_depends_on': 0},
-            {'priority_exclusive': False},
-        ]
+            {"priority_weight": 16},
+            {"priority_depends_on": 0},
+            {"priority_exclusive": False},
+        ],
     )
-    def test_send_headers_defaults(self, priority_kwargs, frame_factory, request_headers):
+    def test_send_headers_defaults(self, priority_kwargs, frame_factory, request_headers) -> None:
         """
         When send_headers() is called with only one explicit argument, it emits
         default values for everything else.
@@ -317,13 +314,13 @@ class TestPriority(object):
         c.send_headers(
             stream_id=1,
             headers=request_headers,
-            **priority_kwargs
+            **priority_kwargs,
         )
 
         f = frame_factory.build_headers_frame(
             headers=request_headers,
             stream_id=1,
-            flags=['PRIORITY'],
+            flags=["PRIORITY"],
             stream_weight=15,
             depends_on=0,
             exclusive=False,
@@ -331,7 +328,7 @@ class TestPriority(object):
         assert c.data_to_send() == f.serialize()
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_servers_cannot_prioritize(self, frame_factory, request_headers):
+    def test_servers_cannot_prioritize(self, frame_factory, request_headers) -> None:
         """
         Server stacks are not allowed to call ``prioritize()``.
         """
@@ -350,7 +347,7 @@ class TestPriority(object):
             c.prioritize(stream_id=1)
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
-    def test_servers_cannot_prioritize_with_headers(self, frame_factory, request_headers):
+    def test_servers_cannot_prioritize_with_headers(self, frame_factory, request_headers) -> None:
         """
         Server stacks are not allowed to prioritize on headers either.
         """

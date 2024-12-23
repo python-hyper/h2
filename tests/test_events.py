@@ -1,23 +1,19 @@
 """
-test_events.py
-~~~~~~~~~~~~~~
-
 Specific tests for any function that is logically self-contained as part of
 events.py.
 """
+from __future__ import annotations
+
 import inspect
 import sys
 
-from hypothesis import given
-from hypothesis.strategies import (
-    integers, lists, tuples
-)
 import pytest
+from hypothesis import given
+from hypothesis.strategies import integers, lists, tuples
 
 import h2.errors
 import h2.events
 import h2.settings
-
 
 # We define a fairly complex Hypothesis strategy here. We want to build a list
 # of two tuples of (Setting, value). For Setting we want to make sure we can
@@ -28,16 +24,17 @@ SETTINGS_STRATEGY = lists(
     tuples(
         integers(min_value=0, max_value=2**16-1),
         integers(min_value=0, max_value=2**32-1),
-    )
+    ),
 )
 
 
-class TestRemoteSettingsChanged(object):
+class TestRemoteSettingsChanged:
     """
     Validate the function of the RemoteSettingsChanged event.
     """
+
     @given(SETTINGS_STRATEGY)
-    def test_building_settings_from_scratch(self, settings_list):
+    def test_building_settings_from_scratch(self, settings_list) -> None:
         """
         Missing old settings are defaulted to None.
         """
@@ -55,7 +52,7 @@ class TestRemoteSettingsChanged(object):
     @given(SETTINGS_STRATEGY, SETTINGS_STRATEGY)
     def test_only_reports_changed_settings(self,
                                            old_settings_list,
-                                           new_settings_list):
+                                           new_settings_list) -> None:
         """
         Settings that were not changed are not reported.
         """
@@ -68,14 +65,14 @@ class TestRemoteSettingsChanged(object):
 
         assert len(e.changed_settings) == len(new_settings_dict)
         assert (
-            sorted(list(e.changed_settings.keys())) ==
-            sorted(list(new_settings_dict.keys()))
+            sorted(e.changed_settings.keys()) ==
+            sorted(new_settings_dict.keys())
         )
 
     @given(SETTINGS_STRATEGY, SETTINGS_STRATEGY)
     def test_correctly_reports_changed_settings(self,
                                                 old_settings_list,
-                                                new_settings_list):
+                                                new_settings_list) -> None:
         """
         Settings that are changed are correctly reported.
         """
@@ -93,26 +90,27 @@ class TestRemoteSettingsChanged(object):
             assert e.changed_settings[setting].new_value == new_value
 
 
-class TestEventReprs(object):
+class TestEventReprs:
     """
     Events have useful representations.
     """
+
     example_request_headers = [
-        (':authority', 'example.com'),
-        (':path', '/'),
-        (':scheme', 'https'),
-        (':method', 'GET'),
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "GET"),
     ]
     example_informational_headers = [
-        (':status', '100'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "100"),
+        ("server", "fake-serv/0.1.0"),
     ]
     example_response_headers = [
-        (':status', '200'),
-        ('server', 'fake-serv/0.1.0')
+        (":status", "200"),
+        ("server", "fake-serv/0.1.0"),
     ]
 
-    def test_requestreceived_repr(self):
+    def test_requestreceived_repr(self) -> None:
         """
         RequestReceived has a useful debug representation.
         """
@@ -128,7 +126,7 @@ class TestEventReprs(object):
             "(':method', 'GET')]>"
         )
 
-    def test_responsereceived_repr(self):
+    def test_responsereceived_repr(self) -> None:
         """
         ResponseReceived has a useful debug representation.
         """
@@ -142,7 +140,7 @@ class TestEventReprs(object):
             "('server', 'fake-serv/0.1.0')]>"
         )
 
-    def test_trailersreceived_repr(self):
+    def test_trailersreceived_repr(self) -> None:
         """
         TrailersReceived has a useful debug representation.
         """
@@ -156,7 +154,7 @@ class TestEventReprs(object):
             "('server', 'fake-serv/0.1.0')]>"
         )
 
-    def test_informationalresponsereceived_repr(self):
+    def test_informationalresponsereceived_repr(self) -> None:
         """
         InformationalResponseReceived has a useful debug representation.
         """
@@ -170,7 +168,7 @@ class TestEventReprs(object):
             "('server', 'fake-serv/0.1.0')]>"
         )
 
-    def test_datareceived_repr(self):
+    def test_datareceived_repr(self) -> None:
         """
         DataReceived has a useful debug representation.
         """
@@ -184,7 +182,7 @@ class TestEventReprs(object):
             "data:6162636465666768696a6b6c6d6e6f7071727374>"
         )
 
-    def test_windowupdated_repr(self):
+    def test_windowupdated_repr(self) -> None:
         """
         WindowUpdated has a useful debug representation.
         """
@@ -194,7 +192,7 @@ class TestEventReprs(object):
 
         assert repr(e) == "<WindowUpdated stream_id:0, delta:65536>"
 
-    def test_remotesettingschanged_repr(self):
+    def test_remotesettingschanged_repr(self) -> None:
         """
         RemoteSettingsChanged has a useful debug representation.
         """
@@ -202,7 +200,7 @@ class TestEventReprs(object):
         e.changed_settings = {
             h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
                 h2.settings.ChangedSetting(
-                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15
+                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15,
                 ),
         }
 
@@ -219,25 +217,25 @@ class TestEventReprs(object):
                 "new_value=32768)}>"
             )
 
-    def test_pingreceived_repr(self):
+    def test_pingreceived_repr(self) -> None:
         """
         PingReceived has a useful debug representation.
         """
         e = h2.events.PingReceived()
-        e.ping_data = b'abcdefgh'
+        e.ping_data = b"abcdefgh"
 
         assert repr(e) == "<PingReceived ping_data:6162636465666768>"
 
-    def test_pingackreceived_repr(self):
+    def test_pingackreceived_repr(self) -> None:
         """
         PingAckReceived has a useful debug representation.
         """
         e = h2.events.PingAckReceived()
-        e.ping_data = b'abcdefgh'
+        e.ping_data = b"abcdefgh"
 
         assert repr(e) == "<PingAckReceived ping_data:6162636465666768>"
 
-    def test_streamended_repr(self):
+    def test_streamended_repr(self) -> None:
         """
         StreamEnded has a useful debug representation.
         """
@@ -246,7 +244,7 @@ class TestEventReprs(object):
 
         assert repr(e) == "<StreamEnded stream_id:99>"
 
-    def test_streamreset_repr(self):
+    def test_streamreset_repr(self) -> None:
         """
         StreamEnded has a useful debug representation.
         """
@@ -266,7 +264,7 @@ class TestEventReprs(object):
                 "error_code:ErrorCodes.ENHANCE_YOUR_CALM, remote_reset:False>"
             )
 
-    def test_pushedstreamreceived_repr(self):
+    def test_pushedstreamreceived_repr(self) -> None:
         """
         PushedStreamReceived has a useful debug representation.
         """
@@ -284,7 +282,7 @@ class TestEventReprs(object):
             "(':method', 'GET')]>"
         )
 
-    def test_settingsacknowledged_repr(self):
+    def test_settingsacknowledged_repr(self) -> None:
         """
         SettingsAcknowledged has a useful debug representation.
         """
@@ -292,7 +290,7 @@ class TestEventReprs(object):
         e.changed_settings = {
             h2.settings.SettingCodes.INITIAL_WINDOW_SIZE:
                 h2.settings.ChangedSetting(
-                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15
+                    h2.settings.SettingCodes.INITIAL_WINDOW_SIZE, 2**16, 2**15,
                 ),
         }
 
@@ -309,7 +307,7 @@ class TestEventReprs(object):
                 "new_value=32768)}>"
             )
 
-    def test_priorityupdated_repr(self):
+    def test_priorityupdated_repr(self) -> None:
         """
         PriorityUpdated has a useful debug representation.
         """
@@ -324,11 +322,11 @@ class TestEventReprs(object):
             "exclusive:True>"
         )
 
-    @pytest.mark.parametrize("additional_data,data_repr", [
+    @pytest.mark.parametrize(("additional_data", "data_repr"), [
         (None, "None"),
-        (b'some data', "736f6d652064617461")
+        (b"some data", "736f6d652064617461"),
     ])
-    def test_connectionterminated_repr(self, additional_data, data_repr):
+    def test_connectionterminated_repr(self, additional_data, data_repr) -> None:
         """
         ConnectionTerminated has a useful debug representation.
         """
@@ -340,15 +338,15 @@ class TestEventReprs(object):
         if sys.version_info >= (3, 11):
             assert repr(e) == (
                 "<ConnectionTerminated error_code:12, "
-                "last_stream_id:33, additional_data:%s>" % data_repr
+                f"last_stream_id:33, additional_data:{data_repr}>"
             )
         else:
             assert repr(e) == (
                 "<ConnectionTerminated error_code:ErrorCodes.INADEQUATE_SECURITY, "
-                "last_stream_id:33, additional_data:%s>" % data_repr
+                f"last_stream_id:33, additional_data:{data_repr}>"
             )
 
-    def test_alternativeserviceavailable_repr(self):
+    def test_alternativeserviceavailable_repr(self) -> None:
         """
         AlternativeServiceAvailable has a useful debug representation.
         """
@@ -361,31 +359,31 @@ class TestEventReprs(object):
             'field_value:h2=":8000"; ma=60>'
         )
 
-    def test_unknownframereceived_repr(self):
+    def test_unknownframereceived_repr(self) -> None:
         """
         UnknownFrameReceived has a useful debug representation.
         """
         e = h2.events.UnknownFrameReceived()
-        assert repr(e) == '<UnknownFrameReceived>'
+        assert repr(e) == "<UnknownFrameReceived>"
 
 
 def all_events():
     """
     Generates all the classes (i.e., events) defined in h2.events.
     """
-    for _, obj in inspect.getmembers(sys.modules['h2.events']):
+    for _, obj in inspect.getmembers(sys.modules["h2.events"]):
 
         # We are only interested in objects that are defined in h2.events;
         # objects that are imported from other modules are not of interest.
-        if hasattr(obj, '__module__') and (obj.__module__ != 'h2.events'):
+        if hasattr(obj, "__module__") and (obj.__module__ != "h2.events"):
             continue
 
         if inspect.isclass(obj):
             yield obj
 
 
-@pytest.mark.parametrize('event', all_events())
-def test_all_events_subclass_from_event(event):
+@pytest.mark.parametrize("event", all_events())
+def test_all_events_subclass_from_event(event) -> None:
     """
     Every event defined in h2.events subclasses from h2.events.Event.
     """
