@@ -1,6 +1,17 @@
 Release History
 ===============
 
+dev
+---
+
+**API Changes (Backward Incompatible)**
+
+-
+
+**Bugfixes**
+
+-
+
 4.2.0 (2025-02-01)
 ------------------
 
