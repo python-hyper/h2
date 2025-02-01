@@ -225,11 +225,11 @@ commands = [
 ]
 
 [tool.tox.env.publish]
-base_python = "{[tool.tox.env.packaging]base_python}"
-deps = "{[tool.tox.env.packaging]deps}"
-allowlist_externals = "{[tool.tox.env.packaging]allowlist_externals}"
+base_python = ["python39"]
+dependency_groups = ["packaging"]
 commands = [
-    "{[testenv:packaging]commands}",
+    ["python", "-m", "build", "--outdir", "dist/"],
+    ["twine", "check", "dist/*"],
     ["twine", "upload", "dist/*"],
 ]
 
