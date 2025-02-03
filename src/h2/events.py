@@ -11,6 +11,7 @@ H2 state machine it processes the data and returns a list of Event objects.
 from __future__ import annotations
 
 import binascii
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .settings import ChangedSetting, SettingCodes, Settings, _setting_code_from_int
@@ -292,6 +293,7 @@ class DataReceived(Event):
         )
 
 
+@dataclass(kw_only=True)
 class WindowUpdated(Event):
     """
     The WindowUpdated event is fired whenever a flow control window changes
@@ -301,13 +303,16 @@ class WindowUpdated(Event):
     the connection), and the delta in the window size.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream whose flow control window was changed.
-        #: May be ``0`` if the connection window was changed.
-        self.stream_id: int | None = None
+    stream_id: int
+    """
+    The Stream ID of the stream whose flow control window was changed.
+    May be ``0`` if the connection window was changed.
+    """
 
-        #: The window delta.
-        self.delta: int | None = None
+    delta: int | None = None
+    """
+    The window delta.
+    """
 
     def __repr__(self) -> str:
         return f"<WindowUpdated stream_id:{self.stream_id}, delta:{self.delta}>"

@@ -232,9 +232,7 @@ class H2StreamStateMachine:
         """
         Fires when a window update frame is received.
         """
-        event = WindowUpdated()
-        event.stream_id = self.stream_id
-        return [event]
+        return [WindowUpdated(stream_id=self.stream_id)]
 
     def stream_half_closed(self, previous_state: StreamState) -> list[Event]:
         """
