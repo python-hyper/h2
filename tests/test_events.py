@@ -186,9 +186,7 @@ class TestEventReprs:
         """
         WindowUpdated has a useful debug representation.
         """
-        e = h2.events.WindowUpdated()
-        e.stream_id = 0
-        e.delta = 2**16
+        e = h2.events.WindowUpdated(stream_id=0, delta=2**16)
 
         assert repr(e) == "<WindowUpdated stream_id:0, delta:65536>"
 
