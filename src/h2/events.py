@@ -301,13 +301,20 @@ class WindowUpdated(Event):
     the connection), and the delta in the window size.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream whose flow control window was changed.
-        #: May be ``0`` if the connection window was changed.
-        self.stream_id: int | None = None
+    stream_id: int
+    """
+    The Stream ID of the stream whose flow control window was changed.
+    May be ``0`` if the connection window was changed.
+    """
 
-        #: The window delta.
-        self.delta: int | None = None
+    delta: int | None
+    """
+    The window delta.
+    """
+
+    def __init__(self, *, stream_id: int, delta: int | None = None) -> None:
+        self.stream_id = stream_id
+        self.delta = delta
 
     def __repr__(self) -> str:
         return f"<WindowUpdated stream_id:{self.stream_id}, delta:{self.delta}>"

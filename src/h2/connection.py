@@ -1806,9 +1806,7 @@ class H2Connection:
             )
 
             # FIXME: Should we split this into one event per active stream?
-            window_updated_event = WindowUpdated()
-            window_updated_event.stream_id = 0
-            window_updated_event.delta = frame.window_increment
+            window_updated_event = WindowUpdated(stream_id=0, delta=frame.window_increment)
             stream_events = [window_updated_event]
             frames = []
 
