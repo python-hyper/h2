@@ -11,6 +11,7 @@ H2 state machine it processes the data and returns a list of Event objects.
 from __future__ import annotations
 
 import binascii
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from hyperframe.frame import Frame
 
     from .errors import ErrorCodes
+
+
+if sys.version_info < (3, 10):  # pragma: no cover
+    kw_only: dict[str, bool] = {}
+else:  # pragma: no cover
+    kw_only = {"kw_only": True}
 
 
 class Event:
@@ -293,7 +300,7 @@ class DataReceived(Event):
         )
 
 
-@dataclass(kw_only=True)
+@dataclass(**kw_only)
 class WindowUpdated(Event):
     """
     The WindowUpdated event is fired whenever a flow control window changes
