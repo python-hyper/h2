@@ -159,9 +159,10 @@ class TestEventReprs:
         """
         InformationalResponseReceived has a useful debug representation.
         """
-        e = h2.events.InformationalResponseReceived()
-        e.stream_id = 62
-        e.headers = self.example_informational_headers
+        e = h2.events.InformationalResponseReceived(
+            stream_id=62,
+            headers=self.example_informational_headers,
+        )
 
         assert repr(e) == (
             "<InformationalResponseReceived stream_id:62, headers:["

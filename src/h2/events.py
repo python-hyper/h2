@@ -235,7 +235,7 @@ class _PushedRequestSent(_HeadersSent):
     """
 
 
-
+@dataclass(**kw_only)
 class InformationalResponseReceived(Event):
     """
     The InformationalResponseReceived event is fired when an informational
@@ -259,20 +259,20 @@ class InformationalResponseReceived(Event):
        Added ``priority_updated`` property.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this informational response was made
-        #: on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this informational response was made on."""
 
-        #: The headers for this informational response.
-        self.headers: list[Header] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The headers for this informational response."""
 
-        #: If this response also had associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    priority_updated: PriorityUpdated | None = None
+    """
+    If this response also had associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<InformationalResponseReceived stream_id:{self.stream_id}, headers:{self.headers}>"

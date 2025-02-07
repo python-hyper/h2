@@ -424,9 +424,7 @@ class H2StreamStateMachine:
             msg = "Informational response after final response"
             raise ProtocolError(msg)
 
-        event = InformationalResponseReceived()
-        event.stream_id = self.stream_id
-        return [event]
+        return [InformationalResponseReceived(stream_id=self.stream_id)]
 
     def recv_alt_svc(self, previous_state: StreamState) -> list[Event]:
         """
