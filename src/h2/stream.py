@@ -46,7 +46,7 @@ from .utilities import (
 from .windows import WindowManager
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Generator, Iterable
+    from collections.abc import Callable, Generator, Iterable
 
     from hpack.hpack import Encoder
     from hpack.struct import Header, HeaderWeaklyTyped
@@ -131,7 +131,7 @@ class H2StreamStateMachine:
         # How the stream was closed. One of StreamClosedBy.
         self.stream_closed_by: StreamClosedBy | None = None
 
-    def process_input(self, input_: StreamInputs) -> Any:
+    def process_input(self, input_: StreamInputs) -> list[Event]:
         """
         Process a specific input in the state machine.
         """
@@ -315,21 +315,23 @@ class H2StreamStateMachine:
         event.parent_stream_id = self.stream_id
         return [event]
 
-    def send_end_stream(self, previous_state: StreamState) -> None:
+    def send_end_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when an attempt is made to send END_STREAM in the
         HALF_CLOSED_REMOTE state.
         """
         self.stream_closed_by = StreamClosedBy.SEND_END_STREAM
+        return []
 
-    def send_reset_stream(self, previous_state: StreamState) -> None:
+    def send_reset_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when an attempt is made to send RST_STREAM in a non-closed
         stream state.
         """
         self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
+        return []
 
-    def reset_stream_on_error(self, previous_state: StreamState) -> None:
+    def reset_stream_on_error(self, previous_state: StreamState) -> list[Event]:
         """
         Called when we need to forcefully emit another RST_STREAM frame on
         behalf of the state machine.
@@ -350,7 +352,7 @@ class H2StreamStateMachine:
         error._events = [event]
         raise error
 
-    def recv_on_closed_stream(self, previous_state: StreamState) -> None:
+    def recv_on_closed_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when an unexpected frame is received on an already-closed
         stream.
@@ -362,7 +364,7 @@ class H2StreamStateMachine:
         """
         raise StreamClosedError(self.stream_id)
 
-    def send_on_closed_stream(self, previous_state: StreamState) -> None:
+    def send_on_closed_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when an attempt is made to send data on an already-closed
         stream.
@@ -374,7 +376,7 @@ class H2StreamStateMachine:
         """
         raise StreamClosedError(self.stream_id)
 
-    def recv_push_on_closed_stream(self, previous_state: StreamState) -> None:
+    def recv_push_on_closed_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when a PUSH_PROMISE frame is received on a full stop
         stream.
@@ -393,7 +395,7 @@ class H2StreamStateMachine:
         msg = "Attempted to push on closed stream."
         raise ProtocolError(msg)
 
-    def send_push_on_closed_stream(self, previous_state: StreamState) -> None:
+    def send_push_on_closed_stream(self, previous_state: StreamState) -> list[Event]:
         """
         Called when an attempt is made to push on an already-closed stream.
 
@@ -473,7 +475,7 @@ class H2StreamStateMachine:
         # the event and let it get populated.
         return [AlternativeServiceAvailable()]
 
-    def send_alt_svc(self, previous_state: StreamState) -> None:
+    def send_alt_svc(self, previous_state: StreamState) -> list[Event]:
         """
         Called when sending an ALTSVC frame on this stream.
 
@@ -489,6 +491,7 @@ class H2StreamStateMachine:
         if self.headers_sent:
             msg = "Cannot send ALTSVC after sending response headers."
             raise ProtocolError(msg)
+        return []
 
 
 
@@ -561,7 +564,10 @@ class H2StreamStateMachine:
 # (state, input) to tuples of (side_effect_function, end_state). This
 # map contains all allowed transitions: anything not in this map is
 # invalid and immediately causes a transition to ``closed``.
-_transitions = {
+_transitions: dict[
+    tuple[StreamState, StreamInputs],
+    tuple[Callable[[H2StreamStateMachine, StreamState], list[Event]] | None, StreamState],
+] = {
     # State: idle
     (StreamState.IDLE, StreamInputs.SEND_HEADERS):
         (H2StreamStateMachine.request_sent, StreamState.OPEN),
