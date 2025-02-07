@@ -1972,8 +1972,7 @@ class H2Connection:
         self.config.logger.debug(
             "Received unknown extension frame (ID %d)", frame.stream_id,
         )
-        event = UnknownFrameReceived()
-        event.frame = frame
+        event = UnknownFrameReceived(frame=frame)
         return [], [event]
 
     def _local_settings_acked(self) -> dict[SettingCodes | int, ChangedSetting]:

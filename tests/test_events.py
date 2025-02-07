@@ -7,6 +7,7 @@ from __future__ import annotations
 import inspect
 import sys
 
+import hyperframe.frame
 import pytest
 from hypothesis import given
 from hypothesis.strategies import integers, lists, tuples
@@ -360,7 +361,7 @@ class TestEventReprs:
         """
         UnknownFrameReceived has a useful debug representation.
         """
-        e = h2.events.UnknownFrameReceived()
+        e = h2.events.UnknownFrameReceived(frame=hyperframe.frame.Frame(1))
         assert repr(e) == "<UnknownFrameReceived>"
 
 

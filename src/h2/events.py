@@ -635,6 +635,7 @@ class AlternativeServiceAvailable(Event):
         )
 
 
+@dataclass(**kw_only)
 class UnknownFrameReceived(Event):
     """
     The UnknownFrameReceived event is fired when the remote peer sends a frame
@@ -650,9 +651,7 @@ class UnknownFrameReceived(Event):
     .. versionadded:: 2.7.0
     """
 
-    def __init__(self) -> None:
-        #: The hyperframe Frame object that encapsulates the received frame.
-        self.frame: Frame | None = None
+    frame: Frame
 
     def __repr__(self) -> str:
         return "<UnknownFrameReceived>"
