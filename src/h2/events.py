@@ -13,7 +13,7 @@ from __future__ import annotations
 import binascii
 import sys
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .settings import ChangedSetting, SettingCodes, Settings, _setting_code_from_int
 
@@ -128,6 +128,7 @@ class ResponseReceived(Event):
         return f"<ResponseReceived stream_id:{self.stream_id}, headers:{self.headers}>"
 
 
+@dataclass(**kw_only)
 class TrailersReceived(Event):
     """
     The TrailersReceived event is fired whenever trailers are received on a
@@ -145,25 +146,28 @@ class TrailersReceived(Event):
        Added ``stream_ended`` and ``priority_updated`` properties.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream on which these trailers were received.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream on which these trailers were received."""
 
-        #: The trailers themselves.
-        self.headers: list[Header] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The trailers themselves."""
 
-        #: Trailers always end streams. This property has the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` in it.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    Trailers always end streams. This property has the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` in it.
 
-        #: If the trailers also set associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    .. versionadded:: 2.4.0
+    """
+
+    priority_updated: PriorityUpdated | None = None
+    """
+    If the trailers also set associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<TrailersReceived stream_id:{self.stream_id}, headers:{self.headers}>"

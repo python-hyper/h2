@@ -212,7 +212,7 @@ class H2StreamStateMachine:
         else:
             assert not self.trailers_received
             self.trailers_received = True
-            event = TrailersReceived()
+            event = TrailersReceived(stream_id=self.stream_id)
 
         event.stream_id = self.stream_id
         return [event]

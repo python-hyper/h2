@@ -144,9 +144,7 @@ class TestEventReprs:
         """
         TrailersReceived has a useful debug representation.
         """
-        e = h2.events.TrailersReceived()
-        e.stream_id = 62
-        e.headers = self.example_response_headers
+        e = h2.events.TrailersReceived(stream_id=62, headers=self.example_response_headers)
 
         assert repr(e) == (
             "<TrailersReceived stream_id:62, headers:["
