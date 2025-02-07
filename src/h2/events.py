@@ -433,6 +433,7 @@ class PingAckReceived(Event):
         return f"<PingAckReceived ping_data:{_bytes_representation(self.ping_data)}>"
 
 
+@dataclass(**kw_only)
 class StreamEnded(Event):
     """
     The StreamEnded event is fired whenever a stream is ended by a remote
@@ -440,9 +441,8 @@ class StreamEnded(Event):
     locally, but no further data or headers should be expected on that stream.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream that was closed.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID of the stream that was closed."""
 
     def __repr__(self) -> str:
         return f"<StreamEnded stream_id:{self.stream_id}>"

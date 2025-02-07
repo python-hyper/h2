@@ -236,8 +236,7 @@ class TestEventReprs:
         """
         StreamEnded has a useful debug representation.
         """
-        e = h2.events.StreamEnded()
-        e.stream_id = 99
+        e = h2.events.StreamEnded(stream_id=99)
 
         assert repr(e) == "<StreamEnded stream_id:99>"
 

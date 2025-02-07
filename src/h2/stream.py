@@ -238,8 +238,7 @@ class H2StreamStateMachine:
         Fires when an END_STREAM flag is received in the OPEN state,
         transitioning this stream to a HALF_CLOSED_REMOTE state.
         """
-        event = StreamEnded()
-        event.stream_id = self.stream_id
+        event = StreamEnded(stream_id=self.stream_id)
         return [event]
 
     def stream_ended(self, previous_state: StreamState) -> list[Event]:
@@ -247,8 +246,7 @@ class H2StreamStateMachine:
         Fires when a stream is cleanly ended.
         """
         self.stream_closed_by = StreamClosedBy.RECV_END_STREAM
-        event = StreamEnded()
-        event.stream_id = self.stream_id
+        event = StreamEnded(stream_id=self.stream_id)
         return [event]
 
     def stream_reset(self, previous_state: StreamState) -> list[Event]:
