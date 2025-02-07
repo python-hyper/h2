@@ -224,8 +224,7 @@ class H2StreamStateMachine:
         if not self.headers_received:
             msg = "cannot receive data before headers"
             raise ProtocolError(msg)
-        event = DataReceived()
-        event.stream_id = self.stream_id
+        event = DataReceived(stream_id=self.stream_id)
         return [event]
 
     def window_updated(self, previous_state: StreamState) -> list[Event]:

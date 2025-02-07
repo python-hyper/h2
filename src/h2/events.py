@@ -13,7 +13,7 @@ from __future__ import annotations
 import binascii
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from .settings import ChangedSetting, SettingCodes, Settings, _setting_code_from_int
 
@@ -28,6 +28,15 @@ if sys.version_info < (3, 10):  # pragma: no cover
     kw_only: dict[str, bool] = {}
 else:  # pragma: no cover
     kw_only = {"kw_only": True}
+
+
+_LAZY_INIT: Any = object()
+"""
+Some h2 events are instantiated by the state machine, but its attributes are
+subsequently populated by H2Stream. To make this work with strict type annotations
+on the events, they are temporarily set to this placeholder value.
+This value should never be exposed to users.
+"""
 
 
 class Event:
@@ -258,6 +267,7 @@ class InformationalResponseReceived(Event):
         return f"<InformationalResponseReceived stream_id:{self.stream_id}, headers:{self.headers}>"
 
 
+@dataclass(**kw_only)
 class DataReceived(Event):
     """
     The DataReceived event is fired whenever data is received on a stream from
@@ -268,25 +278,28 @@ class DataReceived(Event):
        Added ``stream_ended`` property.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this data was received on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this data was received on."""
 
-        #: The data itself.
-        self.data: bytes | None = None
+    data: bytes = _LAZY_INIT
+    """The data itself."""
 
-        #: The amount of data received that counts against the flow control
-        #: window. Note that padding counts against the flow control window, so
-        #: when adjusting flow control you should always use this field rather
-        #: than ``len(data)``.
-        self.flow_controlled_length: int | None = None
+    flow_controlled_length: int = _LAZY_INIT
+    """
+    The amount of data received that counts against the flow control
+    window. Note that padding counts against the flow control window, so
+    when adjusting flow control you should always use this field rather
+    than ``len(data)``.
+    """
 
-        #: If this data chunk also completed the stream, the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
-        #: here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    If this data chunk also completed the stream, the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+    here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return (

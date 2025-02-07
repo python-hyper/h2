@@ -172,10 +172,11 @@ class TestEventReprs:
         """
         DataReceived has a useful debug representation.
         """
-        e = h2.events.DataReceived()
-        e.stream_id = 888
-        e.data = b"abcdefghijklmnopqrstuvwxyz"
-        e.flow_controlled_length = 88
+        e = h2.events.DataReceived(
+            stream_id=888,
+            data=b"abcdefghijklmnopqrstuvwxyz",
+            flow_controlled_length=88,
+        )
 
         assert repr(e) == (
             "<DataReceived stream_id:888, flow_controlled_length:88, "
