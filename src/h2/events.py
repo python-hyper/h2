@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from .settings import ChangedSetting, SettingCodes, Settings, _setting_code_from_int
 
 if TYPE_CHECKING:  # pragma: no cover
-    from hpack import HeaderTuple
+    from hpack.struct import Header
     from hyperframe.frame import Frame
 
     from .errors import ErrorCodes
@@ -52,7 +52,7 @@ class RequestReceived(Event):
         self.stream_id: int | None = None
 
         #: The request headers.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
         #: If this request also ended the stream, the associated
         #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
@@ -91,7 +91,7 @@ class ResponseReceived(Event):
         self.stream_id: int | None = None
 
         #: The response headers.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
         #: If this response also ended the stream, the associated
         #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
@@ -133,7 +133,7 @@ class TrailersReceived(Event):
         self.stream_id: int | None = None
 
         #: The trailers themselves.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
         #: Trailers always end streams. This property has the associated
         #: :class:`StreamEnded <h2.events.StreamEnded>` in it.
@@ -237,7 +237,7 @@ class InformationalResponseReceived(Event):
         self.stream_id: int | None = None
 
         #: The headers for this informational response.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
         #: If this response also had associated priority information, the
         #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
@@ -436,7 +436,7 @@ class StreamReset(Event):
 
         #: The error code given. Either one of :class:`ErrorCodes
         #: <h2.errors.ErrorCodes>` or ``int``
-        self.error_code: ErrorCodes | None = None
+        self.error_code: ErrorCodes | int | None = None
 
         #: Whether the remote peer sent a RST_STREAM or we did.
         self.remote_reset = True
@@ -460,7 +460,7 @@ class PushedStreamReceived(Event):
         self.parent_stream_id: int | None = None
 
         #: The request headers, sent by the remote party in the push.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
     def __repr__(self) -> str:
         return (

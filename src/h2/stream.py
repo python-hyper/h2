@@ -7,7 +7,7 @@ An implementation of a HTTP/2 stream.
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from hpack import HeaderTuple
 from hyperframe.frame import AltSvcFrame, ContinuationFrame, DataFrame, Frame, HeadersFrame, PushPromiseFrame, RstStreamFrame, WindowUpdateFrame
@@ -1046,10 +1046,11 @@ class H2Stream:
         events = self.state_machine.process_input(
             StreamInputs.RECV_PUSH_PROMISE,
         )
-        events[0].pushed_stream_id = promised_stream_id
+        push_event = cast(PushedStreamReceived, events[0])
+        push_event.pushed_stream_id = promised_stream_id
 
         hdr_validation_flags = self._build_hdr_validation_flags(events)
-        events[0].headers = self._process_received_headers(
+        push_event.headers = self._process_received_headers(
             headers, hdr_validation_flags, header_encoding,
         )
         return [], events
@@ -1083,22 +1084,30 @@ class H2Stream:
             input_ = StreamInputs.RECV_HEADERS
 
         events = self.state_machine.process_input(input_)
+        headers_event = cast(
+            Union[RequestReceived, ResponseReceived, TrailersReceived, InformationalResponseReceived],
+            events[0],
+        )
 
         if end_stream:
             es_events = self.state_machine.process_input(
                 StreamInputs.RECV_END_STREAM,
             )
-            events[0].stream_ended = es_events[0]
+            # We ensured it's not an information response at the beginning of the method.
+            cast(
+                Union[RequestReceived, ResponseReceived, TrailersReceived],
+                headers_event,
+            ).stream_ended = cast(StreamEnded, es_events[0])
             events += es_events
 
         self._initialize_content_length(headers)
 
-        if isinstance(events[0], TrailersReceived) and not end_stream:
+        if isinstance(headers_event, TrailersReceived) and not end_stream:
             msg = "Trailers must have END_STREAM set"
             raise ProtocolError(msg)
 
         hdr_validation_flags = self._build_hdr_validation_flags(events)
-        events[0].headers = self._process_received_headers(
+        headers_event.headers = self._process_received_headers(
             headers, hdr_validation_flags, header_encoding,
         )
         return [], events
@@ -1112,6 +1121,7 @@ class H2Stream:
             "set to %d", self, end_stream, flow_control_len,
         )
         events = self.state_machine.process_input(StreamInputs.RECV_DATA)
+        data_event = cast(DataReceived, events[0])
         self._inbound_window_manager.window_consumed(flow_control_len)
         self._track_content_length(len(data), end_stream)
 
@@ -1119,11 +1129,11 @@ class H2Stream:
             es_events = self.state_machine.process_input(
                 StreamInputs.RECV_END_STREAM,
             )
-            events[0].stream_ended = es_events[0]
+            data_event.stream_ended = cast(StreamEnded, es_events[0])
             events.extend(es_events)
 
-        events[0].data = data
-        events[0].flow_controlled_length = flow_control_len
+        data_event.data = data
+        data_event.flow_controlled_length = flow_control_len
         return [], events
 
     def receive_window_update(self, increment: int) -> tuple[list[Frame], list[Event]]:
@@ -1143,7 +1153,7 @@ class H2Stream:
         # this should be treated as a *stream* error, not a *connection* error.
         # That means we need to catch the error and forcibly close the stream.
         if events:
-            events[0].delta = increment
+            cast(WindowUpdated, events[0]).delta = increment
             try:
                 self.outbound_flow_control_window = guard_increment_window(
                     self.outbound_flow_control_window,
@@ -1226,7 +1236,7 @@ class H2Stream:
 
         if events:
             # We don't fire an event if this stream is already closed.
-            events[0].error_code = _error_code_from_int(frame.error_code)
+            cast(StreamReset, events[0]).error_code = _error_code_from_int(frame.error_code)
 
         return [], events
 
@@ -1328,7 +1338,7 @@ class H2Stream:
     def _process_received_headers(self,
                                   headers: Iterable[Header],
                                   header_validation_flags: HeaderValidationFlags,
-                                  header_encoding: bool | str | None) -> Iterable[Header]:
+                                  header_encoding: bool | str | None) -> list[Header]:
         """
         When headers have been received from the remote peer, run a processing
         pipeline on them to transform them into the appropriate form for
