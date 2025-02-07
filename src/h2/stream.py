@@ -195,8 +195,7 @@ class H2StreamStateMachine:
 
         self.client = False
         self.headers_received = True
-        event = RequestReceived()
-        event.stream_id = self.stream_id
+        event = RequestReceived(stream_id=self.stream_id)
         return [event]
 
     def response_received(self, previous_state: StreamState) -> list[Event]:

@@ -45,7 +45,7 @@ class Event:
     """
 
 
-
+@dataclass(**kw_only)
 class RequestReceived(Event):
     """
     The RequestReceived event is fired whenever all of a request's headers
@@ -64,26 +64,29 @@ class RequestReceived(Event):
        Added ``stream_ended`` and ``priority_updated`` properties.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this request was made on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this request was made on."""
 
-        #: The request headers.
-        self.headers: list[Header] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The request headers."""
 
-        #: If this request also ended the stream, the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
-        #: here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    If this request also ended the stream, the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+    here.
 
-        #: If this request also had associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    .. versionadded:: 2.4.0
+    """
+
+    priority_updated: PriorityUpdated | None = None
+    """
+    If this request also had associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<RequestReceived stream_id:{self.stream_id}, headers:{self.headers}>"
