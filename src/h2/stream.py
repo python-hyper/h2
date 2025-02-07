@@ -257,9 +257,7 @@ class H2StreamStateMachine:
         Fired when a stream is forcefully reset.
         """
         self.stream_closed_by = StreamClosedBy.RECV_RST_STREAM
-        event = StreamReset()
-        event.stream_id = self.stream_id
-        return [event]
+        return [StreamReset(stream_id=self.stream_id)]
 
     def send_new_pushed_stream(self, previous_state: StreamState) -> list[Event]:
         """
@@ -342,12 +340,13 @@ class H2StreamStateMachine:
         self.stream_closed_by = StreamClosedBy.SEND_RST_STREAM
 
         error = StreamClosedError(self.stream_id)
-
-        event = StreamReset()
-        event.stream_id = self.stream_id
-        event.error_code = ErrorCodes.STREAM_CLOSED
-        event.remote_reset = False
-        error._events = [event]
+        error._events = [
+            StreamReset(
+                stream_id=self.stream_id,
+                error_code=ErrorCodes.STREAM_CLOSED,
+                remote_reset=False,
+            ),
+        ]
         raise error
 
     def recv_on_closed_stream(self, previous_state: StreamState) -> list[Event]:
@@ -1160,13 +1159,14 @@ class H2Stream:
             except FlowControlError:
                 # Ok, this is bad. We're going to need to perform a local
                 # reset.
-                event = StreamReset()
-                event.stream_id = self.stream_id
-                event.error_code = ErrorCodes.FLOW_CONTROL_ERROR
-                event.remote_reset = False
-
-                events = [event]
-                frames = self.reset_stream(event.error_code)
+                events = [
+                    StreamReset(
+                        stream_id=self.stream_id,
+                        error_code=ErrorCodes.FLOW_CONTROL_ERROR,
+                        remote_reset=False,
+                    ),
+                ]
+                frames = self.reset_stream(ErrorCodes.FLOW_CONTROL_ERROR)
 
         return frames, events
 

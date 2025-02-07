@@ -246,10 +246,11 @@ class TestEventReprs:
         """
         StreamEnded has a useful debug representation.
         """
-        e = h2.events.StreamReset()
-        e.stream_id = 919
-        e.error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
-        e.remote_reset = False
+        e = h2.events.StreamReset(
+            stream_id=919,
+            error_code=h2.errors.ErrorCodes.ENHANCE_YOUR_CALM,
+            remote_reset=False,
+        )
 
         if sys.version_info >= (3, 11):
             assert repr(e) == (

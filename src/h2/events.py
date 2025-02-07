@@ -431,6 +431,7 @@ class StreamEnded(Event):
         return f"<StreamEnded stream_id:{self.stream_id}>"
 
 
+@dataclass(**kw_only)
 class StreamReset(Event):
     """
     The StreamReset event is fired in two situations. The first is when the
@@ -442,16 +443,20 @@ class StreamReset(Event):
        This event is now fired when h2 automatically resets a stream.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream that was reset.
-        self.stream_id: int | None = None
+    stream_id: int
+    """
+    The Stream ID of the stream that was reset.
+    """
 
-        #: The error code given. Either one of :class:`ErrorCodes
-        #: <h2.errors.ErrorCodes>` or ``int``
-        self.error_code: ErrorCodes | int | None = None
+    error_code: ErrorCodes | int = _LAZY_INIT
+    """
+    The error code given.
+    """
 
-        #: Whether the remote peer sent a RST_STREAM or we did.
-        self.remote_reset = True
+    remote_reset: bool = True
+    """
+    Whether the remote peer sent a RST_STREAM or we did.
+    """
 
     def __repr__(self) -> str:
         return f"<StreamReset stream_id:{self.stream_id}, error_code:{self.error_code!s}, remote_reset:{self.remote_reset}>"
