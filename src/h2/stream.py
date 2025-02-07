@@ -207,7 +207,7 @@ class H2StreamStateMachine:
         if not self.headers_received:
             assert self.client is True
             self.headers_received = True
-            event = ResponseReceived()
+            event = ResponseReceived(stream_id=self.stream_id)
         else:
             assert not self.trailers_received
             self.trailers_received = True

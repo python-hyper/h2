@@ -132,9 +132,10 @@ class TestEventReprs:
         """
         ResponseReceived has a useful debug representation.
         """
-        e = h2.events.ResponseReceived()
-        e.stream_id = 500
-        e.headers = self.example_response_headers
+        e = h2.events.ResponseReceived(
+            stream_id=500,
+            headers=self.example_response_headers,
+        )
 
         assert repr(e) == (
             "<ResponseReceived stream_id:500, headers:["
