@@ -403,6 +403,7 @@ class RemoteSettingsChanged(Event):
         )
 
 
+@dataclass(**kw_only)
 class PingReceived(Event):
     """
     The PingReceived event is fired whenever a PING is received. It contains
@@ -412,14 +413,14 @@ class PingReceived(Event):
     .. versionadded:: 3.1.0
     """
 
-    def __init__(self) -> None:
-        #: The data included on the ping.
-        self.ping_data: bytes | None = None
+    ping_data: bytes
+    """The data included on the ping."""
 
     def __repr__(self) -> str:
         return f"<PingReceived ping_data:{_bytes_representation(self.ping_data)}>"
 
 
+@dataclass(**kw_only)
 class PingAckReceived(Event):
     """
     The PingAckReceived event is fired whenever a PING acknowledgment is
@@ -432,9 +433,8 @@ class PingAckReceived(Event):
        Removed deprecated but equivalent ``PingAcknowledged``.
     """
 
-    def __init__(self) -> None:
-        #: The data included on the ping.
-        self.ping_data: bytes | None = None
+    ping_data: bytes
+    """The data included on the ping."""
 
     def __repr__(self) -> str:
         return f"<PingAckReceived ping_data:{_bytes_representation(self.ping_data)}>"

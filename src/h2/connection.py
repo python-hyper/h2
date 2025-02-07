@@ -1823,9 +1823,9 @@ class H2Connection:
 
         evt: PingReceived | PingAckReceived
         if "ACK" in frame.flags:
-            evt = PingAckReceived()
+            evt = PingAckReceived(ping_data=frame.opaque_data)
         else:
-            evt = PingReceived()
+            evt = PingReceived(ping_data=frame.opaque_data)
 
             # automatically ACK the PING with the same 'opaque data'
             f = PingFrame(0)
@@ -1833,7 +1833,6 @@ class H2Connection:
             f.opaque_data = frame.opaque_data
             frames.append(f)
 
-        evt.ping_data = frame.opaque_data
         events.append(evt)
 
         return frames, events

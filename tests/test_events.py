@@ -222,8 +222,7 @@ class TestEventReprs:
         """
         PingReceived has a useful debug representation.
         """
-        e = h2.events.PingReceived()
-        e.ping_data = b"abcdefgh"
+        e = h2.events.PingReceived(ping_data=b"abcdefgh")
 
         assert repr(e) == "<PingReceived ping_data:6162636465666768>"
 
@@ -231,8 +230,7 @@ class TestEventReprs:
         """
         PingAckReceived has a useful debug representation.
         """
-        e = h2.events.PingAckReceived()
-        e.ping_data = b"abcdefgh"
+        e = h2.events.PingAckReceived(ping_data=b"abcdefgh")
 
         assert repr(e) == "<PingAckReceived ping_data:6162636465666768>"
 
