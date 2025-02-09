@@ -340,7 +340,7 @@ class WindowUpdated(Event):
     May be ``0`` if the connection window was changed.
     """
 
-    delta: int | None = None
+    delta: int = _LAZY_INIT
     """
     The window delta.
     """
