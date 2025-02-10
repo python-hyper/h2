@@ -8,6 +8,11 @@ dev
 
 -
 
+**API Changes (Backward Compatible)**
+
+- h2 events now have tighter type bounds, e.g. `stream_id` is guaranteed to not be `None` for most events now.
+  This simplifies downstream type checking.
+
 **Bugfixes**
 
 -
