@@ -11,15 +11,32 @@ H2 state machine it processes the data and returns a list of Event objects.
 from __future__ import annotations
 
 import binascii
-from typing import TYPE_CHECKING
+import sys
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from .settings import ChangedSetting, SettingCodes, Settings, _setting_code_from_int
 
 if TYPE_CHECKING:  # pragma: no cover
-    from hpack import HeaderTuple
+    from hpack.struct import Header
     from hyperframe.frame import Frame
 
     from .errors import ErrorCodes
+
+
+if sys.version_info < (3, 10):  # pragma: no cover
+    kw_only: dict[str, bool] = {}
+else:  # pragma: no cover
+    kw_only = {"kw_only": True}
+
+
+_LAZY_INIT: Any = object()
+"""
+Some h2 events are instantiated by the state machine, but its attributes are
+subsequently populated by H2Stream. To make this work with strict type annotations
+on the events, they are temporarily set to this placeholder value.
+This value should never be exposed to users.
+"""
 
 
 class Event:
@@ -28,7 +45,7 @@ class Event:
     """
 
 
-
+@dataclass(**kw_only)
 class RequestReceived(Event):
     """
     The RequestReceived event is fired whenever all of a request's headers
@@ -47,31 +64,35 @@ class RequestReceived(Event):
        Added ``stream_ended`` and ``priority_updated`` properties.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this request was made on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this request was made on."""
 
-        #: The request headers.
-        self.headers: list[HeaderTuple] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The request headers."""
 
-        #: If this request also ended the stream, the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
-        #: here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    If this request also ended the stream, the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+    here.
 
-        #: If this request also had associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    .. versionadded:: 2.4.0
+    """
+
+    priority_updated: PriorityUpdated | None = None
+    """
+    If this request also had associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<RequestReceived stream_id:{self.stream_id}, headers:{self.headers}>"
 
 
+@dataclass(**kw_only)
 class ResponseReceived(Event):
     """
     The ResponseReceived event is fired whenever response headers are received.
@@ -86,31 +107,35 @@ class ResponseReceived(Event):
       Added ``stream_ended`` and ``priority_updated`` properties.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this response was made on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this response was made on."""
 
-        #: The response headers.
-        self.headers: list[HeaderTuple] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The response headers."""
 
-        #: If this response also ended the stream, the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
-        #: here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    If this response also ended the stream, the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+    here.
 
-        #: If this response also had associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    .. versionadded:: 2.4.0
+    """
+
+    priority_updated: PriorityUpdated | None = None
+    """
+    If this response also had associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<ResponseReceived stream_id:{self.stream_id}, headers:{self.headers}>"
 
 
+@dataclass(**kw_only)
 class TrailersReceived(Event):
     """
     The TrailersReceived event is fired whenever trailers are received on a
@@ -128,25 +153,28 @@ class TrailersReceived(Event):
        Added ``stream_ended`` and ``priority_updated`` properties.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream on which these trailers were received.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream on which these trailers were received."""
 
-        #: The trailers themselves.
-        self.headers: list[HeaderTuple] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The trailers themselves."""
 
-        #: Trailers always end streams. This property has the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` in it.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    Trailers always end streams. This property has the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` in it.
 
-        #: If the trailers also set associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    .. versionadded:: 2.4.0
+    """
+
+    priority_updated: PriorityUpdated | None = None
+    """
+    If the trailers also set associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<TrailersReceived stream_id:{self.stream_id}, headers:{self.headers}>"
@@ -207,7 +235,7 @@ class _PushedRequestSent(_HeadersSent):
     """
 
 
-
+@dataclass(**kw_only)
 class InformationalResponseReceived(Event):
     """
     The InformationalResponseReceived event is fired when an informational
@@ -231,25 +259,26 @@ class InformationalResponseReceived(Event):
        Added ``priority_updated`` property.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this informational response was made
-        #: on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this informational response was made on."""
 
-        #: The headers for this informational response.
-        self.headers: list[HeaderTuple] | None = None
+    headers: list[Header] = _LAZY_INIT
+    """The headers for this informational response."""
 
-        #: If this response also had associated priority information, the
-        #: associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
-        #: event will be available here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.priority_updated: PriorityUpdated | None = None
+    priority_updated: PriorityUpdated | None = None
+    """
+    If this response also had associated priority information, the
+    associated :class:`PriorityUpdated <h2.events.PriorityUpdated>`
+    event will be available here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return f"<InformationalResponseReceived stream_id:{self.stream_id}, headers:{self.headers}>"
 
 
+@dataclass(**kw_only)
 class DataReceived(Event):
     """
     The DataReceived event is fired whenever data is received on a stream from
@@ -260,25 +289,28 @@ class DataReceived(Event):
        Added ``stream_ended`` property.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID for the stream this data was received on.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID for the stream this data was received on."""
 
-        #: The data itself.
-        self.data: bytes | None = None
+    data: bytes = _LAZY_INIT
+    """The data itself."""
 
-        #: The amount of data received that counts against the flow control
-        #: window. Note that padding counts against the flow control window, so
-        #: when adjusting flow control you should always use this field rather
-        #: than ``len(data)``.
-        self.flow_controlled_length: int | None = None
+    flow_controlled_length: int = _LAZY_INIT
+    """
+    The amount of data received that counts against the flow control
+    window. Note that padding counts against the flow control window, so
+    when adjusting flow control you should always use this field rather
+    than ``len(data)``.
+    """
 
-        #: If this data chunk also completed the stream, the associated
-        #: :class:`StreamEnded <h2.events.StreamEnded>` event will be available
-        #: here.
-        #:
-        #: .. versionadded:: 2.4.0
-        self.stream_ended: StreamEnded | None = None
+    stream_ended: StreamEnded | None = None
+    """
+    If this data chunk also completed the stream, the associated
+    :class:`StreamEnded <h2.events.StreamEnded>` event will be available
+    here.
+
+    .. versionadded:: 2.4.0
+    """
 
     def __repr__(self) -> str:
         return (
@@ -292,6 +324,7 @@ class DataReceived(Event):
         )
 
 
+@dataclass(**kw_only)
 class WindowUpdated(Event):
     """
     The WindowUpdated event is fired whenever a flow control window changes
@@ -301,13 +334,16 @@ class WindowUpdated(Event):
     the connection), and the delta in the window size.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream whose flow control window was changed.
-        #: May be ``0`` if the connection window was changed.
-        self.stream_id: int | None = None
+    stream_id: int
+    """
+    The Stream ID of the stream whose flow control window was changed.
+    May be ``0`` if the connection window was changed.
+    """
 
-        #: The window delta.
-        self.delta: int | None = None
+    delta: int = _LAZY_INIT
+    """
+    The window delta.
+    """
 
     def __repr__(self) -> str:
         return f"<WindowUpdated stream_id:{self.stream_id}, delta:{self.delta}>"
@@ -367,6 +403,7 @@ class RemoteSettingsChanged(Event):
         )
 
 
+@dataclass(**kw_only)
 class PingReceived(Event):
     """
     The PingReceived event is fired whenever a PING is received. It contains
@@ -376,14 +413,14 @@ class PingReceived(Event):
     .. versionadded:: 3.1.0
     """
 
-    def __init__(self) -> None:
-        #: The data included on the ping.
-        self.ping_data: bytes | None = None
+    ping_data: bytes
+    """The data included on the ping."""
 
     def __repr__(self) -> str:
         return f"<PingReceived ping_data:{_bytes_representation(self.ping_data)}>"
 
 
+@dataclass(**kw_only)
 class PingAckReceived(Event):
     """
     The PingAckReceived event is fired whenever a PING acknowledgment is
@@ -396,14 +433,14 @@ class PingAckReceived(Event):
        Removed deprecated but equivalent ``PingAcknowledged``.
     """
 
-    def __init__(self) -> None:
-        #: The data included on the ping.
-        self.ping_data: bytes | None = None
+    ping_data: bytes
+    """The data included on the ping."""
 
     def __repr__(self) -> str:
         return f"<PingAckReceived ping_data:{_bytes_representation(self.ping_data)}>"
 
 
+@dataclass(**kw_only)
 class StreamEnded(Event):
     """
     The StreamEnded event is fired whenever a stream is ended by a remote
@@ -411,14 +448,14 @@ class StreamEnded(Event):
     locally, but no further data or headers should be expected on that stream.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream that was closed.
-        self.stream_id: int | None = None
+    stream_id: int
+    """The Stream ID of the stream that was closed."""
 
     def __repr__(self) -> str:
         return f"<StreamEnded stream_id:{self.stream_id}>"
 
 
+@dataclass(**kw_only)
 class StreamReset(Event):
     """
     The StreamReset event is fired in two situations. The first is when the
@@ -430,16 +467,20 @@ class StreamReset(Event):
        This event is now fired when h2 automatically resets a stream.
     """
 
-    def __init__(self) -> None:
-        #: The Stream ID of the stream that was reset.
-        self.stream_id: int | None = None
+    stream_id: int
+    """
+    The Stream ID of the stream that was reset.
+    """
 
-        #: The error code given. Either one of :class:`ErrorCodes
-        #: <h2.errors.ErrorCodes>` or ``int``
-        self.error_code: ErrorCodes | None = None
+    error_code: ErrorCodes | int = _LAZY_INIT
+    """
+    The error code given.
+    """
 
-        #: Whether the remote peer sent a RST_STREAM or we did.
-        self.remote_reset = True
+    remote_reset: bool = True
+    """
+    Whether the remote peer sent a RST_STREAM or we did.
+    """
 
     def __repr__(self) -> str:
         return f"<StreamReset stream_id:{self.stream_id}, error_code:{self.error_code!s}, remote_reset:{self.remote_reset}>"
@@ -460,7 +501,7 @@ class PushedStreamReceived(Event):
         self.parent_stream_id: int | None = None
 
         #: The request headers, sent by the remote party in the push.
-        self.headers: list[HeaderTuple] | None = None
+        self.headers: list[Header] | None = None
 
     def __repr__(self) -> str:
         return (
@@ -601,6 +642,7 @@ class AlternativeServiceAvailable(Event):
         )
 
 
+@dataclass(**kw_only)
 class UnknownFrameReceived(Event):
     """
     The UnknownFrameReceived event is fired when the remote peer sends a frame
@@ -616,9 +658,7 @@ class UnknownFrameReceived(Event):
     .. versionadded:: 2.7.0
     """
 
-    def __init__(self) -> None:
-        #: The hyperframe Frame object that encapsulates the received frame.
-        self.frame: Frame | None = None
+    frame: Frame
 
     def __repr__(self) -> str:
         return "<UnknownFrameReceived>"

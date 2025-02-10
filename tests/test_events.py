@@ -7,6 +7,7 @@ from __future__ import annotations
 import inspect
 import sys
 
+import hyperframe.frame
 import pytest
 from hypothesis import given
 from hypothesis.strategies import integers, lists, tuples
@@ -114,9 +115,10 @@ class TestEventReprs:
         """
         RequestReceived has a useful debug representation.
         """
-        e = h2.events.RequestReceived()
-        e.stream_id = 5
-        e.headers = self.example_request_headers
+        e = h2.events.RequestReceived(
+            stream_id=5,
+            headers=self.example_request_headers
+        )
 
         assert repr(e) == (
             "<RequestReceived stream_id:5, headers:["
@@ -130,9 +132,10 @@ class TestEventReprs:
         """
         ResponseReceived has a useful debug representation.
         """
-        e = h2.events.ResponseReceived()
-        e.stream_id = 500
-        e.headers = self.example_response_headers
+        e = h2.events.ResponseReceived(
+            stream_id=500,
+            headers=self.example_response_headers,
+        )
 
         assert repr(e) == (
             "<ResponseReceived stream_id:500, headers:["
@@ -144,9 +147,7 @@ class TestEventReprs:
         """
         TrailersReceived has a useful debug representation.
         """
-        e = h2.events.TrailersReceived()
-        e.stream_id = 62
-        e.headers = self.example_response_headers
+        e = h2.events.TrailersReceived(stream_id=62, headers=self.example_response_headers)
 
         assert repr(e) == (
             "<TrailersReceived stream_id:62, headers:["
@@ -158,9 +159,10 @@ class TestEventReprs:
         """
         InformationalResponseReceived has a useful debug representation.
         """
-        e = h2.events.InformationalResponseReceived()
-        e.stream_id = 62
-        e.headers = self.example_informational_headers
+        e = h2.events.InformationalResponseReceived(
+            stream_id=62,
+            headers=self.example_informational_headers,
+        )
 
         assert repr(e) == (
             "<InformationalResponseReceived stream_id:62, headers:["
@@ -172,10 +174,11 @@ class TestEventReprs:
         """
         DataReceived has a useful debug representation.
         """
-        e = h2.events.DataReceived()
-        e.stream_id = 888
-        e.data = b"abcdefghijklmnopqrstuvwxyz"
-        e.flow_controlled_length = 88
+        e = h2.events.DataReceived(
+            stream_id=888,
+            data=b"abcdefghijklmnopqrstuvwxyz",
+            flow_controlled_length=88,
+        )
 
         assert repr(e) == (
             "<DataReceived stream_id:888, flow_controlled_length:88, "
@@ -186,9 +189,7 @@ class TestEventReprs:
         """
         WindowUpdated has a useful debug representation.
         """
-        e = h2.events.WindowUpdated()
-        e.stream_id = 0
-        e.delta = 2**16
+        e = h2.events.WindowUpdated(stream_id=0, delta=2**16)
 
         assert repr(e) == "<WindowUpdated stream_id:0, delta:65536>"
 
@@ -221,8 +222,7 @@ class TestEventReprs:
         """
         PingReceived has a useful debug representation.
         """
-        e = h2.events.PingReceived()
-        e.ping_data = b"abcdefgh"
+        e = h2.events.PingReceived(ping_data=b"abcdefgh")
 
         assert repr(e) == "<PingReceived ping_data:6162636465666768>"
 
@@ -230,8 +230,7 @@ class TestEventReprs:
         """
         PingAckReceived has a useful debug representation.
         """
-        e = h2.events.PingAckReceived()
-        e.ping_data = b"abcdefgh"
+        e = h2.events.PingAckReceived(ping_data=b"abcdefgh")
 
         assert repr(e) == "<PingAckReceived ping_data:6162636465666768>"
 
@@ -239,8 +238,7 @@ class TestEventReprs:
         """
         StreamEnded has a useful debug representation.
         """
-        e = h2.events.StreamEnded()
-        e.stream_id = 99
+        e = h2.events.StreamEnded(stream_id=99)
 
         assert repr(e) == "<StreamEnded stream_id:99>"
 
@@ -248,10 +246,11 @@ class TestEventReprs:
         """
         StreamEnded has a useful debug representation.
         """
-        e = h2.events.StreamReset()
-        e.stream_id = 919
-        e.error_code = h2.errors.ErrorCodes.ENHANCE_YOUR_CALM
-        e.remote_reset = False
+        e = h2.events.StreamReset(
+            stream_id=919,
+            error_code=h2.errors.ErrorCodes.ENHANCE_YOUR_CALM,
+            remote_reset=False,
+        )
 
         if sys.version_info >= (3, 11):
             assert repr(e) == (
@@ -363,7 +362,7 @@ class TestEventReprs:
         """
         UnknownFrameReceived has a useful debug representation.
         """
-        e = h2.events.UnknownFrameReceived()
+        e = h2.events.UnknownFrameReceived(frame=hyperframe.frame.Frame(1))
         assert repr(e) == "<UnknownFrameReceived>"
 
 
