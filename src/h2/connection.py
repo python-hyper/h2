@@ -793,8 +793,9 @@ class H2Connection:
         # Check we can open the stream.
         if stream_id not in self.streams:
             max_open_streams = self.remote_settings.max_concurrent_streams
-            if (self.open_outbound_streams + 1) > max_open_streams:
-                msg = f"Max outbound streams is {max_open_streams}, {self.open_outbound_streams} open"
+            value = self.open_outbound_streams # take a copy due to the property accessor having side affects
+            if (value + 1) > max_open_streams:
+                msg = f"Max outbound streams is {max_open_streams}, {value} open"
                 raise TooManyStreamsError(msg)
 
         self.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
@@ -1593,8 +1594,9 @@ class H2Connection:
         # stream ID is valid.
         if frame.stream_id not in self.streams:
             max_open_streams = self.local_settings.max_concurrent_streams
-            if (self.open_inbound_streams + 1) > max_open_streams:
-                msg = f"Max outbound streams is {max_open_streams}, {self.open_outbound_streams} open"
+            value = self.open_inbound_streams # take a copy due to the property accessor having side affects
+            if (value + 1) > max_open_streams:
+                msg = f"Max inbound streams is {max_open_streams}, {value} open"
                 raise TooManyStreamsError(msg)
 
         # Let's decode the headers. We handle headers as bytes internally up
