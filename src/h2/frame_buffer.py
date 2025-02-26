@@ -30,7 +30,7 @@ class FrameBuffer:
     """
 
     def __init__(self, server: bool = False) -> None:
-        self.data = bytearray()
+        self._data = bytearray()
         self.max_frame_size = 0
         self._preamble = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" if server else b""
         self._preamble_len = len(self._preamble)
@@ -54,7 +54,7 @@ class FrameBuffer:
             self._preamble_len -= of_which_preamble
             self._preamble = self._preamble[of_which_preamble:]
 
-        self.data += data
+        self._data += data
 
     def _validate_frame_length(self, length: int) -> None:
         """
@@ -119,18 +119,18 @@ class FrameBuffer:
     def __next__(self) -> Frame:
         # First, check that we have enough data to successfully parse the
         # next frame header. If not, bail. Otherwise, parse it.
-        if len(self.data) < 9:
+        if len(self._data) < 9:
             raise StopIteration
 
         try:
-            f, length = Frame.parse_frame_header(memoryview(self.data[:9]))
+            f, length = Frame.parse_frame_header(memoryview(self._data[:9]))
         except (InvalidDataError, InvalidFrameError) as err:  # pragma: no cover
             msg = f"Received frame with invalid header: {err!s}"
             raise ProtocolError(msg) from err
 
         # Next, check that we have enough length to parse the frame body. If
         # not, bail, leaving the frame header data in the buffer for next time.
-        if len(self.data) < length + 9:
+        if len(self._data) < length + 9:
             raise StopIteration
 
         # Confirm the frame has an appropriate length.
@@ -138,7 +138,7 @@ class FrameBuffer:
 
         # Try to parse the frame body
         try:
-            f.parse_body(memoryview(self.data[9:9+length]))
+            f.parse_body(memoryview(self._data[9:9+length]))
         except InvalidDataError as err:
             msg = "Received frame with non-compliant data"
             raise ProtocolError(msg) from err
@@ -148,7 +148,7 @@ class FrameBuffer:
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.
-        self.data = self.data[9+length:]
+        self._data = self._data[9+length:]
 
         # Pass the frame through the header buffer.
         new_frame = self._update_header_buffer(f)
