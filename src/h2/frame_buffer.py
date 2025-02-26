@@ -30,7 +30,7 @@ class FrameBuffer:
     """
 
     def __init__(self, server: bool = False) -> None:
-        self.data = b""
+        self.data = bytearray()
         self.max_frame_size = 0
         self._preamble = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" if server else b""
         self._preamble_len = len(self._preamble)
