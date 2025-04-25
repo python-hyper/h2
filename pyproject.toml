@@ -73,7 +73,7 @@ packaging = [
   "check-manifest==0.50",
   "readme-renderer==44.0",
   "build>=1.2.2,<2",
-  "twine>=5.1.1,<6",
+  "twine>=6.1.0,<7",
   "wheel>=0.45.0,<1",
 ]
 
