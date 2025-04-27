@@ -7,7 +7,7 @@ on:
     branches: ["master"]
 
 jobs:
-  test:
+  tox:
     runs-on: ubuntu-latest
     strategy:
       matrix:
