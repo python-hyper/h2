@@ -183,9 +183,6 @@ python = """
 """
 
 [tool.tox.env_run_base]
-pass_env = [
-  "GITHUB_*",
-]
 dependency_groups = ["testing"]
 commands = [
   ["python", "-bb", "-m", "pytest", "--cov-report=xml", "--cov-report=term", "--cov=h2", { replace = "posargs", extend = true }]
