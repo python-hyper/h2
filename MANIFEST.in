@@ -11,3 +11,4 @@ recursive-include examples *.py *.crt *.key *.pem *.csr
 include README.rst LICENSE CHANGELOG.rst pyproject.toml
 
 global-exclude *.pyc *.pyo *.swo *.swp *.map *.yml *.DS_Store
+exclude .readthedocs.yaml
