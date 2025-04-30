@@ -62,7 +62,7 @@ to large feature requests and changes.
 Before you contribute (either by opening an issue or filing a pull request),
 please `read the contribution guidelines`_.
 
-.. _read the contribution guidelines: http://python-hyper.org/en/latest/contributing.html
+.. _read the contribution guidelines: https://python-hyper.org/en/latest/contributing.html
 
 License
 =======
