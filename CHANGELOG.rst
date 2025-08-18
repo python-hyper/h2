@@ -6,7 +6,7 @@ dev
 
 **API Changes (Backward Incompatible)**
 
--
+- Reject header names and values containing unpermitted characters `\r`, `\n`, or `\0x00`.
 
 **API Changes (Backward Compatible)**
 

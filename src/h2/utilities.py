@@ -24,6 +24,12 @@ UPPER_RE = re.compile(b"[A-Z]")
 SIGIL = ord(b":")
 INFORMATIONAL_START = ord(b"1")
 
+HEADER_UNPERMITTED_CHARACTERS = frozenset([
+    b"\r",
+    b"\n",
+    b"\x00",
+])
+
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
@@ -201,6 +207,9 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     # For example, we avoid tuple unpacking in loops because it represents a
     # fixed cost that we don't want to spend, instead indexing into the header
     # tuples.
+    headers = _reject_unpermitted_characters(
+        headers, hdr_validation_flags,
+    )
     headers = _reject_empty_header_names(
         headers, hdr_validation_flags,
     )
@@ -224,6 +233,22 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     )
     return _check_path_header(headers, hdr_validation_flags)
 
+
+def _reject_unpermitted_characters(headers: Iterable[Header],
+                                   hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
+    """
+    Raises a ProtocolError if any header names or values contain unpermitted characters.
+    See RFC 7540, section 10.3 and 8.1.2.6.
+    """
+    for header in headers:
+        for c in HEADER_UNPERMITTED_CHARACTERS:
+            if c in header[0]:
+                msg = f"Unpermitted character '{c}' in header name: {header[0]!r}"
+                raise ProtocolError(msg)
+            if c in header[1]:
+                msg = f"Unpermitted character '{c}' in header value: {header[1]!r}"
+                raise ProtocolError(msg)
+        yield header
 
 
 def _reject_empty_header_names(headers: Iterable[Header],
