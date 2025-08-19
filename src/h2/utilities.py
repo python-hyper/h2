@@ -24,12 +24,6 @@ UPPER_RE = re.compile(b"[A-Z]")
 SIGIL = ord(b":")
 INFORMATIONAL_START = ord(b"1")
 
-HEADER_UNPERMITTED_CHARACTERS = frozenset([
-    b"\r",
-    b"\n",
-    b"\x00",
-])
-
 
 # A set of headers that are hop-by-hop or connection-specific and thus
 # forbidden in HTTP/2. This list comes from RFC 7540 § 8.1.2.2.
@@ -207,7 +201,7 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     # For example, we avoid tuple unpacking in loops because it represents a
     # fixed cost that we don't want to spend, instead indexing into the header
     # tuples.
-    headers = _reject_unpermitted_characters(
+    headers = _reject_illegal_characters(
         headers, hdr_validation_flags,
     )
     headers = _reject_empty_header_names(
@@ -234,20 +228,35 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     return _check_path_header(headers, hdr_validation_flags)
 
 
-def _reject_unpermitted_characters(headers: Iterable[Header],
-                                   hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
+def _reject_illegal_characters(headers: Iterable[Header],
+                               hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
-    Raises a ProtocolError if any header names or values contain unpermitted characters.
-    See RFC 7540, section 10.3 and 8.1.2.6.
+    Raises a ProtocolError if any header names or values contain illegal characters.
+    See RFC 9113, section 8.2.1.
     """
     for header in headers:
-        for c in HEADER_UNPERMITTED_CHARACTERS:
-            if c in header[0]:
-                msg = f"Unpermitted character '{c}' in header name: {header[0]!r}"
+        # > A field name MUST NOT contain characters in the ranges 0x00-0x20, 0x41-0x5a,
+        # > or 0x7f-0xff (all ranges inclusive).
+        for c in header[0]:
+            if c <= 0x20 or 0x41 <= c <= 0x5a or 0x7f <= c:
+                msg = f"Illegal character '{chr(c)}' in header name: {header[0]!r}"
                 raise ProtocolError(msg)
-            if c in header[1]:
-                msg = f"Unpermitted character '{c}' in header value: {header[1]!r}"
+
+        # > With the exception of pseudo-header fields (Section 8.3), which have a name
+        # > that starts with a single colon, field names MUST NOT include a colon (ASCII
+        # > COLON, 0x3a).
+        if header[0].find(b":", 1) != -1:
+            msg = f"Illegal character ':' in header name: {header[0]!r}"
+            raise ProtocolError(msg)
+
+        # > A field value MUST NOT contain the zero value (ASCII NUL, 0x00), line feed
+        # > (ASCII LF, 0x0a), or carriage return (ASCII CR, 0x0d) at any position.
+        for c in header[1]:
+            if c == 0 or c == 0x0a or c == 0x0d:
+                msg = f"Illegal character '{chr(c)}' in header value: {header[1]!r}"
                 raise ProtocolError(msg)
+
+        # Surrounding whitespace is enforced in `_reject_surrounding_whitespace`.
         yield header
 
 
