@@ -1,21 +1,25 @@
 Release History
 ===============
 
-dev
----
+4.3.0 (2025-08-23)
+------------------
 
 **API Changes (Backward Incompatible)**
 
-- Reject header names and values containing unpermitted characters `\r`, `\n`, or `\0x00`.
+- Reject header names and values containing illegal characters, based on RFC 9113, section 8.2.1.
+  The main Python API is compatible, but some previously valid requests/response headers might now be blocked.
+  Use the `validate_inbound_headers` config option if needed.
+  Thanks to Sebastiano Sartor (sebsrt) for the report.
 
 **API Changes (Backward Compatible)**
 
 - h2 events now have tighter type bounds, e.g. `stream_id` is guaranteed to not be `None` for most events now.
   This simplifies downstream type checking.
+- Various typing-related improvements.
 
 **Bugfixes**
 
--
+- Fix error value when opening a new stream on too many open streams.
 
 4.2.0 (2025-02-01)
 ------------------
