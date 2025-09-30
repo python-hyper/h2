@@ -919,10 +919,14 @@ class H2Connection:
         :param stream_id: The ID of the stream to end.
         :type stream_id: ``int``
         :returns: Nothing
+        :raises NoSuchStreamError: If the stream ID does not correspond to a
+            known stream and is higher than the current maximum stream ID.
+        :raises StreamClosedError: If the stream ID corresponds to a stream
+            that has been closed.
         """
         self.config.logger.debug("End stream ID %d", stream_id)
         self.state_machine.process_input(ConnectionInputs.SEND_DATA)
-        frames = self.streams[stream_id].end_stream()
+        frames = self._get_stream_by_id(stream_id).end_stream()
         self._prepare_for_sending(frames)
 
     def increment_flow_control_window(self, increment: int, stream_id: int | None = None) -> None:
