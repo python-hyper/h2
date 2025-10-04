@@ -1,6 +1,21 @@
 Release History
 ===============
 
+dev
+---
+
+**API Changes (Backward Incompatible)**
+
+- Support for Python 3.9 has been removed.
+
+**API Changes (Backward Compatible)**
+
+- Support for Python 3.14 has been added.
+
+**Bugfixes**
+
+-
+
 4.3.0 (2025-08-23)
 ------------------
 
