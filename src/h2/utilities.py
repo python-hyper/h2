@@ -361,9 +361,11 @@ def _reject_pseudo_header_fields(headers: Iterable[Header],
     )
 
 
-def _check_pseudo_header_field_acceptability(pseudo_headers: set[bytes | str] | set[bytes] | set[str],
-                                             method: bytes | None,
-                                             hdr_validation_flags: HeaderValidationFlags) -> None:
+def _check_pseudo_header_field_acceptability(  # noqa: C901
+        pseudo_headers: set[bytes | str] | set[bytes] | set[str],
+        method: bytes | None,
+        hdr_validation_flags: HeaderValidationFlags,
+) -> None:
     """
     Given the set of pseudo-headers present in a header block and the
     validation flags, confirms that RFC 7540 allows them.
@@ -385,7 +387,6 @@ def _check_pseudo_header_field_acceptability(pseudo_headers: set[bytes | str] | 
         if invalid_response_headers:
             msg = f"Encountered request-only headers {invalid_response_headers}"
             raise ProtocolError(msg)
-    
     elif (not hdr_validation_flags.is_response_header and
           not hdr_validation_flags.is_trailer):
         # Request header block.

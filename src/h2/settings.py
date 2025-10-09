@@ -90,7 +90,7 @@ class ChangedSetting:
         )
 
 
-class Settings(MutableMapping[Union[SettingCodes, int], int]):
+class Settings(MutableMapping[Union[SettingCodes, int], int]): # noqa: PLW1641
     """
     An object that encapsulates HTTP/2 settings state.
 
