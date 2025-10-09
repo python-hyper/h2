@@ -968,7 +968,7 @@ class H2Stream:
         self.state_machine.process_input(StreamInputs.SEND_DATA)
 
         df = DataFrame(self.stream_id)
-        df.data = data
+        df.data = data.tobytes() if isinstance(data, memoryview) else data
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             df.flags.add("END_STREAM")

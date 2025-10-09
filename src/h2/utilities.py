@@ -361,9 +361,11 @@ def _reject_pseudo_header_fields(headers: Iterable[Header],
     )
 
 
-def _check_pseudo_header_field_acceptability(pseudo_headers: set[bytes | str] | set[bytes] | set[str],
-                                             method: bytes | None,
-                                             hdr_validation_flags: HeaderValidationFlags) -> None:
+def _check_pseudo_header_field_acceptability(  # noqa: C901
+        pseudo_headers: set[bytes | str] | set[bytes] | set[str],
+        method: bytes | None,
+        hdr_validation_flags: HeaderValidationFlags,
+) -> None:
     """
     Given the set of pseudo-headers present in a header block and the
     validation flags, confirms that RFC 7540 allows them.
@@ -387,16 +389,36 @@ def _check_pseudo_header_field_acceptability(pseudo_headers: set[bytes | str] | 
             raise ProtocolError(msg)
     elif (not hdr_validation_flags.is_response_header and
           not hdr_validation_flags.is_trailer):
-        # This is a request, so we need to have seen :path, :method, and
-        # :scheme.
-        _assert_header_in_set(b":path", pseudo_headers)
+        # Request header block.
         _assert_header_in_set(b":method", pseudo_headers)
-        _assert_header_in_set(b":scheme", pseudo_headers)
+
+        is_connect = (method == b"CONNECT")
+        is_extended_connect = is_connect and (b":protocol" in pseudo_headers)
+
+        if is_connect and not is_extended_connect:
+            # Ordinary CONNECT (RFC 9113 s8.3):
+            # MUST NOT include :scheme or :path.
+            if b":scheme" in pseudo_headers or b":path" in pseudo_headers:
+                msg = "Ordinary CONNECT MUST NOT include :scheme or :path"
+                raise ProtocolError(msg)
+            # :authority presence is enforced elsewhere; no extra asserts here.
+        elif is_extended_connect:
+            # Extended CONNECT (RFC 8441 s4): require the regular tuple.
+            _assert_header_in_set(b":scheme", pseudo_headers)
+            _assert_header_in_set(b":path", pseudo_headers)
+            # :authority presence validated by host/authority checker.
+        else:
+            # Non-CONNECT requests require :scheme and :path (RFC 9113 s8.3).
+            _assert_header_in_set(b":scheme", pseudo_headers)
+            _assert_header_in_set(b":path", pseudo_headers)
+
         invalid_request_headers = pseudo_headers & _RESPONSE_ONLY_HEADERS
         if invalid_request_headers:
             msg = f"Encountered response-only headers {invalid_request_headers}"
             raise ProtocolError(msg)
-        if method != b"CONNECT":
+
+        # If not CONNECT, then :protocol is invalid.
+        if not is_connect:
             invalid_headers = pseudo_headers & _CONNECT_REQUEST_ONLY_HEADERS
             if invalid_headers:
                 msg = f"Encountered connect-request-only headers {invalid_headers!r}"
@@ -698,3 +720,4 @@ class SizeLimitDict(collections.OrderedDict[int, Any]):
         if self._size_limit is not None:
             while len(self) > self._size_limit:
                 self.popitem(last=False)
+
