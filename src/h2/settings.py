@@ -11,7 +11,6 @@ from __future__ import annotations
 import collections
 import enum
 from collections.abc import Iterator, MutableMapping
-from typing import Union
 
 from hyperframe.frame import SettingsFrame
 
@@ -90,7 +89,7 @@ class ChangedSetting:
         )
 
 
-class Settings(MutableMapping[Union[SettingCodes, int], int]): # noqa: PLW1641
+class Settings(MutableMapping[SettingCodes | int, int]):
     """
     An object that encapsulates HTTP/2 settings state.
 
@@ -306,6 +305,10 @@ class Settings(MutableMapping[Union[SettingCodes, int], int]): # noqa: PLW1641
         if isinstance(other, Settings):
             return not self == other
         return NotImplemented
+
+    # be explicit that Settings is not providing a hash implementation
+    # see https://docs.python.org/3/reference/datamodel.html#object.__hash__
+    __hash__ = MutableMapping.__hash__
 
 
 def _validate_setting(setting: SettingCodes | int, value: int) -> ErrorCodes:
