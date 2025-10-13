@@ -13,6 +13,10 @@ dev
 
 - Support for Python 3.14 has been added.
 - Support for PyPy 3.11 has been added.
+- Align CONNECT pseudo-header validation with RFC 9113 s8.3 and RFC 8441 s4.
+  Ordinary CONNECT now requires ``:method=CONNECT`` and ``:authority``, and
+  forbids ``:scheme``/``:path``. Extended CONNECT (e.g., WebSocket) requires
+  ``:scheme``, ``:path``, ``:authority`` plus ``:protocol``. (PR #1309)
 
 **Bugfixes**
 
