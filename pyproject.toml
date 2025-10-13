@@ -2,14 +2,16 @@
 # https://packaging.python.org/en/latest/specifications/pyproject-toml/
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "h2"
 description = "Pure-Python HTTP/2 protocol implementation"
 readme = { file = "README.rst", content-type = "text/x-rst" }
-license = { file = "LICENSE" }
+
+license = "MIT"
+license-files = [ "LICENSE" ]
 
 authors = [
   { name = "Cory Benfield", email = "cory@lukasa.co.uk" }
@@ -29,7 +31,6 @@ dynamic = ["version"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
@@ -72,9 +73,9 @@ linting = [
 packaging = [
   "check-manifest==0.50",
   "readme-renderer==44.0",
-  "build>=1.2.2,<2",
-  "twine>=6.1.0,<7",
-  "wheel>=0.45.0,<1",
+  "build>=1.3.0,<2",
+  "twine>=6.2.0,<7",
+  "wheel>=0.45.1,<1",
 ]
 
 docs = [
@@ -132,7 +133,6 @@ lint.ignore = [
   "TD002",  # readability
   "TD003",  # readability
   "S101",  # readability
-  "PD901",  # readability
   "ERA001",  # readability
   "ARG001",  # readability
   "ARG002",  # readability
@@ -170,7 +170,7 @@ source = [
 
 [tool.tox]
 min_version = "4.23.2"
-env_list = [ "py310", "py311", "py312", "py313", "py314", "pypy3", "lint", "docs", "packaging" ]
+env_list = [ "py310", "py311", "py312", "py313", "py314", "pypy311", "lint", "docs", "packaging" ]
 
 [tool.tox.gh-actions]
 python = """
@@ -179,19 +179,13 @@ python = """
   3.12: py312
   3.13: py313
   3.14: py314
-  pypy3: pypy3
+  pypy3.11: pypy311
 """
 
 [tool.tox.env_run_base]
 dependency_groups = ["testing"]
 commands = [
   ["python", "-bb", "-m", "pytest", "--cov-report=xml", "--cov-report=term", "--cov=h2", { replace = "posargs", extend = true }]
-]
-
-[tool.tox.env.pypy3]
-# temporarily disable coverage testing on PyPy due to performance problems
-commands = [
-  ["pytest", { replace = "posargs", extend = true }]
 ]
 
 [tool.tox.env.lint]

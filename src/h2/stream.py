@@ -7,7 +7,7 @@ An implementation of a HTTP/2 stream.
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from hpack import HeaderTuple
 from hyperframe.frame import AltSvcFrame, ContinuationFrame, DataFrame, Frame, HeadersFrame, PushPromiseFrame, RstStreamFrame, WindowUpdateFrame
@@ -968,7 +968,10 @@ class H2Stream:
         self.state_machine.process_input(StreamInputs.SEND_DATA)
 
         df = DataFrame(self.stream_id)
-        df.data = data
+        if isinstance(data, memoryview):
+            df.data = data.tobytes()
+        else:
+            df.data = data
         if end_stream:
             self.state_machine.process_input(StreamInputs.SEND_END_STREAM)
             df.flags.add("END_STREAM")
@@ -1076,7 +1079,7 @@ class H2Stream:
 
         events = self.state_machine.process_input(input_)
         headers_event = cast(
-            "Union[RequestReceived, ResponseReceived, TrailersReceived, InformationalResponseReceived]",
+            "RequestReceived | ResponseReceived | TrailersReceived | InformationalResponseReceived",
             events[0],
         )
 
@@ -1086,7 +1089,7 @@ class H2Stream:
             )
             # We ensured it's not an information response at the beginning of the method.
             cast(
-                "Union[RequestReceived, ResponseReceived, TrailersReceived]",
+                "RequestReceived | ResponseReceived | TrailersReceived",
                 headers_event,
             ).stream_ended = cast("StreamEnded", es_events[0])
             events += es_events

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from hpack.exceptions import HPACKError, OversizedHeaderListError
 from hpack.hpack import Decoder, Encoder
@@ -66,7 +66,7 @@ from .utilities import SizeLimitDict, guard_increment_window
 from .windows import WindowManager
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from hpack.struct import Header, HeaderWeaklyTyped
 

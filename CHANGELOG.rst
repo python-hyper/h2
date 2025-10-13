@@ -7,10 +7,12 @@ dev
 **API Changes (Backward Incompatible)**
 
 - Support for Python 3.9 has been removed.
+- Support for PyPy 3.9 has been removed.
 
 **API Changes (Backward Compatible)**
 
 - Support for Python 3.14 has been added.
+- Support for PyPy 3.11 has been added.
 
 **Bugfixes**
 
