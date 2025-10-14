@@ -8,6 +8,9 @@ dev
 
 - Support for Python 3.9 has been removed.
 - Support for PyPy 3.9 has been removed.
+- **backfill from v4.3.0** Convert emitted events into Python `dataclass`, which introduces new constructors with required arguments.
+  Instantiating these events without arguments, as previously commonly used API pattern, will no longer work.
+
 
 **API Changes (Backward Compatible)**
 
@@ -31,6 +34,8 @@ dev
   The main Python API is compatible, but some previously valid requests/response headers might now be blocked.
   Use the `validate_inbound_headers` config option if needed.
   Thanks to Sebastiano Sartor (sebsrt) for the report.
+- Convert emitted events into Python `dataclass`, which introduces new constructors with required arguments.
+  Instantiating these events without arguments, as previously commonly used API pattern, will no longer work.
 
 **API Changes (Backward Compatible)**
 
