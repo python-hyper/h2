@@ -8,9 +8,9 @@ dev
 
 - Support for Python 3.9 has been removed.
 - Support for PyPy 3.9 has been removed.
+- `Stream.end_stream()` now raises `NoSuchStreamError` or `StreamClosedError` exceptions, instead of a generic `KeyError`.
 - **backfill from v4.3.0** Convert emitted events into Python `dataclass`, which introduces new constructors with required arguments.
   Instantiating these events without arguments, as previously commonly used API pattern, will no longer work.
-
 
 **API Changes (Backward Compatible)**
 

@@ -340,6 +340,23 @@ class TestBasicClient:
         assert not events
         assert c.data_to_send() == f.serialize()
 
+    def test_end_stream_exceptions(self, frame_factory) -> None:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.NoSuchStreamError):
+            c.end_stream(42)
+
+        c.end_stream(1)
+
+        c.send_headers(5, self.example_request_headers, end_stream=False)
+
+        with pytest.raises(h2.exceptions.StreamClosedError):
+            c.end_stream(3)
+
+
     def test_cannot_send_headers_on_lower_stream_id(self) -> None:
         """
         Once stream ID x has been used, cannot use stream ID y where y < x.
