@@ -13,7 +13,7 @@ from hyperframe.frame import ContinuationFrame, Frame, HeadersFrame, PushPromise
 from .exceptions import FrameDataMissingError, FrameTooLargeError, ProtocolError
 
 # To avoid a DOS attack based on sending loads of continuation frames, we limit
-# the maximum number we're perpared to receive. In this case, we'll set the
+# the maximum number we're prepared to receive. In this case, we'll set the
 # limit to 64, which means the largest encoded header block we can receive by
 # default is 262144 bytes long, and the largest possible *at all* is 1073741760
 # bytes long.
@@ -25,7 +25,7 @@ CONTINUATION_BACKLOG = 64
 
 class FrameBuffer:
     """
-    A buffer data structure for HTTP/2 data that allows iteraton in terms of
+    A buffer data structure for HTTP/2 data that allows iteration in terms of
     H2 frames.
     """
 
@@ -94,7 +94,7 @@ class FrameBuffer:
 
             # If this is the end of the header block, then we want to build a
             # mutant HEADERS frame that's massive. Use the original one we got,
-            # then set END_HEADERS and set its data appopriately. If it's not
+            # then set END_HEADERS and set its data appropriately. If it's not
             # the end of the block, lose the current frame: we can't yield it.
             if "END_HEADERS" in f.flags:
                 f = self._headers_buffer[0]
