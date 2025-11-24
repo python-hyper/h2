@@ -730,7 +730,7 @@ class TestAutomaticFlowControl:
         frame_factory.refresh_encoder()
 
         # Create a connection in a state that might actually accept
-        # data acknolwedgement.
+        # data acknowledgement.
         c = self._setup_connection_and_send_headers(frame_factory)
         data_frame = frame_factory.build_data_frame(
             b"some data", flags=["END_STREAM"],
@@ -755,7 +755,7 @@ class TestAutomaticFlowControl:
         frame_factory.refresh_encoder()
 
         # Create a connection in a state that might actually accept
-        # data acknolwedgement.
+        # data acknowledgement.
         c = self._setup_connection_and_send_headers(frame_factory)
         data_frame = frame_factory.build_data_frame(
             b"some data", flags=["END_STREAM"],

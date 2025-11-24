@@ -510,7 +510,7 @@ class SettingsAcknowledged(Event):
     """
     The SettingsAcknowledged event is fired whenever a settings ACK is received
     from the remote peer. The event carries on it the settings that were
-    acknowedged, in the same format as
+    acknowledged, in the same format as
     :class:`h2.events.RemoteSettingsChanged`.
     """
 

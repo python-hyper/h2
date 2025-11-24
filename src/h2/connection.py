@@ -780,7 +780,7 @@ class H2Connection:
             on the stream given in ``priority_depends_on`` for priority
             purposes. See :meth:`prioritize
             <h2.connection.H2Connection.prioritize>` for more about how this
-            field workds. Defaults to ``None``, which means that no priority
+            field works. Defaults to ``None``, which means that no priority
             information will be sent.
         :type priority_depends_on: ``bool`` or ``None``
 
