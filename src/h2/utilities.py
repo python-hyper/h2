@@ -88,7 +88,7 @@ def _secure_headers(headers: Iterable[Header],
     """
     for header in headers:
         assert isinstance(header[0], bytes)
-        if header[0] in _SECURE_HEADERS or (header[0] in b"cookie" and len(header[1]) < 20):
+        if header[0] in _SECURE_HEADERS or (header[0] == b"cookie" and len(header[1]) < 20):
             yield NeverIndexedHeaderTuple(header[0], header[1])
         else:
             yield header
@@ -347,7 +347,7 @@ def _reject_pseudo_header_fields(headers: Iterable[Header],
                 msg = f"Received custom pseudo-header field {header[0]!r}"
                 raise ProtocolError(msg)
 
-            if header[0] in b":method":
+            if header[0] == b":method":
                 method = header[1]
 
         else:
