@@ -418,6 +418,19 @@ class TestSecureHeaders:
         HeaderTuple(b"cookie", b"twenty byte cookie!!"),
         HeaderTuple(b"Cookie", b"twenty byte cookie!!"),
     ]
+    # Headers with names that are substrings of "cookie" but not equal to
+    # "cookie". Before the fix, the ``in`` operator was used instead of
+    # ``==``, which caused these to be incorrectly treated as sensitive.
+    non_cookie_substring_headers = [
+        (b"cook", b"short"),
+        (b"okie", b"short"),
+        (b"oo", b"short"),
+        (b"cooki", b"short"),
+        (b"ookie", b"short"),
+        HeaderTuple(b"cook", b"short"),
+        HeaderTuple(b"okie", b"short"),
+        HeaderTuple(b"cooki", b"short"),
+    ]
 
     server_config = h2.config.H2Configuration(client_side=False)
 
@@ -622,3 +635,27 @@ class TestSecureHeaders:
         )
 
         assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize(
+        "headers", [example_request_headers, bytes_example_request_headers],
+    )
+    @pytest.mark.parametrize("header", non_cookie_substring_headers)
+    def test_non_cookie_substring_headers_can_be_indexed(self,
+                                                         headers,
+                                                         header,
+                                                         frame_factory) -> None:
+        """
+        Headers with names that are substrings of 'cookie' but not equal to
+        'cookie' should not be treated as sensitive.
+        """
+        send_headers = [*headers, header]
+        expected_headers = [*headers, HeaderTuple(header[0], header[1])]
+
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, send_headers)
+
+        f = frame_factory.build_headers_frame(headers=expected_headers)
+        assert c.data_to_send() == f.serialize()
