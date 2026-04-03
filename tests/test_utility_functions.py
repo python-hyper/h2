@@ -163,6 +163,19 @@ class TestExtractHeader:
             self.example_headers_with_bytes,
         ) == b"GET"
 
+    def test_extract_method_header_no_false_substring_match(self) -> None:
+        """
+        Headers with names that are substrings of ':method' but not equal
+        to ':method' should not be matched.
+        """
+        headers = [
+            (b":authority", b"example.com"),
+            (b":path", b"/"),
+            (b":scheme", b"https"),
+            (b":me", b"GET"),
+        ]
+        assert extract_method_header(headers) is None
+
 
 def test_size_limit_dict_limit() -> None:
     dct = SizeLimitDict(size_limit=2)
