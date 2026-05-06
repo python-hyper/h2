@@ -103,6 +103,17 @@ class TestFlowControl:
             self.DEFAULT_FLOW_WINDOW - len(b"some data") - 10 - 1
         )
         assert (c.remote_flow_control_window(1) == remaining_length)
+        
+    def test_can_send_zero_bytes_when_window_negative(self) -> None:
+        """
+        Sending 0 bytes when the flow control window is negative should not
+        raise a FlowControlError, allowing empty END_STREAM frames to be sent.
+        """
+        c = h2.connection.H2Connection()
+        c.send_headers(1, self.example_request_headers)
+        c.outbound_flow_control_window = -100
+        c._get_stream_by_id(1).outbound_flow_control_window = -100
+        c.send_data(1, b"", end_stream=True)
 
     def test_flow_control_is_limited_by_connection(self) -> None:
         """

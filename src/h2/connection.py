@@ -888,7 +888,7 @@ class H2Connection:
             "Frame size on stream ID %d is %d", stream_id, frame_size,
         )
 
-        if frame_size > self.local_flow_control_window(stream_id):
+        if frame_size > 0 and frame_size > self.local_flow_control_window(stream_id):
             msg = f"Cannot send {frame_size} bytes, flow control window is {self.local_flow_control_window(stream_id)}"
             raise FlowControlError(msg)
         if frame_size > self.max_outbound_frame_size:
@@ -907,7 +907,7 @@ class H2Connection:
             "Outbound flow control window size is %d",
             self.outbound_flow_control_window,
         )
-        assert self.outbound_flow_control_window >= 0
+        assert self.outbound_flow_control_window >= 0 or frame_size == 0
 
     def end_stream(self, stream_id: int) -> None:
         """
