@@ -981,7 +981,7 @@ class H2Stream:
 
         # Subtract flow_controlled_length to account for possible padding
         self.outbound_flow_control_window -= df.flow_controlled_length
-        assert self.outbound_flow_control_window >= 0
+        assert self.outbound_flow_control_window >= 0 or df.flow_controlled_length == 0
 
         return [df]
 
