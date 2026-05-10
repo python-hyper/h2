@@ -70,6 +70,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from hpack.struct import Header, HeaderWeaklyTyped
 
+    from ._typing import Buffer
+
 
 class ConnectionState(Enum):
     IDLE = 0
@@ -1496,12 +1498,12 @@ class H2Connection:
         for stream in self.streams.values():
             stream._inbound_flow_control_change_from_settings(delta)
 
-    def receive_data(self, data: bytes) -> list[Event]:
+    def receive_data(self, data: Buffer) -> list[Event]:
         """
         Pass some received HTTP/2 data to the connection for handling.
 
         :param data: The data received from the remote peer on the network.
-        :type data: ``bytes``
+        :type data: An object implementing the buffer protocol.
         :returns: A list of events that the remote peer triggered by sending
             this data.
         """

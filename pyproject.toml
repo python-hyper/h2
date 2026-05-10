@@ -65,7 +65,7 @@ testing = [
 
 linting = [
   "ruff>=0.8.0,<1",
-  "mypy>=1.13.0,<2",
+  "mypy>=1.16.0,<2",
   "typing_extensions>=4.12.2",
 ]
 
@@ -149,6 +149,7 @@ testpaths = [ "tests" ]
 [tool.coverage.run]
 branch = true
 source = [ "h2" ]
+omit = [ "*/h2/_typing.py" ]
 
 [tool.coverage.report]
 fail_under = 100
@@ -190,7 +191,7 @@ commands = [
 dependency_groups = ["linting"]
 commands = [
   ["ruff", "check", "src/"],
-  ["mypy", "src/"],
+  ["mypy", "--strict-bytes", "src/", "tests/typing/strict_bytes.py"],
 ]
 
 [tool.tox.env.docs]
