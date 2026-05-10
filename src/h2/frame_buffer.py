@@ -7,10 +7,15 @@ frames.
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hyperframe.exceptions import InvalidDataError, InvalidFrameError
 from hyperframe.frame import ContinuationFrame, Frame, HeadersFrame, PushPromiseFrame
 
 from .exceptions import FrameDataMissingError, FrameTooLargeError, ProtocolError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ._typing import Buffer
 
 # To avoid a DOS attack based on sending loads of continuation frames, we limit
 # the maximum number we're prepared to receive. In this case, we'll set the
@@ -36,25 +41,27 @@ class FrameBuffer:
         self._preamble_len = len(self._preamble)
         self._headers_buffer: list[HeadersFrame | ContinuationFrame | PushPromiseFrame] = []
 
-    def add_data(self, data: bytes) -> None:
+    def add_data(self, data: Buffer) -> None:
         """
         Add more data to the frame buffer.
 
         :param data: A bytestring containing the byte buffer.
         """
+        data_view = memoryview(data)
+
         if self._preamble_len:
-            data_len = len(data)
+            data_len = len(data_view)
             of_which_preamble = min(self._preamble_len, data_len)
 
-            if self._preamble[:of_which_preamble] != data[:of_which_preamble]:
+            if self._preamble[:of_which_preamble] != data_view[:of_which_preamble]:
                 msg = "Invalid HTTP/2 preamble."
                 raise ProtocolError(msg)
 
-            data = data[of_which_preamble:]
+            data_view = data_view[of_which_preamble:]
             self._preamble_len -= of_which_preamble
             self._preamble = self._preamble[of_which_preamble:]
 
-        self._data += data
+        self._data += data_view
 
     def _validate_frame_length(self, length: int) -> None:
         """
