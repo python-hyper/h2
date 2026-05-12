@@ -1003,6 +1003,22 @@ class TestBasicServer:
         assert not events
         assert not c.data_to_send()
 
+    @pytest.mark.parametrize("data_wrapper", [bytearray, memoryview])
+    def test_receive_data_accepts_buffer_types(
+        self,
+        data_wrapper,
+        frame_factory,
+    ) -> None:
+        """
+        ``receive_data`` accepts byte-like buffers and handles their contents.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+
+        events = c.receive_data(data_wrapper(frame_factory.preamble()))
+
+        assert not events
+        assert not c.data_to_send()
+
     @pytest.mark.parametrize("chunk_size", range(1, 24))
     def test_drip_feed_preamble(self, chunk_size) -> None:
         """
