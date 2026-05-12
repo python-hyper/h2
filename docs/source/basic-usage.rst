@@ -311,6 +311,10 @@ socket, in a loop. We then passed that data to the connection object, which
 returned us a single event object:
 :class:`RemoteSettingsChanged <h2.events.RemoteSettingsChanged>`.
 
+``receive_data`` accepts the ``bytes`` returned by ``recv`` as well as other
+byte-like objects that implement the buffer protocol, such as ``bytearray`` and
+``memoryview``.
+
 But what we didn't see was anything else. So it seems like all ``curl`` did
 was change its settings, but nothing else. If you look at the other ``curl``
 window, you'll notice that it hangs for a while and then eventually fails with
