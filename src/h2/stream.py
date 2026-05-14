@@ -1364,15 +1364,24 @@ class H2Stream:
             self._expected_content_length = 0
             return
 
+        content_lengths = []
+
         for n, v in headers:
             if n == b"content-length":
                 try:
-                    self._expected_content_length = int(v, 10)
+                    content_lengths.append(int(v, 10))
                 except ValueError as err:
                     msg = f"Invalid content-length header: {v!r}"
                     raise ProtocolError(msg) from err
 
-                return
+        if not content_lengths:
+            return
+
+        if len(set(content_lengths)) != 1:
+            msg = "Conflicting content-length headers"
+            raise ProtocolError(msg)
+
+        self._expected_content_length = content_lengths[0]
 
     def _track_content_length(self, length: int, end_stream: bool) -> None:
         """
