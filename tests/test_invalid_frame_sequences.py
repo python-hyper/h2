@@ -10,6 +10,7 @@ import h2.connection
 import h2.errors
 import h2.events
 import h2.exceptions
+import h2.settings
 
 
 class TestInvalidFrameSequences:
@@ -275,7 +276,9 @@ class TestInvalidFrameSequences:
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
 
-        f = frame_factory.build_settings_frame(settings={0x2: 1})
+        f = frame_factory.build_settings_frame(
+            settings={h2.settings.SettingCodes.ENABLE_PUSH: 1},
+        )
 
         with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
             c.receive_data(f.serialize())
