@@ -1380,9 +1380,6 @@ class H2Stream:
                     msg = f"Conflicting content-length headers: {content_length} and {parsed_content_length}"
                     raise ProtocolError(msg)
 
-        if content_length is None:
-            return
-
         self._expected_content_length = content_length
 
     def _track_content_length(self, length: int, end_stream: bool) -> None:
