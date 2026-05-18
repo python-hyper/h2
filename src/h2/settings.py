@@ -126,6 +126,8 @@ class Settings(MutableMapping[SettingCodes | int, int]):
     """
 
     def __init__(self, client: bool = True, initial_values: dict[SettingCodes, int] | None = None) -> None:
+        self._client = client
+
         # Backing object for the settings. This is a dictionary of
         # (setting: [list of values]), where the first value in the list is the
         # current value of the setting. Strictly this doesn't use lists but
@@ -286,6 +288,30 @@ class Settings(MutableMapping[SettingCodes | int, int]):
             self._settings[key] = items
 
         items.append(value)
+
+    def validate_received_setting(self, setting: SettingCodes | int, value: int) -> None:
+        """
+        Validate a setting received from the peer that owns this Settings
+        object.
+
+        Clients may advertise ``ENABLE_PUSH`` only as ``0`` in received
+        SETTINGS frames.
+        """
+        invalid = _validate_setting(setting, value)
+        if (
+            not invalid
+            and self._client
+            and setting == SettingCodes.ENABLE_PUSH
+            and value != 0
+        ):
+            invalid = ErrorCodes.PROTOCOL_ERROR
+
+        if invalid:
+            msg = f"Setting {setting} has invalid value {value}"
+            raise InvalidSettingsValueError(
+                msg,
+                error_code=invalid,
+            )
 
     def __delitem__(self, key: SettingCodes | int) -> None:
         del self._settings[key]

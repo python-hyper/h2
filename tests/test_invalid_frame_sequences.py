@@ -266,6 +266,22 @@ class TestInvalidFrameSequences:
             h2.errors.ErrorCodes.PROTOCOL_ERROR
         )
 
+    def test_reject_client_enable_push_updates(self, frame_factory) -> None:
+        """
+        Servers reject clients that advertise non-zero SETTINGS_ENABLE_PUSH
+        values in received SETTINGS frames.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        f = frame_factory.build_settings_frame(settings={0x2: 1})
+
+        with pytest.raises(h2.exceptions.InvalidSettingsValueError) as e:
+            c.receive_data(f.serialize())
+
+        assert e.value.error_code == h2.errors.ErrorCodes.PROTOCOL_ERROR
+
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     def test_invalid_frame_headers_are_protocol_errors(self, frame_factory, request_headers) -> None:
         """
