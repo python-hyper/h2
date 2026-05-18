@@ -297,16 +297,9 @@ class Settings(MutableMapping[SettingCodes | int, int]):
         Clients may advertise ``ENABLE_PUSH`` only as ``0`` in received
         SETTINGS frames.
         """
-        invalid = _validate_setting(setting, value)
-        if (
-            not invalid
-            and self._client
-            and setting == SettingCodes.ENABLE_PUSH
-            and value != 0
-        ):
-            invalid = ErrorCodes.PROTOCOL_ERROR
+        invalid = _validate_setting(setting, value, client=self._client)
 
-        if invalid:
+        if invalid != ErrorCodes.NO_ERROR:
             msg = f"Setting {setting} has invalid value {value}"
             raise InvalidSettingsValueError(
                 msg,
@@ -337,13 +330,20 @@ class Settings(MutableMapping[SettingCodes | int, int]):
     __hash__ = MutableMapping.__hash__
 
 
-def _validate_setting(setting: SettingCodes | int, value: int) -> ErrorCodes:
+def _validate_setting(
+    setting: SettingCodes | int,
+    value: int,
+    *,
+    client: bool = False,
+) -> ErrorCodes:
     """
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
+
+    If ``client`` is true, the setting originated from a client endpoint.
     """
     if setting == SettingCodes.ENABLE_PUSH:
-        if value not in (0, 1):
+        if value not in (0, 1) or (client and value != 0):
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == SettingCodes.INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647:  # 2^31 - 1
