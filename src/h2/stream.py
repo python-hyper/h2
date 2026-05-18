@@ -1377,7 +1377,7 @@ class H2Stream:
                 if content_length is None:
                     content_length = parsed_content_length
                 elif parsed_content_length != content_length:
-                    msg = "Conflicting content-length headers"
+                    msg = f"Conflicting content-length headers: {content_length} and {parsed_content_length}"
                     raise ProtocolError(msg)
 
         if content_length is None:

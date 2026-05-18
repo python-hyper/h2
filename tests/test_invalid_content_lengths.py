@@ -105,7 +105,10 @@ class TestInvalidContentLengths:
                 ("content-length", "16"),
             ],
         )
-        with pytest.raises(h2.exceptions.ProtocolError):
+        with pytest.raises(
+            h2.exceptions.ProtocolError,
+            match="Conflicting content-length headers: 15 and 16",
+        ):
             c.receive_data(headers.serialize())
 
         expected_frame = frame_factory.build_goaway_frame(
