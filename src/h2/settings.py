@@ -343,7 +343,10 @@ def _validate_setting(
     If ``client`` is true, the setting originated from a client endpoint.
     """
     if setting == SettingCodes.ENABLE_PUSH:
-        if value not in (0, 1) or (client and value != 0):
+        # RFC 9113 section 6.5.2: "A client MUST treat receipt of a
+        # SETTINGS frame with SETTINGS_ENABLE_PUSH set to 1 as a connection
+        # error (Section 5.4.1) of type PROTOCOL_ERROR."
+        if value not in (0, 1) or (not client and value != 0):
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == SettingCodes.INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647:  # 2^31 - 1

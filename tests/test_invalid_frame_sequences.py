@@ -267,14 +267,13 @@ class TestInvalidFrameSequences:
             h2.errors.ErrorCodes.PROTOCOL_ERROR
         )
 
-    def test_reject_client_enable_push_updates(self, frame_factory) -> None:
+    def test_reject_server_enable_push_updates(self, frame_factory) -> None:
         """
-        Servers reject clients that advertise non-zero SETTINGS_ENABLE_PUSH
+        Clients reject servers that advertise non-zero SETTINGS_ENABLE_PUSH
         values in received SETTINGS frames.
         """
-        c = h2.connection.H2Connection(config=self.server_config)
+        c = h2.connection.H2Connection(config=self.client_config)
         c.initiate_connection()
-        c.receive_data(frame_factory.preamble())
 
         f = frame_factory.build_settings_frame(
             settings={h2.settings.SettingCodes.ENABLE_PUSH: 1},
