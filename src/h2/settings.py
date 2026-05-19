@@ -294,7 +294,7 @@ class Settings(MutableMapping[SettingCodes | int, int]):
         Validate a setting received from the peer that owns this Settings
         object.
 
-        Clients may advertise ``ENABLE_PUSH`` only as ``0`` in received
+        Servers may advertise ``ENABLE_PUSH`` only as ``0`` in received
         SETTINGS frames.
         """
         invalid = _validate_setting(setting, value, client=self._client)
