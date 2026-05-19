@@ -334,19 +334,19 @@ def _validate_setting(
     setting: SettingCodes | int,
     value: int,
     *,
-    client: bool = False,
+    client: bool | None = None,
 ) -> ErrorCodes:
     """
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
 
-    If ``client`` is true, the setting originated from a client endpoint.
+    If ``client`` is set, the setting originated from a peer with that role.
     """
     if setting == SettingCodes.ENABLE_PUSH:
         # RFC 9113 section 6.5.2: "A client MUST treat receipt of a
         # SETTINGS frame with SETTINGS_ENABLE_PUSH set to 1 as a connection
         # error (Section 5.4.1) of type PROTOCOL_ERROR."
-        if value not in (0, 1) or (not client and value != 0):
+        if value not in (0, 1) or (client is False and value != 0):
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == SettingCodes.INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647:  # 2^31 - 1
