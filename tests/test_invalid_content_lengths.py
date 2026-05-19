@@ -40,6 +40,60 @@ class TestInvalidContentLengths:
     server_config = h2.config.H2Configuration(client_side=False)
 
     @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
+    def test_duplicate_matching_content_length(self, frame_factory, request_headers) -> None:
+        """
+        Remote peers sending duplicate matching content-length headers are
+        accepted.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        headers = frame_factory.build_headers_frame(
+            headers=[*request_headers, request_headers[-1]],
+        )
+        data = frame_factory.build_data_frame(
+            data=b"\x01"*15,
+            flags=["END_STREAM"],
+        )
+        events = c.receive_data(headers.serialize() + data.serialize())
+
+        assert isinstance(events[0], h2.events.RequestReceived)
+        assert isinstance(events[1], h2.events.DataReceived)
+        assert isinstance(events[2], h2.events.StreamEnded)
+        assert not c.data_to_send()
+
+    @pytest.mark.parametrize(
+        ("request_headers", "conflicting_header"),
+        [
+            (example_request_headers, ("content-length", "14")),
+            (example_request_headers_bytes, (b"content-length", b"14")),
+        ],
+    )
+    def test_duplicate_conflicting_content_length(self, frame_factory, request_headers, conflicting_header) -> None:
+        """
+        Remote peers sending duplicate conflicting content-length headers cause
+        Protocol Errors.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        headers = frame_factory.build_headers_frame(
+            headers=[*request_headers, conflicting_header],
+        )
+        with pytest.raises(h2.exceptions.ProtocolError, match="Conflicting content-length"):
+            c.receive_data(headers.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize("request_headers", [example_request_headers, example_request_headers_bytes])
     def test_too_much_data(self, frame_factory, request_headers) -> None:
         """
         Remote peers sending data in excess of content-length causes Protocol
