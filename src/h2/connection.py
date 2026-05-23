@@ -1777,6 +1777,8 @@ class H2Connection:
             return [], events
 
         # Add the new settings.
+        for setting, value in frame.settings.items():
+            self.remote_settings.validate_received_setting(setting, value)
         self.remote_settings.update(frame.settings)
         events.append(
             RemoteSettingsChanged.from_settings(

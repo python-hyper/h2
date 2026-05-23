@@ -27,6 +27,7 @@ dev
 **Bugfixes**
 
 - Fix to allow sending 0 bytes on a stream even if the flow control window is negative.
+- Reject non-zero ``SETTINGS_ENABLE_PUSH`` values received from servers.
 
 4.3.0 (2025-08-23)
 ------------------
