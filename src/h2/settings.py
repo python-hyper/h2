@@ -126,6 +126,8 @@ class Settings(MutableMapping[SettingCodes | int, int]):
     """
 
     def __init__(self, client: bool = True, initial_values: dict[SettingCodes, int] | None = None) -> None:
+        self._client = client
+
         # Backing object for the settings. This is a dictionary of
         # (setting: [list of values]), where the first value in the list is the
         # current value of the setting. Strictly this doesn't use lists but
@@ -287,6 +289,23 @@ class Settings(MutableMapping[SettingCodes | int, int]):
 
         items.append(value)
 
+    def validate_received_setting(self, setting: SettingCodes | int, value: int) -> None:
+        """
+        Validate a setting received from the peer that owns this Settings
+        object.
+
+        Servers may advertise ``ENABLE_PUSH`` only as ``0`` in received
+        SETTINGS frames.
+        """
+        invalid = _validate_setting(setting, value, client=self._client)
+
+        if invalid != ErrorCodes.NO_ERROR:
+            msg = f"Setting {setting} has invalid value {value}"
+            raise InvalidSettingsValueError(
+                msg,
+                error_code=invalid,
+            )
+
     def __delitem__(self, key: SettingCodes | int) -> None:
         del self._settings[key]
 
@@ -311,13 +330,23 @@ class Settings(MutableMapping[SettingCodes | int, int]):
     __hash__ = MutableMapping.__hash__
 
 
-def _validate_setting(setting: SettingCodes | int, value: int) -> ErrorCodes:
+def _validate_setting(
+    setting: SettingCodes | int,
+    value: int,
+    *,
+    client: bool | None = None,
+) -> ErrorCodes:
     """
     Confirms that a specific setting has a well-formed value. If the setting is
     invalid, returns an error code. Otherwise, returns 0 (NO_ERROR).
+
+    If ``client`` is set, the setting originated from a peer with that role.
     """
     if setting == SettingCodes.ENABLE_PUSH:
-        if value not in (0, 1):
+        # RFC 9113 section 6.5.2: "A client MUST treat receipt of a
+        # SETTINGS frame with SETTINGS_ENABLE_PUSH set to 1 as a connection
+        # error (Section 5.4.1) of type PROTOCOL_ERROR."
+        if value not in (0, 1) or (client is False and value != 0):
             return ErrorCodes.PROTOCOL_ERROR
     elif setting == SettingCodes.INITIAL_WINDOW_SIZE:
         if not 0 <= value <= 2147483647:  # 2^31 - 1
