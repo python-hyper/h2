@@ -118,6 +118,7 @@ lint.ignore = [
   "D400",    # docs readability
   "D401",    # docs readability
   "D415",    # docs readability
+  "PLR0917", # readability
   "PLR2004", # readability
   "SIM108",  # readability
   "RUF012",  # readability
