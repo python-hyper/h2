@@ -71,7 +71,6 @@ linting = [
 
 packaging = [
   "check-manifest==0.51",
-  "readme-renderer==44.0",
   "build>=1.4.2,<2",
   "twine>=6.2.0,<7",
   "wheel>=0.46.3,<1",
