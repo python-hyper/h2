@@ -82,6 +82,40 @@ class TestInvalidContentLengths:
         assert c.data_to_send() == b""
 
     @pytest.mark.parametrize(
+        "value", [
+            "15a", "15.0", "-15", "+15", " 15", "15 ", "1e2", "0xF", "15_000", "15,000", "NaN", "\x00", "0b1111", "0o17",
+            ("1" * 5000), # https://docs.python.org/3/library/stdtypes.html#int-max-str-digits
+        ],
+    )
+    def test_content_length_with_non_digit_value(self, frame_factory, value) -> None:
+        """
+        Remote peers sending content-length with non-digit value causes Protocol
+        Errors.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        headers = frame_factory.build_headers_frame(
+            headers=[
+                *self.example_request_headers_bytes_without_content_length,
+                ("content-length", value),
+            ],
+        )
+        with pytest.raises(
+            h2.exceptions.ProtocolError,
+            match=f"Invalid content-length header",
+        ):
+            c.receive_data(headers.serialize())
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize(
         "request_headers",
         [
             example_request_headers_without_content_length,

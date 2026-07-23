@@ -11,6 +11,7 @@ dev
 - `Stream.end_stream()` now raises `NoSuchStreamError` or `StreamClosedError` exceptions, instead of a generic `KeyError`.
 - Duplicate ``content-length`` headers with different values now raise ``ProtocolError``.
   Previously, the first ``content-length`` header was accepted and later conflicting values were ignored.
+- Parse ``content-length`` headers according to RFC9110 grammar for numbers (1*DIGIT)
 - **backfill from v4.3.0** Convert emitted events into Python `dataclass`, which introduces new constructors with required arguments.
   Instantiating these events without arguments, as previously commonly used API pattern, will no longer work.
 

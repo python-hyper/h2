@@ -1368,6 +1368,11 @@ class H2Stream:
 
         for n, v in headers:
             if n == b"content-length":
+                if not v.isdigit():
+                    # https://www.rfc-editor.org/rfc/rfc9110.html#name-content-length
+                    # RFC grammar for content-length is 1*DIGIT, so any non-digit value is invalid.
+                    msg = f"Invalid content-length header: {v!r}"
+                    raise ProtocolError(msg)
                 try:
                     parsed_content_length = int(v, 10)
                 except ValueError as err:
