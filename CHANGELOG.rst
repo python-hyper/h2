@@ -1,8 +1,8 @@
 Release History
 ===============
 
-dev
----
+4.4.0 (2026-07-23)
+------------------
 
 **API Changes (Backward Incompatible)**
 
