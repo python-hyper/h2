@@ -155,7 +155,7 @@ class FrameBuffer:
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.
-        self._data = self._data[9+length:]
+        del self._data[:9+length]
 
         # Pass the frame through the header buffer.
         new_frame = self._update_header_buffer(f)

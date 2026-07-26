@@ -23,6 +23,20 @@ import h2.stream
 from . import helpers
 
 
+class TestFrameBuffer:
+    def test_consumed_frames_are_removed_in_place(self) -> None:
+        frame = hyperframe.frame.SettingsFrame(0).serialize()
+        buffer = h2.frame_buffer.FrameBuffer()
+        buffer.max_frame_size = 65535
+        buffer.add_data(frame * 2)
+        data = buffer._data
+
+        next(buffer)
+
+        assert buffer._data is data
+        assert buffer._data == frame
+
+
 class TestBasicClient:
     """
     Basic client-side tests.
