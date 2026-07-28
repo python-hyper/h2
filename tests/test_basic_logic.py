@@ -33,6 +33,10 @@ class TestFrameBuffer:
 
         next(buffer)
 
+        # ``is`` checks object identity (CPython compares ``id(...)`` of both
+        # operands): the buffer must still be the very same bytearray object,
+        # proving the consumed frame was deleted in place rather than the
+        # buffer being replaced by a sliced copy.
         assert buffer._data is data
         assert buffer._data == frame
 

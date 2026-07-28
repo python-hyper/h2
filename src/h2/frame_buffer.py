@@ -155,6 +155,13 @@ class FrameBuffer:
 
         # At this point, as we know we'll use or discard the entire frame, we
         # can update the data.
+        # Deleting the consumed prefix mutates the bytearray in place instead
+        # of copying the remaining bytes into a new object, as slicing would.
+        # ``del s[i:j]`` is documented for mutable sequences in
+        # https://docs.python.org/3/library/stdtypes.html#mutable-sequence-types
+        # and CPython's bytearray tracks an internal offset (``ob_start`` in
+        # Objects/bytearrayobject.c) that makes repeated deletes from the
+        # front amortized O(1) per byte rather than O(len) per frame.
         del self._data[:9+length]
 
         # Pass the frame through the header buffer.
