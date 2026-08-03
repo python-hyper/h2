@@ -449,6 +449,9 @@ def _validate_host_authority_header(headers: Iterable[Header]) -> Generator[Head
         if header[0] == b":authority":
             authority_header_val = header[1]
         elif header[0] == b"host":
+            if host_header_val is not None:
+                msg = "Request header block has multiple Host headers."
+                raise ProtocolError(msg)
             host_header_val = header[1]
 
         yield header
