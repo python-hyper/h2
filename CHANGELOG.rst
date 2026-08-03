@@ -1,20 +1,13 @@
 Release History
 ===============
 
-dev
----
-
-**API Changes (Backward Incompatible)**
-
--
-
-**API Changes (Backward Compatible)**
-
-- Performance improvement: remove consumed frames in-place from data buffer.
+4.4.1 (2026-08-03)
+------------------
 
 **Bugfixes**
 
--
+- Performance improvement: remove consumed frames in-place from data buffer.
+- Reject duplicate Host headers in request headers. Thanks to Sunand Mohan for the report.
 
 4.4.0 (2026-07-23)
 ------------------
