@@ -43,6 +43,7 @@ class TestInvalidFrameSequences:
         [*base_request_headers, ("transfer-encoding", "gzip")],
         [*base_request_headers, ("upgrade", "super-protocol/1.1")],
         [*base_request_headers, ("te", "chunked")],
+        [*base_request_headers, ("host", "example.com"), ("host", "evil.example.com")],
         [*base_request_headers, ("host", "notexample.com")],
         [*base_request_headers, (" name", "name with leading space")],
         [*base_request_headers, ("name ", "name with trailing space")],
