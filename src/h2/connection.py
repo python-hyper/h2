@@ -1541,6 +1541,13 @@ class H2Connection:
         """
         events: list[Event]
         self.config.logger.trace("Received frame: %s", repr(frame))
+        # Leftover frames can still be in the TCP buffer after we closed.
+        # Extra GOAWAYs are already valid; anything else is not a protocol error.
+        if (
+            self.state_machine.state == ConnectionState.CLOSED
+            and not isinstance(frame, GoAwayFrame)
+        ):
+            return []
         try:
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
