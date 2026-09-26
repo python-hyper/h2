@@ -716,7 +716,7 @@ class TestBasicClient:
         c.receive_data(f.serialize())
 
         # Send in trailers.
-        trailers = [("content-length", "0")]
+        trailers = [("x-checksum", "0")]
         f = frame_factory.build_headers_frame(
             trailers,
             flags=["END_STREAM"],
@@ -742,7 +742,7 @@ class TestBasicClient:
 
         # Send in trailers.
         c.clear_outbound_data_buffer()
-        trailers = [("content-length", "0")]
+        trailers = [("x-checksum", "0")]
         f = frame_factory.build_headers_frame(
             trailers,
             flags=[],
@@ -1646,7 +1646,7 @@ class TestBasicServer:
         c.receive_data(f.serialize())
 
         # Send in trailers.
-        trailers = [("content-length", "0")]
+        trailers = [("x-checksum", "0")]
         f = frame_factory.build_headers_frame(
             trailers,
             flags=["END_STREAM"],
@@ -1671,7 +1671,7 @@ class TestBasicServer:
 
         # Send in trailers.
         c.clear_outbound_data_buffer()
-        trailers = [("content-length", "0")]
+        trailers = [("x-checksum", "0")]
         f = frame_factory.build_headers_frame(
             trailers,
             flags=[],
