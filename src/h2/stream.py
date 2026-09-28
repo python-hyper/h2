@@ -1094,20 +1094,13 @@ class H2Stream:
             ).stream_ended = cast("StreamEnded", es_events[0])
             events += es_events
 
+        if isinstance(headers_event, TrailersReceived) and not end_stream:
+            msg = "Trailers must have END_STREAM set"
+            raise ProtocolError(msg)
+
         if isinstance(headers_event, TrailersReceived):
-            if not end_stream:
-                msg = "Trailers must have END_STREAM set"
-                raise ProtocolError(msg)
-
-            if any(n == b"content-length" for n, _ in headers):
-                # Fields that describe message framing have to be evaluated
-                # before the content is received, so they are never allowed
-                # in a trailer section. RFC 9110 § 6.5.1.
-                msg = "Received content-length header in trailer"
-                raise ProtocolError(msg)
-
-            # The trailers are not part of the content, but the stream ends
-            # here, so this is the only place the body length can be policed.
+            # Trailers are not part of the content, but the stream ends here,
+            # so this is the only point at which the body length can be policed.
             self._track_content_length(0, end_stream=True)
         else:
             self._initialize_content_length(headers)

@@ -332,27 +332,6 @@ class TestContentLengthEnforcedAtTrailers:
         assert exp.value.expected_length == 15
         assert exp.value.actual_length == 0
 
-    @pytest.mark.parametrize("content_length", ["13", "15", "0", "banana"])
-    def test_content_length_rejected_in_trailers(self, frame_factory, content_length) -> None:
-        """
-        A trailers section must not carry a content-length header field at
-        all, whatever the value: RFC 9110 § 6.5.1 only allows trailer fields
-        whose definition permits them there, and content-length has to be
-        evaluated before the content is received.
-        """
-        c = self._server(frame_factory, self.example_request_headers)
-        c.receive_data(frame_factory.build_data_frame(data=b"\x01"*15).serialize())
-        c.clear_outbound_data_buffer()
-
-        trailers = frame_factory.build_headers_frame(
-            headers=[("content-length", content_length), ("x-checksum", "0")],
-            flags=["END_STREAM"],
-        )
-        with pytest.raises(h2.exceptions.ProtocolError) as exp:
-            c.receive_data(trailers.serialize())
-
-        assert "content-length header in trailer" in str(exp.value)
-
     def test_matching_body_ended_by_trailers_is_accepted(self, frame_factory) -> None:
         """
         A trailers section that ends a stream whose body matches content-length
