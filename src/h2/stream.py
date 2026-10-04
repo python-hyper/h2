@@ -906,7 +906,9 @@ class H2Stream:
             self._authority = authority_from_headers(bytes_headers)
 
         # store request method for _initialize_content_length
-        self.request_method = extract_method_header(bytes_headers)
+        method = extract_method_header(bytes_headers)
+        if method is not None:
+            self.request_method = method
 
         return frames
 
