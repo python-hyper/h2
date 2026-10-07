@@ -422,8 +422,8 @@ class TestSettingsEquality:
         An object compares equal to itself using the == operator and the !=
         operator.
         """
-        assert (settings == settings)
         assert settings == settings
+        assert (settings != settings) is False
 
     @given(settings=SettingsStrategy, o_settings=SettingsStrategy)
     def test_equality_multiple(self, settings, o_settings) -> None:
@@ -431,12 +431,48 @@ class TestSettingsEquality:
         Two objects compare themselves using the == operator and the !=
         operator.
         """
-        if settings == o_settings:
-            assert settings == o_settings
-            assert settings == o_settings
-        else:
-            assert settings != o_settings
-            assert settings != o_settings
+        expected = dict(settings) == dict(o_settings)
+        assert (settings == o_settings) == expected
+        assert (o_settings == settings) == expected
+        assert (settings != o_settings) != expected
+        assert (o_settings != settings) != expected
+
+    @given(settings=SettingsStrategy, updates=SettingsStrategy)
+    def test_equality_tracks_unacknowledged_values(self, settings, updates) -> None:
+        """
+        Pending changes affect equality until both objects acknowledge them.
+        """
+        other = h2.settings.Settings(initial_values=dict(settings))
+        assert settings == other
+
+        settings.update(updates)
+        assert settings != other
+
+        other.update(updates)
+        assert settings == other
+
+        settings.acknowledge()
+        assert settings != other
+
+        other.acknowledge()
+        assert settings == other
+
+    @given(settings=SettingsStrategy, updates=SettingsStrategy)
+    def test_equality_compares_all_pending_values(self, settings, updates) -> None:
+        """
+        Pending histories can differ despite equal current and final values.
+        """
+        initial_values = dict(settings)
+        other = h2.settings.Settings(initial_values=initial_values)
+
+        settings.update(updates)
+        settings.update(initial_values)
+        other.update(initial_values)
+        other.update(initial_values)
+
+        expected = dict(updates) == initial_values
+        assert (settings == other) == expected
+        assert (settings != other) != expected
 
     @given(settings=SettingsStrategy)
     def test_another_type_equality(self, settings) -> None:
@@ -445,7 +481,7 @@ class TestSettingsEquality:
         (which does not implement the comparison) using the == operator.
         """
         obj = object()
-        assert (settings != obj)
+        assert (settings == obj) is False
         assert settings != obj
 
     @given(settings=SettingsStrategy)
