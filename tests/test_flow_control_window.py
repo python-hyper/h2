@@ -650,6 +650,29 @@ class TestFlowControl:
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
 
+    @pytest.mark.parametrize("stream_id", [None, 1])
+    def test_rejected_local_window_increase_preserves_window(self, frame_factory, stream_id: int | None) -> None:
+        """
+        Rejecting a local increase must not change the advertised window or
+        prevent a subsequent valid increase.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers)
+        c.clear_outbound_data_buffer()
+        before = c.inbound_flow_control_window
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.increment_flow_control_window(2**31 - before, stream_id=stream_id)
+
+        assert c.inbound_flow_control_window == before
+        assert c.data_to_send() == b""
+        c.increment_flow_control_window(1, stream_id=stream_id)
+        expected = frame_factory.build_window_update_frame(
+            stream_id=stream_id or 0, increment=1,
+        )
+        assert c.data_to_send() == expected.serialize()
+
     def test_send_update_on_closed_streams(self, frame_factory) -> None:
         c = h2.connection.H2Connection()
         c.initiate_connection()

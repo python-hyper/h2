@@ -64,12 +64,13 @@ class WindowManager:
         :returns: Nothing
         :rtype: ``None``
         """
-        self.current_window_size += size
+        new_window_size = self.current_window_size + size
 
-        if self.current_window_size > LARGEST_FLOW_CONTROL_WINDOW:
+        if new_window_size > LARGEST_FLOW_CONTROL_WINDOW:
             msg = f"Flow control window mustn't exceed {LARGEST_FLOW_CONTROL_WINDOW}"
             raise FlowControlError(msg)
 
+        self.current_window_size = new_window_size
         self.max_window_size = max(self.current_window_size, self.max_window_size)
 
     def process_bytes(self, size: int) -> int | None:
