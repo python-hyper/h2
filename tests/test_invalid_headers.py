@@ -405,6 +405,106 @@ class TestSendingInvalidFrameSequences:
         )
         assert c.data_to_send() == pp_frame.serialize()
 
+    illegal_name_header_blocks = [
+        [*base_request_headers, ("foo bar", "baz")],
+        [*base_request_headers, ("foo\x7f", "bar")],
+        [*base_request_headers, ("foo:bar", "baz")],
+    ]
+
+    @pytest.mark.parametrize("headers", illegal_name_header_blocks)
+    def test_headers_event_illegal_name_characters(self, frame_factory, headers) -> None:
+        """
+        Sending header names containing illegal characters raises a
+        ProtocolError, even though normalization leaves them untouched.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then try to send headers.
+        c.clear_outbound_data_buffer()
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(1, headers)
+
+    @pytest.mark.parametrize("headers", illegal_name_header_blocks)
+    def test_send_push_promise_illegal_name_characters(self, frame_factory, headers) -> None:
+        """
+        Sending header names containing illegal characters in a push promise
+        raises a ProtocolError.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+
+        header_frame = frame_factory.build_headers_frame(
+            self.base_request_headers,
+        )
+        c.receive_data(header_frame.serialize())
+
+        # Clear the data, then try to send a push promise.
+        c.clear_outbound_data_buffer()
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.push_stream(
+                stream_id=1, promised_stream_id=2, request_headers=headers,
+            )
+
+    @pytest.mark.parametrize("headers", illegal_name_header_blocks)
+    def test_headers_event_illegal_name_characters_skipping_validation(self, frame_factory, headers) -> None:
+        """
+        If we have ``validate_outbound_headers`` disabled, header names
+        containing illegal characters are allowed to pass.
+        """
+        config = h2.config.H2Configuration(
+            validate_outbound_headers=False,
+        )
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, headers)
+
+        headers = h2.utilities.utf8_encode_headers(headers)
+        norm_headers = h2.utilities.normalize_outbound_headers(
+            headers, None, False,
+        )
+        f = frame_factory.build_headers_frame(norm_headers)
+        assert c.data_to_send() == f.serialize()
+
+    def test_headers_event_uppercase_name_skipping_normalization(self, frame_factory) -> None:
+        """
+        With ``normalize_outbound_headers`` disabled, an uppercase header name
+        is no longer lowercased before validation and is rejected.
+        """
+        config = h2.config.H2Configuration(
+            normalize_outbound_headers=False,
+        )
+
+        c = h2.connection.H2Connection(config=config)
+        c.initiate_connection()
+
+        # Clear the data, then try to send headers.
+        c.clear_outbound_data_buffer()
+        with pytest.raises(h2.exceptions.ProtocolError):
+            c.send_headers(1, [*self.base_request_headers, ("X-Foo", "bar")])
+
+    def test_headers_event_uppercase_name_is_lowercased(self, frame_factory) -> None:
+        """
+        With normalization enabled an uppercase header name is still
+        lowercased and sent, rather than rejected.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+
+        # Clear the data, then send headers.
+        c.clear_outbound_data_buffer()
+        c.send_headers(1, [*self.base_request_headers, ("X-Foo", "bar")])
+
+        f = frame_factory.build_headers_frame(
+            [*self.base_request_headers, ("x-foo", "bar")],
+        )
+        assert c.data_to_send() == f.serialize()
+
     @pytest.mark.parametrize("headers", strippable_header_blocks)
     def test_strippable_headers(self, frame_factory, headers) -> None:
         """
@@ -672,6 +772,37 @@ class TestFilter:
         with pytest.raises(h2.exceptions.ProtocolError):
             list(h2.utilities.validate_headers([(b"", b"foobar")], hdr_validation_flags))
 
+    @pytest.mark.parametrize("hdr_validation_flags", hdr_validation_combos)
+    def test_outbound_header_name_length(self, hdr_validation_flags) -> None:
+        # An empty outbound header name must raise ProtocolError, not IndexError
+        # from the `header[0][0]` lookup in _reject_pseudo_header_fields.
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(h2.utilities.validate_outbound_headers([(b"", b"foobar")], hdr_validation_flags))
+
+    def test_outbound_header_name_length_send_headers(self, frame_factory) -> None:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        headers = [
+            (b":authority", b"example.com"),
+            (b":path", b"/"),
+            (b":scheme", b"https"),
+            (b":method", b"GET"),
+            (b"", b"foobar"),
+        ]
+        with pytest.raises(h2.exceptions.ProtocolError, match=r"Header name with zero length present\."):
+            c.send_headers(1, headers)
+
+    @pytest.mark.parametrize("hdr_validation_flags", [
+        flags for flags in hdr_validation_combos
+        if flags.is_trailer and not flags.is_response_header
+    ])
+    def test_valid_header_name_accepted_both_directions(self, hdr_validation_flags) -> None:
+        headers = [(b"x-custom-header", b"foobar")]
+        assert list(h2.utilities.validate_headers(list(headers), hdr_validation_flags))
+        assert list(h2.utilities.validate_outbound_headers(list(headers), hdr_validation_flags))
+
     def test_inbound_header_name_length_full_frame_decode(self, frame_factory) -> None:
         f = frame_factory.build_headers_frame([])
         f.data = b"\x00\x00\x01\x04"
@@ -682,7 +813,7 @@ class TestFilter:
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
-        with pytest.raises(h2.exceptions.ProtocolError, match="Received header name with zero length."):
+        with pytest.raises(h2.exceptions.ProtocolError, match=r"Header name with zero length present\."):
             c.receive_data(data)
 
 
