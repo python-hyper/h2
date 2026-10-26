@@ -672,6 +672,37 @@ class TestFilter:
         with pytest.raises(h2.exceptions.ProtocolError):
             list(h2.utilities.validate_headers([(b"", b"foobar")], hdr_validation_flags))
 
+    @pytest.mark.parametrize("hdr_validation_flags", hdr_validation_combos)
+    def test_outbound_header_name_length(self, hdr_validation_flags) -> None:
+        # An empty outbound header name must raise ProtocolError, not IndexError
+        # from the `header[0][0]` lookup in _reject_pseudo_header_fields.
+        with pytest.raises(h2.exceptions.ProtocolError):
+            list(h2.utilities.validate_outbound_headers([(b"", b"foobar")], hdr_validation_flags))
+
+    def test_outbound_header_name_length_send_headers(self, frame_factory) -> None:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        headers = [
+            (b":authority", b"example.com"),
+            (b":path", b"/"),
+            (b":scheme", b"https"),
+            (b":method", b"GET"),
+            (b"", b"foobar"),
+        ]
+        with pytest.raises(h2.exceptions.ProtocolError, match=r"Header name with zero length present\."):
+            c.send_headers(1, headers)
+
+    @pytest.mark.parametrize("hdr_validation_flags", [
+        flags for flags in hdr_validation_combos
+        if flags.is_trailer and not flags.is_response_header
+    ])
+    def test_valid_header_name_accepted_both_directions(self, hdr_validation_flags) -> None:
+        headers = [(b"x-custom-header", b"foobar")]
+        assert list(h2.utilities.validate_headers(list(headers), hdr_validation_flags))
+        assert list(h2.utilities.validate_outbound_headers(list(headers), hdr_validation_flags))
+
     def test_inbound_header_name_length_full_frame_decode(self, frame_factory) -> None:
         f = frame_factory.build_headers_frame([])
         f.data = b"\x00\x00\x01\x04"
@@ -682,7 +713,7 @@ class TestFilter:
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
-        with pytest.raises(h2.exceptions.ProtocolError, match="Received header name with zero length."):
+        with pytest.raises(h2.exceptions.ProtocolError, match=r"Header name with zero length present\."):
             c.receive_data(data)
 
 

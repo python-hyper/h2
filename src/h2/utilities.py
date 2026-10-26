@@ -275,7 +275,7 @@ def _reject_empty_header_names(headers: Iterable[Header],
     """
     for header in headers:
         if len(header[0]) == 0:
-            msg = "Received header name with zero length."
+            msg = "Header name with zero length present."
             raise ProtocolError(msg)
         yield header
 
@@ -690,6 +690,9 @@ def validate_outbound_headers(headers: Iterable[Header],
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
+    headers = _reject_empty_header_names(
+        headers, hdr_validation_flags,
+    )
     headers = _reject_te(
         headers, hdr_validation_flags,
     )
