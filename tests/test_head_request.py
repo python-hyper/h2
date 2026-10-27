@@ -46,6 +46,35 @@ class TestHeadRequest:
         assert event.headers == self.example_response_headers
 
     @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
+    def test_non_zero_content_and_no_body_after_trailers(self, frame_factory, headers) -> None:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, headers)
+        c.send_headers(1, [(b"x-checksum", b"abc123")], end_stream=True)
+
+        f = frame_factory.build_headers_frame(
+            [
+                (b":status", b"200"),
+                (b"server", b"fake-serv/0.1.0"),
+                (b"content-length", b"1234"),
+            ],
+        )
+        events = c.receive_data(f.serialize())
+
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, h2.events.ResponseReceived)
+        assert event.stream_id == 1
+
+        data = frame_factory.build_data_frame(b"", flags=["END_STREAM"])
+        events = c.receive_data(data.serialize())
+
+        assert len(events) == 2
+        assert isinstance(events[0], h2.events.DataReceived)
+        assert isinstance(events[1], h2.events.StreamEnded)
+
+    @pytest.mark.parametrize("headers", [EXAMPLE_REQUEST_HEADERS, EXAMPLE_REQUEST_HEADERS_BYTES])
     def test_reject_non_zero_content_and_body(self, frame_factory, headers) -> None:
         c = h2.connection.H2Connection()
         c.initiate_connection()
