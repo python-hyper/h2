@@ -105,6 +105,37 @@ class TestClosedStreams:
         # The streams dictionary should be empty.
         assert not c.streams
 
+    def test_sending_headers_on_evicted_reset_stream(self, frame_factory) -> None:
+        """
+        Sending headers on a reset stream raises StreamClosedError even after
+        the stream has been evicted from the active streams dictionary.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.receive_data(frame_factory.preamble())
+        c.initiate_connection()
+
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        f = frame_factory.build_rst_stream_frame(stream_id=1)
+        c.receive_data(f.serialize())
+
+        # Force the closed stream into the bounded closed-stream cache.
+        assert not c.open_inbound_streams
+        assert 1 not in c.streams
+
+        with pytest.raises(h2.exceptions.StreamClosedError) as exc_info:
+            c.send_headers(1, self.example_response_headers)
+
+        assert exc_info.value.stream_id == 1
+
+        c.close_connection()
+        with pytest.raises(
+            h2.exceptions.ProtocolError,
+            match="Invalid input ConnectionInputs.SEND_HEADERS",
+        ):
+            c.send_headers(1, self.example_response_headers)
+
     def test_receive_rst_stream_on_closed_stream(self, frame_factory) -> None:
         """
         RST_STREAM frame should be ignored if stream is in a closed state.
