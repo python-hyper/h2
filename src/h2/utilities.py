@@ -207,6 +207,9 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     headers = _reject_connection_header(
         headers, hdr_validation_flags,
     )
+    headers = _reject_content_length_in_trailers(
+        headers, hdr_validation_flags,
+    )
     headers = _reject_pseudo_header_fields(
         headers, hdr_validation_flags,
     )
@@ -301,6 +304,22 @@ def _reject_connection_header(headers: Iterable[Header], hdr_validation_flags: H
     for header in headers:
         if header[0] in CONNECTION_HEADERS:
             msg = f"Connection-specific header field present: {header[0]!r}."
+            raise ProtocolError(msg)
+
+        yield header
+
+
+def _reject_content_length_in_trailers(headers: Iterable[Header],
+                                       hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
+    """
+    Raises a ProtocolError if a content-length header is present in a trailer
+    block, whatever its value. Fields that describe message framing have to be
+    evaluated before the content is received, so they are not allowed in a
+    trailer section - RFC 9110 § 6.5.1.
+    """
+    for header in headers:
+        if hdr_validation_flags.is_trailer and header[0] == b"content-length":
+            msg = "Received content-length header in trailer"
             raise ProtocolError(msg)
 
         yield header
