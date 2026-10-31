@@ -54,6 +54,14 @@ if TYPE_CHECKING:  # pragma: no cover
     from .config import H2Configuration
 
 
+def _is_bodyless_response(headers: Iterable[Header]) -> bool:
+    """Whether a response status is defined by RFC 9113 to have no content."""
+    for name, value in headers:
+        if name in (b":status", ":status"):
+            return value in (b"204", b"304", "204", "304")
+    return False
+
+
 class StreamState(IntEnum):
     IDLE = 0
     RESERVED_REMOTE = 1
@@ -1069,6 +1077,9 @@ class H2Stream:
         """
         Receive a set of headers (or trailers).
         """
+        # Concretize once: the same block is inspected for informational status,
+        # content-length, and header validation below.
+        headers = list(headers)
         if is_informational_response(headers):
             if end_stream:
                 msg = "Cannot set END_STREAM on informational responses"
@@ -1360,7 +1371,7 @@ class H2Stream:
         _expected_content_length field from it. It's not an error for no
         Content-Length header to be present.
         """
-        if self.request_method == b"HEAD":
+        if self.request_method == b"HEAD" or _is_bodyless_response(headers):
             self._expected_content_length = 0
             return
 
