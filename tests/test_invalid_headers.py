@@ -33,6 +33,12 @@ class TestInvalidFrameSequences:
         (":method", "GET"),
         ("user-agent", "someua/0.0.1"),
     ]
+    duplicate_host_header_blocks = [
+        [*base_request_headers, ("host", "example.com"), ("host", "evil.example.com")],
+        [*base_request_headers, ("host", "evil.example.com"), ("host", "example.com")],
+        [*[header for header in base_request_headers if header[0] != ":authority"],
+         ("host", "example.com"), ("host", "evil.example.com")],
+    ]
     base_invalid_header_blocks = [
         [*base_request_headers, ("Uppercase", "name")],
         [*base_request_headers, (":late", "pseudo-header")],
@@ -43,10 +49,7 @@ class TestInvalidFrameSequences:
         [*base_request_headers, ("transfer-encoding", "gzip")],
         [*base_request_headers, ("upgrade", "super-protocol/1.1")],
         [*base_request_headers, ("te", "chunked")],
-        [*base_request_headers, ("host", "example.com"), ("host", "evil.example.com")],
-        [*base_request_headers, ("host", "evil.example.com"), ("host", "example.com")],
-        [*[header for header in base_request_headers if header[0] != ":authority"],
-         ("host", "example.com"), ("host", "evil.example.com")],
+        *duplicate_host_header_blocks,
         [*base_request_headers, ("host", "notexample.com")],
         [*base_request_headers, (" name", "name with leading space")],
         [*base_request_headers, ("name ", "name with trailing space")],
@@ -84,6 +87,29 @@ class TestInvalidFrameSequences:
         data = f.serialize()
 
         with pytest.raises(h2.exceptions.ProtocolError):
+            c.receive_data(data)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize("headers", duplicate_host_header_blocks + [
+        h2.utilities.utf8_encode_headers(headers) for headers in duplicate_host_header_blocks
+    ])
+    def test_duplicate_host_headers_rejected(self, frame_factory, headers) -> None:
+        """
+        A request header block with more than one Host header is rejected
+        by the duplicate Host check, not by any other header check.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        f = frame_factory.build_headers_frame(headers)
+        data = f.serialize()
+
+        with pytest.raises(h2.exceptions.ProtocolError, match="Request header block has multiple Host headers"):
             c.receive_data(data)
 
         expected_frame = frame_factory.build_goaway_frame(
