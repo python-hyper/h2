@@ -51,6 +51,7 @@ from .exceptions import (
     DenialOfServiceError,
     FlowControlError,
     FrameTooLargeError,
+    InvalidSettingsValueError,
     NoAvailableStreamIDError,
     NoSuchStreamError,
     ProtocolError,
@@ -60,7 +61,7 @@ from .exceptions import (
     TooManyStreamsError,
 )
 from .frame_buffer import FrameBuffer
-from .settings import ChangedSetting, SettingCodes, Settings
+from .settings import ChangedSetting, SettingCodes, Settings, _validate_setting
 from .stream import H2Stream, StreamClosedBy
 from .utilities import SizeLimitDict, guard_increment_window
 from .windows import WindowManager
@@ -1122,6 +1123,12 @@ class H2Connection:
             "Update connection settings to %s", new_settings,
         )
         self.state_machine.process_input(ConnectionInputs.SEND_SETTINGS)
+        # No part of a rejected batch can be acknowledged: it emits no frame.
+        for setting, value in new_settings.items():
+            invalid = _validate_setting(setting, value)
+            if invalid:
+                msg = f"Setting {setting} has invalid value {value}"
+                raise InvalidSettingsValueError(msg, error_code=invalid)
         self.local_settings.update(new_settings)
         s = SettingsFrame(0)
         s.settings = new_settings

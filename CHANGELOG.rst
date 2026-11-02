@@ -1,6 +1,14 @@
 Release History
 ===============
 
+Unreleased
+----------
+
+**Bugfixes**
+
+- Local settings updates rejected with ``InvalidSettingsValueError`` no longer
+  leave unsent values queued for a later SETTINGS acknowledgement.
+
 4.4.1 (2026-08-03)
 ------------------
 
