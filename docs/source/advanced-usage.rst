@@ -291,6 +291,24 @@ blocked. The user should use :meth:`local_flow_control_window
 <h2.connection.H2Connection.local_flow_control_window>` to check all blocked
 streams to see if more data is available.
 
+
+A peer can also change stream windows by sending a ``SETTINGS`` frame with a
+new :data:`INITIAL_WINDOW_SIZE <h2.settings.SettingCodes.INITIAL_WINDOW_SIZE>`.
+This produces a :class:`RemoteSettingsChanged
+<h2.events.RemoteSettingsChanged>` event, not a :class:`WindowUpdated
+<h2.events.WindowUpdated>` event. If ``INITIAL_WINDOW_SIZE`` appears in the
+event's ``changed_settings``, h2 has already adjusted the existing stream
+windows by the difference between the old and new setting values. The
+connection window is unchanged.
+
+Applications waiting to send data should therefore also handle this settings
+change and recheck :meth:`local_flow_control_window
+<h2.connection.H2Connection.local_flow_control_window>` for each blocked stream.
+An increase can unblock streams, but the connection window may still prevent
+sending. A decrease can make a stream's window negative; wait for a positive
+available window before sending a non-empty ``DATA`` payload on that stream.
+New streams use the new initial window size.
+
 Auto Flow Control
 ~~~~~~~~~~~~~~~~~
 
