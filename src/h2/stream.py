@@ -1308,13 +1308,17 @@ class H2Stream:
 
         encoded_headers = encoder.encode(headers)
 
-        # Slice into blocks of max_outbound_frame_size. Be careful with this:
-        # it only works right because we never send padded frames or priority
-        # information on the frames. Revisit this if we do.
-        header_blocks = [
+        # PUSH_PROMISE includes a four-byte promised stream ID before the
+        # header block. CONTINUATION frames can use the full frame size.
+        # Padding and priority information would also need to be accounted for
+        # here if added to first_frame.
+        first_frame_size = self.max_outbound_frame_size or 0
+        if isinstance(first_frame, PushPromiseFrame):
+            first_frame_size -= 4
+        header_blocks = [encoded_headers[:first_frame_size]] + [
             encoded_headers[i:i+(self.max_outbound_frame_size or 0)]
             for i in range(
-                0, len(encoded_headers), (self.max_outbound_frame_size or 0),
+                first_frame_size, len(encoded_headers), (self.max_outbound_frame_size or 0),
             )
         ]
 
