@@ -1094,11 +1094,16 @@ class H2Stream:
             ).stream_ended = cast("StreamEnded", es_events[0])
             events += es_events
 
-        self._initialize_content_length(headers)
-
         if isinstance(headers_event, TrailersReceived) and not end_stream:
             msg = "Trailers must have END_STREAM set"
             raise ProtocolError(msg)
+
+        if isinstance(headers_event, TrailersReceived):
+            # Trailers are not part of the content, but the stream ends here,
+            # so this is the only point at which the body length can be policed.
+            self._track_content_length(0, end_stream=True)
+        else:
+            self._initialize_content_length(headers)
 
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         headers_event.headers = self._process_received_headers(
