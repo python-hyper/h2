@@ -36,5 +36,6 @@ Contents
    low-level
    api
    testimonials
+   related
    release-process
    release-notes
