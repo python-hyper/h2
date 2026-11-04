@@ -115,6 +115,59 @@ class TestInvalidContentLengths:
         )
         assert c.data_to_send() == expected_frame.serialize()
 
+    @pytest.mark.parametrize("status", ["204", "304"])
+    @pytest.mark.parametrize("end_stream_on_headers", [True, False])
+    def test_no_content_response_with_content_length(self, frame_factory, status, end_stream_on_headers) -> None:
+        """Content-Length does not imply a body for a no-content response."""
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(
+            1,
+            [(":method", "GET"), (":scheme", "https"), (":authority", "example.com"), (":path", "/")],
+            end_stream=True,
+        )
+
+        headers = frame_factory.build_headers_frame(
+            headers=[(":status", status), ("content-length", "15")],
+            flags=["END_STREAM"] if end_stream_on_headers else [],
+        )
+        frames = headers.serialize()
+        if not end_stream_on_headers:
+            data = frame_factory.build_data_frame(data=b"", flags=["END_STREAM"])
+            frames += data.serialize()
+
+        events = c.receive_data(frames)
+        assert isinstance(events[0], h2.events.ResponseReceived)
+        assert isinstance(events[-1], h2.events.StreamEnded)
+
+    @pytest.mark.parametrize(
+        "response_headers",
+        [
+            [(":status", "204")],
+            [(":status", "204"), ("content-length", "15")],
+            [(":status", "304"), ("content-length", "15")],
+        ],
+    )
+    def test_no_content_response_rejects_content(self, frame_factory, response_headers) -> None:
+        """204 and 304 responses have no content, regardless of Content-Length."""
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(
+            1,
+            [(":method", "GET"), (":scheme", "https"), (":authority", "example.com"), (":path", "/")],
+            end_stream=True,
+        )
+
+        headers = frame_factory.build_headers_frame(
+            headers=response_headers,
+        )
+        data = frame_factory.build_data_frame(data=b"x", flags=["END_STREAM"])
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(headers.serialize() + data.serialize())
+
+        assert exp.value.expected_length == 0
+        assert exp.value.actual_length == 1
+
     @pytest.mark.parametrize(
         "request_headers",
         [
