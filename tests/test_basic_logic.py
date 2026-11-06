@@ -1788,6 +1788,31 @@ class TestBasicServer:
 
         assert not c.data_to_send()
 
+    def test_frames_after_goaway_are_ignored(self, frame_factory) -> None:
+        """
+        Frames already in the receive buffer after GOAWAY must not raise
+        ProtocolError. Further GOAWAY frames are still accepted.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.clear_outbound_data_buffer()
+
+        goaway = frame_factory.build_goaway_frame(last_stream_id=0)
+        events = c.receive_data(goaway.serialize())
+        assert len(events) == 1
+        assert isinstance(events[0], h2.events.ConnectionTerminated)
+
+        ping = frame_factory.build_ping_frame(b"\x01\x02\x03\x04\x05\x06\x07\x08")
+        events = c.receive_data(ping.serialize())
+        assert events == []
+        assert not c.data_to_send()
+        assert c.state_machine.state == h2.connection.ConnectionState.CLOSED
+
+        events = c.receive_data(goaway.serialize())
+        assert len(events) == 1
+        assert isinstance(events[0], h2.events.ConnectionTerminated)
+
     def test_receiving_multiple_goaway_frames(self, frame_factory) -> None:
         """
         Multiple GOAWAY frames can be received at once, and are allowed. Each
