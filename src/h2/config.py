@@ -66,7 +66,7 @@ class OutputLogger:
 
     def __init__(self, file=None, trace_level=False) -> None:  # type: ignore
         super().__init__()
-        self.file = file or sys.stderr
+        self.file = sys.stderr if file is None else file
         self.trace_level = trace_level
 
     def debug(self, fmtstr, *args) -> None:  # type: ignore
@@ -184,7 +184,7 @@ class H2Configuration:
         self.split_outbound_cookies = split_outbound_cookies
         self.validate_inbound_headers = validate_inbound_headers
         self.normalize_inbound_headers = normalize_inbound_headers
-        self.logger = logger or DummyLogger(__name__)
+        self.logger = DummyLogger(__name__) if logger is None else logger
 
     @property
     def header_encoding(self) -> bool | str | None:

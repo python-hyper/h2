@@ -3,6 +3,7 @@ Test the configuration object.
 """
 from __future__ import annotations
 
+import io
 import logging
 
 import pytest
@@ -128,6 +129,46 @@ class TestH2Config:
         config = h2.config.H2Configuration()
         config.logger = logger
         assert config.logger is logger
+
+    def test_falsey_logger_is_used(self) -> None:
+        messages: list[str] = []
+
+        class EmptyLogger(h2.config.DummyLogger):
+            def __len__(self) -> int:
+                return len(messages)
+
+            def debug(self, *args: object, **kwargs: object) -> None:
+                messages.append("debug")
+
+            def trace(self, *args: object, **kwargs: object) -> None:
+                messages.append("trace")
+
+        logger = EmptyLogger()
+        assert not logger
+        config = h2.config.H2Configuration(logger=logger)
+
+        assert config.logger is logger
+        config.logger.debug("owned debug")
+        config.logger.trace("owned trace")
+        assert messages == ["debug", "trace"]
+
+    @pytest.mark.parametrize("trace_level", [False, True])
+    def test_falsey_file_is_used(self, capsys, trace_level) -> None:
+        class FalseyFile(io.StringIO):
+            def __bool__(self) -> bool:
+                return False
+
+        with FalseyFile() as output:
+            logger = h2.config.OutputLogger(file=output, trace_level=trace_level)
+            logger.debug("owned debug")
+            logger.trace("owned trace")
+
+            expected = "h2 (debug): owned debug\n"
+            if trace_level:
+                expected += "h2 (trace): owned trace\n"
+            assert output.getvalue() == expected
+            assert not output.closed
+            assert capsys.readouterr().err == ""
 
     @pytest.mark.parametrize("trace_level", [False, True])
     def test_output_logger(self, capsys, trace_level) -> None:
