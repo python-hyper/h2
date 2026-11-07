@@ -1094,7 +1094,17 @@ class H2Stream:
             ).stream_ended = cast("StreamEnded", es_events[0])
             events += es_events
 
-        self._initialize_content_length(headers)
+        # Content-Length is a header-block field. A trailers block must not
+        # reset the expected length established by the request or response.
+        if isinstance(headers_event, TrailersReceived):
+            if end_stream:
+                self._track_content_length(0, True)
+        else:
+            self._initialize_content_length(headers)
+            if end_stream:
+                # END_STREAM on the header block means there is no DATA to
+                # satisfy a declared content-length.
+                self._track_content_length(0, True)
 
         if isinstance(headers_event, TrailersReceived) and not end_stream:
             msg = "Trailers must have END_STREAM set"
