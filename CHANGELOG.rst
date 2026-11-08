@@ -1,6 +1,28 @@
 Release History
 ===============
 
+4.4.2 (unreleased)
+------------------
+
+**API Changes (Backward Compatible)**
+
+- Support graceful shutdown by the remote peer (RFC 9113, Section 6.8). After
+  a GOAWAY with error code ``NO_ERROR``, the connection drains: its state is
+  ``CLOSED`` and no new local streams may be opened, but frames for open
+  streams are still processed, PING and SETTINGS frames are still
+  acknowledged, and the outbound data buffer is kept. The client and server
+  rules of the open connection still apply. A further graceful GOAWAY keeps
+  draining; a GOAWAY with an error code, an invalid input or
+  ``close_connection()`` ends the drain, and a connection that is already
+  closed is never reopened by a later GOAWAY. ``H2Connection.state_machine.draining``
+  reports the drain. ``ConnectionTerminated`` is still fired for every GOAWAY.
+  (#1181, #1199)
+
+**Bugfixes**
+
+- Ignore leftover frames received after the connection has closed, instead of
+  raising ``ProtocolError``. Further GOAWAY frames are still processed.
+
 4.4.1 (2026-08-03)
 ------------------
 

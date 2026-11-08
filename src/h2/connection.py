@@ -247,8 +247,58 @@ class H2ConnectionStateMachine:
             (None, ConnectionState.CLOSED),
     }
 
+    # Inputs that stay valid in the CLOSED state while the connection drains
+    # after the remote peer sent a graceful GOAWAY (error code NO_ERROR).
+    # RFC 9113, Section 6.8: streams that were already open may still
+    # complete, but the receiver of the GOAWAY must not open new streams.
+    # SEND_PUSH_PROMISE is therefore absent; H2Connection refuses other new
+    # local streams, since it knows the stream IDs. An input is accepted only
+    # if the open connection would also accept it (see _draining_state).
+    _draining_inputs = frozenset({
+        ConnectionInputs.SEND_HEADERS,
+        ConnectionInputs.SEND_DATA,
+        ConnectionInputs.SEND_WINDOW_UPDATE,
+        ConnectionInputs.SEND_PING,
+        ConnectionInputs.SEND_SETTINGS,
+        ConnectionInputs.SEND_RST_STREAM,
+        ConnectionInputs.SEND_PRIORITY,
+        ConnectionInputs.SEND_ALTERNATIVE_SERVICE,
+        ConnectionInputs.RECV_HEADERS,
+        ConnectionInputs.RECV_PUSH_PROMISE,
+        ConnectionInputs.RECV_DATA,
+        ConnectionInputs.RECV_WINDOW_UPDATE,
+        ConnectionInputs.RECV_PING,
+        ConnectionInputs.RECV_SETTINGS,
+        ConnectionInputs.RECV_RST_STREAM,
+        ConnectionInputs.RECV_PRIORITY,
+        ConnectionInputs.RECV_ALTERNATIVE_SERVICE,
+    })
+
     def __init__(self) -> None:
         self.state = ConnectionState.IDLE
+        # While draining: the state the connection would be in had the GOAWAY
+        # not arrived (IDLE, CLIENT_OPEN or SERVER_OPEN). It keeps the normal
+        # client and server rules in force. None when not draining.
+        self._draining_state: ConnectionState | None = None
+
+    @property
+    def draining(self) -> bool:
+        """
+        Whether the connection is draining: the remote peer sent a graceful
+        GOAWAY, so the state is CLOSED and this side may not open new streams,
+        but frames for open streams are still processed. The peer that sent
+        the GOAWAY may still open streams (RFC 9113, Section 6.8).
+        """
+        return self._draining_state is not None
+
+    def _start_draining(self, open_state: ConnectionState) -> None:
+        """
+        Start (or continue) draining after a graceful GOAWAY from the peer.
+        ``open_state`` is the state before the GOAWAY. It must not be CLOSED:
+        a connection that is already closed stays closed.
+        """
+        assert open_state is not ConnectionState.CLOSED
+        self._draining_state = open_state
 
     def process_input(self, input_: ConnectionInputs) -> list[Event]:
         """
@@ -257,6 +307,16 @@ class H2ConnectionStateMachine:
         if not isinstance(input_, ConnectionInputs):
             msg = "Input must be an instance of ConnectionInputs"
             raise ValueError(msg)  # noqa: TRY004
+
+        if self._draining_state is not None:
+            transition = self._transitions.get((self._draining_state, input_))
+            if input_ in self._draining_inputs and transition is not None:
+                self._draining_state = transition[1]
+                return []
+            # Anything else (a GOAWAY, or an input the open connection would
+            # also reject) ends the drain. A further graceful GOAWAY from the
+            # peer continues it (see H2Connection._receive_goaway_frame).
+            self._draining_state = None
 
         try:
             func, target_state = self._transitions[(self.state, input_)]
@@ -573,6 +633,8 @@ class H2Connection:
             "Upgrade connection. Current settings: %s", self.local_settings,
         )
 
+        self._refuse_new_stream_while_draining(1)
+
         frame_data = None
         # Begin by getting the preamble in place.
         self.initiate_connection()
@@ -608,6 +670,19 @@ class H2Connection:
         self._begin_new_stream(stream_id=1, allowed_ids=AllowedStreamIDs.ODD)
         self.streams[1].upgrade(self.config.client_side)
         return frame_data
+
+    def _refuse_new_stream_while_draining(self, stream_id: int) -> None:
+        """
+        The receiver of a GOAWAY must not open new streams (RFC 9113, Section
+        6.8). Raise before any state changes, so the drain continues for the
+        streams that are already open.
+        """
+        if self.state_machine.draining:
+            msg = (
+                f"Cannot open stream {stream_id}: the remote peer sent GOAWAY, "
+                "so no new streams may be opened"
+            )
+            raise ProtocolError(msg)
 
     def _get_or_create_stream(self, stream_id: int, allowed_ids: AllowedStreamIDs) -> H2Stream:
         """
@@ -794,6 +869,7 @@ class H2Connection:
 
         # Check we can open the stream.
         if stream_id not in self.streams:
+            self._refuse_new_stream_while_draining(stream_id)
             max_open_streams = self.remote_settings.max_concurrent_streams
             value = self.open_outbound_streams # take a copy due to the property accessor having side affects
             if (value + 1) > max_open_streams:
@@ -1010,6 +1086,7 @@ class H2Connection:
             msg = "Remote peer has disabled stream push"
             raise ProtocolError(msg)
 
+        self._refuse_new_stream_while_draining(promised_stream_id)
         self.state_machine.process_input(ConnectionInputs.SEND_PUSH_PROMISE)
         stream = self._get_stream_by_id(stream_id)
 
@@ -1541,6 +1618,15 @@ class H2Connection:
         """
         events: list[Event]
         self.config.logger.trace("Received frame: %s", repr(frame))
+        # Leftover frames can still be in the TCP buffer after we closed.
+        # Extra GOAWAYs are already valid; anything else is not a protocol error.
+        # While draining after a graceful GOAWAY, frames are still processed.
+        if (
+            self.state_machine.state == ConnectionState.CLOSED
+            and not self.state_machine.draining
+            and not isinstance(frame, GoAwayFrame)
+        ):
+            return []
         try:
             # I don't love using __class__ here, maybe reconsider it.
             frames, events = self._frame_dispatch_table[frame.__class__](frame)
@@ -1894,12 +1980,28 @@ class H2Connection:
         """
         Receive a GOAWAY frame on the connection.
         """
+        # The state the connection would be in without this GOAWAY: the state
+        # before it, or the state an existing drain keeps. None if the
+        # connection is already closed for good (an error GOAWAY, a protocol
+        # error, or close_connection()); a later graceful GOAWAY must not
+        # revive it (RFC 9113, Section 5.4.1).
+        open_state: ConnectionState | None = self.state_machine._draining_state
+        if open_state is None and self.state_machine.state is not ConnectionState.CLOSED:
+            open_state = self.state_machine.state
+
         events = self.state_machine.process_input(
             ConnectionInputs.RECV_GOAWAY,
         )
 
-        # Clear the outbound data buffer: we cannot send further data now.
-        self.clear_outbound_data_buffer()
+        if frame.error_code == ErrorCodes.NO_ERROR and open_state is not None:
+            # A graceful shutdown (RFC 9113, Section 6.8): no new streams, but
+            # streams that are already open may complete. Keep the outbound
+            # buffer, which may hold WINDOW_UPDATE, SETTINGS or PING ACK frames
+            # those streams need.
+            self.state_machine._start_draining(open_state)
+        else:
+            # Clear the outbound data buffer: we cannot send further data now.
+            self.clear_outbound_data_buffer()
 
         # Fire an appropriate ConnectionTerminated event.
         new_event = ConnectionTerminated()
