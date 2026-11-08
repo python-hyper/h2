@@ -1790,15 +1790,19 @@ class TestBasicServer:
 
     def test_frames_after_goaway_are_ignored(self, frame_factory) -> None:
         """
-        Frames already in the receive buffer after GOAWAY must not raise
-        ProtocolError. Further GOAWAY frames are still accepted.
+        Frames already in the receive buffer after a GOAWAY with an error code
+        must not raise ProtocolError. Further GOAWAY frames are still accepted.
+        (After a graceful GOAWAY the connection drains instead; see
+        test_graceful_goaway.py.)
         """
         c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
         c.receive_data(frame_factory.preamble())
         c.clear_outbound_data_buffer()
 
-        goaway = frame_factory.build_goaway_frame(last_stream_id=0)
+        goaway = frame_factory.build_goaway_frame(
+            last_stream_id=0, error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
         events = c.receive_data(goaway.serialize())
         assert len(events) == 1
         assert isinstance(events[0], h2.events.ConnectionTerminated)
