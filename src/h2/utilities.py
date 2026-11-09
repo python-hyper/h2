@@ -195,7 +195,10 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     # For example, we avoid tuple unpacking in loops because it represents a
     # fixed cost that we don't want to spend, instead indexing into the header
     # tuples.
-    headers = _reject_illegal_characters(
+    headers = _reject_illegal_name_characters(
+        headers, hdr_validation_flags,
+    )
+    headers = _reject_illegal_value_characters(
         headers, hdr_validation_flags,
     )
     headers = _reject_empty_header_names(
@@ -216,10 +219,10 @@ def validate_headers(headers: Iterable[Header], hdr_validation_flags: HeaderVali
     return _check_path_header(headers, hdr_validation_flags)
 
 
-def _reject_illegal_characters(headers: Iterable[Header],
-                               hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
+def _reject_illegal_name_characters(headers: Iterable[Header],
+                                    hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
     """
-    Raises a ProtocolError if any header names or values contain illegal characters.
+    Raises a ProtocolError if any header names contain illegal characters.
     See <https://www.rfc-editor.org/rfc/rfc9113.html#section-8.2.1>.
     """
     for header in headers:
@@ -227,7 +230,7 @@ def _reject_illegal_characters(headers: Iterable[Header],
         # > or 0x7f-0xff (all ranges inclusive).
         for c in header[0]:
             if 0x41 <= c <= 0x5a:
-                msg = f"Received uppercase header name {header[0]!r}."
+                msg = f"Uppercase header name present: {header[0]!r}."
                 raise ProtocolError(msg)
             if c <= 0x20 or c >= 0x7f:
                 msg = f"Illegal character '{chr(c)}' in header name: {header[0]!r}"
@@ -240,6 +243,16 @@ def _reject_illegal_characters(headers: Iterable[Header],
             msg = f"Illegal character ':' in header name: {header[0]!r}"
             raise ProtocolError(msg)
 
+        yield header
+
+
+def _reject_illegal_value_characters(headers: Iterable[Header],
+                                     hdr_validation_flags: HeaderValidationFlags) -> Generator[Header, None, None]:
+    """
+    Raises a ProtocolError if any header values contain illegal characters.
+    See <https://www.rfc-editor.org/rfc/rfc9113.html#section-8.2.1>.
+    """
+    for header in headers:
         # For compatibility with RFC 7230 header fields, we need to allow the field
         # value to be an empty string. This is ludicrous, but technically allowed.
         if field_value := header[1]:
@@ -275,7 +288,7 @@ def _reject_empty_header_names(headers: Iterable[Header],
     """
     for header in headers:
         if len(header[0]) == 0:
-            msg = "Received header name with zero length."
+            msg = "Header name with zero length present."
             raise ProtocolError(msg)
         yield header
 
@@ -690,6 +703,12 @@ def validate_outbound_headers(headers: Iterable[Header],
     :param headers: The HTTP header set.
     :param hdr_validation_flags: An instance of HeaderValidationFlags.
     """
+    headers = _reject_illegal_name_characters(
+        headers, hdr_validation_flags,
+    )
+    headers = _reject_empty_header_names(
+        headers, hdr_validation_flags,
+    )
     headers = _reject_te(
         headers, hdr_validation_flags,
     )
