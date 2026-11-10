@@ -255,3 +255,146 @@ class TestInvalidContentLengths:
             error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+
+class TestContentLengthEnforcedAtTrailers:
+    """
+    RFC 9113 § 8.1.1: a request or response is malformed if the value of a
+    content-length header field does not equal the sum of the DATA frame
+    payload lengths that form the content. The listed exemptions are 204, 304
+    and HEAD, none of which is a trailers section, so a stream that ends with
+    trailers must still have its body length policed.
+
+    A trailers section may not carry a content-length header field at all, so
+    it can never redefine the expected length either.
+    """
+
+    example_request_headers = [
+        (":authority", "example.com"),
+        (":path", "/"),
+        (":scheme", "https"),
+        (":method", "POST"),
+        ("content-length", "15"),
+    ]
+    server_config = h2.config.H2Configuration(client_side=False)
+
+    def _server(self, frame_factory, request_headers) -> h2.connection.H2Connection:
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        c.receive_data(frame_factory.build_headers_frame(headers=request_headers).serialize())
+        return c
+
+    @pytest.mark.parametrize("request_headers", [example_request_headers])
+    def test_insufficient_data_ended_by_trailers(self, frame_factory, request_headers) -> None:
+        """
+        Remote peers sending less data than content-length and then ending the
+        stream with trailers causes Protocol Errors.
+        """
+        c = self._server(frame_factory, request_headers)
+        c.receive_data(frame_factory.build_data_frame(data=b"\x01"*13).serialize())
+        c.clear_outbound_data_buffer()
+
+        trailers = frame_factory.build_headers_frame(
+            headers=[("x-checksum", "0")],
+            flags=["END_STREAM"],
+        )
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(trailers.serialize())
+
+        assert exp.value.expected_length == 15
+        assert exp.value.actual_length == 13
+        assert str(exp.value) == (
+            "InvalidBodyLengthError: Expected 15 bytes, received 13"
+        )
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_no_data_ended_by_trailers(self, frame_factory) -> None:
+        """
+        Remote peers sending no data at all for a non-zero content-length and
+        then ending the stream with trailers causes Protocol Errors.
+        """
+        c = self._server(frame_factory, self.example_request_headers)
+        c.clear_outbound_data_buffer()
+
+        trailers = frame_factory.build_headers_frame(
+            headers=[("x-checksum", "0")],
+            flags=["END_STREAM"],
+        )
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(trailers.serialize())
+
+        assert exp.value.expected_length == 15
+        assert exp.value.actual_length == 0
+
+    @pytest.mark.parametrize("content_length", ["13", "15", "0", "banana"])
+    def test_content_length_rejected_in_trailers(self, frame_factory, content_length) -> None:
+        """
+        A trailers section must not carry a content-length header field at
+        all, whatever the value: RFC 9110 § 6.5.1 keeps fields that describe
+        message framing out of trailer sections, because their evaluation is
+        necessary before the content is received.
+        """
+        c = self._server(frame_factory, self.example_request_headers)
+        c.receive_data(frame_factory.build_data_frame(data=b"\x01"*15).serialize())
+        c.clear_outbound_data_buffer()
+
+        trailers = frame_factory.build_headers_frame(
+            headers=[("content-length", content_length), ("x-checksum", "0")],
+            flags=["END_STREAM"],
+        )
+        with pytest.raises(h2.exceptions.ProtocolError) as exp:
+            c.receive_data(trailers.serialize())
+
+        assert "content-length header in trailer" in str(exp.value)
+
+        expected_frame = frame_factory.build_goaway_frame(
+            last_stream_id=1,
+            error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    def test_matching_body_ended_by_trailers_is_accepted(self, frame_factory) -> None:
+        """
+        A trailers section that ends a stream whose body matches content-length
+        is still accepted, and emits TrailersReceived.
+        """
+        c = self._server(frame_factory, self.example_request_headers)
+        c.receive_data(frame_factory.build_data_frame(data=b"\x01"*15).serialize())
+        c.clear_outbound_data_buffer()
+
+        trailers = frame_factory.build_headers_frame(
+            headers=[("x-checksum", "0")],
+            flags=["END_STREAM"],
+        )
+        events = c.receive_data(trailers.serialize())
+
+        assert any(isinstance(e, h2.events.TrailersReceived) for e in events)
+
+    def test_trailers_without_content_length_unchanged(self, frame_factory) -> None:
+        """
+        A request with no content-length that ends with trailers is unaffected
+        by trailers-time validation.
+        """
+        headers = [
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":scheme", "https"),
+            (":method", "POST"),
+        ]
+        c = self._server(frame_factory, headers)
+        c.receive_data(frame_factory.build_data_frame(data=b"\x01"*3).serialize())
+        c.clear_outbound_data_buffer()
+
+        trailers = frame_factory.build_headers_frame(
+            headers=[("x-checksum", "0")],
+            flags=["END_STREAM"],
+        )
+        events = c.receive_data(trailers.serialize())
+
+        assert any(isinstance(e, h2.events.TrailersReceived) for e in events)
