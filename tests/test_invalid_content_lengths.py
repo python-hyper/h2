@@ -255,3 +255,131 @@ class TestInvalidContentLengths:
             error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR,
         )
         assert c.data_to_send() == expected_frame.serialize()
+
+
+class TestNoBodyContentLengths:
+    """
+    Messages defined as having no content (204, 304, and the response to HEAD)
+    may carry a non-zero content-length, and the length check must not depend
+    on whether END_STREAM arrives on the HEADERS or on an empty DATA frame.
+    """
+
+    request_headers = [
+        (b":authority", b"example.com"),
+        (b":path", b"/"),
+        (b":scheme", b"https"),
+        (b":method", b"GET"),
+    ]
+
+    def _client_with_request(self) -> h2.connection.H2Connection:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.request_headers, end_stream=True)
+        return c
+
+    @pytest.mark.parametrize("status", [b"204", b"304"])
+    def test_no_content_response_accepts_content_length_on_headers_frame(
+        self,
+        frame_factory,
+        status,
+    ) -> None:
+        c = self._client_with_request()
+        response = frame_factory.build_headers_frame(
+            headers=[(b":status", status), (b"content-length", b"1234")],
+            flags=["END_STREAM"],
+        )
+
+        events = c.receive_data(response.serialize())
+
+        assert [type(event) for event in events] == [
+            h2.events.ResponseReceived,
+            h2.events.StreamEnded,
+        ]
+
+    @pytest.mark.parametrize("status", [b"204", b"304"])
+    def test_no_content_response_accepts_content_length_with_empty_data(
+        self,
+        frame_factory,
+        status,
+    ) -> None:
+        c = self._client_with_request()
+        response_headers = frame_factory.build_headers_frame(
+            headers=[(b":status", status), (b"content-length", b"1234")],
+        )
+        empty_data = frame_factory.build_data_frame(
+            data=b"",
+            flags=["END_STREAM"],
+        )
+
+        events = c.receive_data(
+            response_headers.serialize() + empty_data.serialize(),
+        )
+
+        assert [type(event) for event in events] == [
+            h2.events.ResponseReceived,
+            h2.events.DataReceived,
+            h2.events.StreamEnded,
+        ]
+
+    @pytest.mark.parametrize("status", [b"204", b"304"])
+    def test_no_content_response_rejects_data(
+        self,
+        frame_factory,
+        status,
+    ) -> None:
+        c = self._client_with_request()
+        response_headers = frame_factory.build_headers_frame(
+            headers=[(b":status", status), (b"content-length", b"1234")],
+        )
+        data = frame_factory.build_data_frame(
+            data=b"\x01",
+            flags=["END_STREAM"],
+        )
+
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(response_headers.serialize() + data.serialize())
+
+        assert exp.value.expected_length == 0
+        assert exp.value.actual_length == 1
+
+    def test_response_headers_end_stream_checks_content_length(
+        self,
+        frame_factory,
+    ) -> None:
+        c = self._client_with_request()
+        response = frame_factory.build_headers_frame(
+            headers=[(b":status", b"200"), (b"content-length", b"1234")],
+            flags=["END_STREAM"],
+        )
+
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(response.serialize())
+
+        assert exp.value.expected_length == 1234
+        assert exp.value.actual_length == 0
+
+    def test_request_headers_end_stream_checks_content_length(
+        self,
+        frame_factory,
+    ) -> None:
+        c = h2.connection.H2Connection(
+            config=h2.config.H2Configuration(client_side=False),
+        )
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        request = frame_factory.build_headers_frame(
+            headers=[
+                (b":method", b"POST"),
+                (b":scheme", b"https"),
+                (b":authority", b"example.com"),
+                (b":path", b"/"),
+                (b"content-length", b"15"),
+            ],
+            flags=["END_STREAM"],
+        )
+
+        with pytest.raises(h2.exceptions.InvalidBodyLengthError) as exp:
+            c.receive_data(request.serialize())
+
+        assert exp.value.expected_length == 15
+        assert exp.value.actual_length == 0

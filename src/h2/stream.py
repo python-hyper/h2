@@ -1096,6 +1096,13 @@ class H2Stream:
 
         self._initialize_content_length(headers)
 
+        if end_stream and not isinstance(headers_event, TrailersReceived):
+            # The message ends on this HEADERS block, so no DATA can follow.
+            # Still run the same empty-body check that receive_data runs for
+            # an END_STREAM DATA frame: a normal content-length must be zero
+            # here, while HEAD, 204 and 304 are exempt and expect zero anyway.
+            self._track_content_length(0, end_stream=True)
+
         if isinstance(headers_event, TrailersReceived) and not end_stream:
             msg = "Trailers must have END_STREAM set"
             raise ProtocolError(msg)
@@ -1367,6 +1374,13 @@ class H2Stream:
         content_length = None
 
         for n, v in headers:
+            if n == b":status" and v in (b"204", b"304"):
+                # RFC 9113 § 8.1.1 defines 204 and 304 responses as having no
+                # content, so a non-zero content-length is allowed there just
+                # as it is for a response to HEAD (RFC 9110 § 8.6). Expecting
+                # zero also makes non-empty DATA an error, matching HEAD.
+                self._expected_content_length = 0
+                return
             if n == b"content-length":
                 if not v.isdigit():
                     # https://www.rfc-editor.org/rfc/rfc9110.html#name-content-length
