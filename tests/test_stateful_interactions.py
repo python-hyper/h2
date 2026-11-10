@@ -29,6 +29,10 @@ class Exchange:
     reset: bool = False
     observed_request_end: bool = False
     observed_response_end: bool = False
+    request_trailers: bool = False
+    response_trailers: bool = False
+    observed_request_trailers: bool = False
+    observed_response_trailers: bool = False
 
 
 class InteractingPeers(RuleBasedStateMachine):
@@ -100,6 +104,15 @@ class InteractingPeers(RuleBasedStateMachine):
             assert not exchange.observed_reset
             exchange.observed_reset = True
         elif isinstance(event, TrailersReceived):
+            exchange = self.exchanges[event.stream_id]
+            if receiver is self.server:
+                assert exchange.request_trailers
+                assert not exchange.observed_request_trailers
+                exchange.observed_request_trailers = True
+            else:
+                assert exchange.response_trailers
+                assert not exchange.observed_response_trailers
+                exchange.observed_response_trailers = True
             assert event.headers == [(b"checksum", b"done")]
 
     @precondition(lambda self: len(self.exchanges) < 8)
@@ -168,9 +181,11 @@ class InteractingPeers(RuleBasedStateMachine):
         stream_id = data.draw(st.sampled_from(available))
         exchange = self.exchanges[stream_id]
         if response_side:
+            exchange.response_trailers = True
             exchange.response_ended = True
             sender, receiver = self.server, self.client
         else:
+            exchange.request_trailers = True
             exchange.request_ended = True
             sender, receiver = self.client, self.server
         sender.send_headers(stream_id, [("checksum", "done")], end_stream=True)
@@ -212,6 +227,8 @@ class InteractingPeers(RuleBasedStateMachine):
             assert exchange.response == exchange.received_response
             assert exchange.request_ended == exchange.observed_request_end
             assert exchange.response_ended == exchange.observed_response_end
+            assert exchange.request_trailers == exchange.observed_request_trailers
+            assert exchange.response_trailers == exchange.observed_response_trailers
 
 
 TestInteractingPeers = InteractingPeers.TestCase
