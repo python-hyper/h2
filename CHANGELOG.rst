@@ -1,8 +1,16 @@
 Release History
 ===============
 
-Unreleased
-----------
+dev
+---
+
+**API Changes (Backward Incompatible)**
+
+- Support for Python 3.10 has been removed.
+
+**API Changes (Backward Compatible)**
+
+- Support for Python 3.15 has been added.
 
 **Bugfixes**
 
