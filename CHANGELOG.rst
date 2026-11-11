@@ -14,7 +14,8 @@ dev
 
 **Bugfixes**
 
--
+- Preserve receive flow-control window state when a local window increment
+  is rejected for exceeding the maximum.
 
 4.4.1 (2026-08-03)
 ------------------
