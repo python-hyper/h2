@@ -25,6 +25,7 @@ Example Clients
 .. toctree::
    :maxdepth: 2
 
+   asyncio-client-example
    plain-sockets-example
    twisted-head-example
    twisted-post-example
