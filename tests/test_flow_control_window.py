@@ -650,6 +650,62 @@ class TestFlowControl:
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
 
+    @pytest.mark.parametrize("stream_id", [None, 1])
+    @pytest.mark.parametrize("pending_frame", [False, True])
+    def test_rejected_local_increment_preserves_state(self, frame_factory, stream_id, pending_frame) -> None:
+        """
+        An overflowing local increment preserves both windows and pending wire
+        data, so a subsequent valid increment can still be sent.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.receive_data(frame_factory.preamble())
+        headers = frame_factory.build_headers_frame(self.example_request_headers)
+        data = frame_factory.build_data_frame(b"some data")
+        c.receive_data(headers.serialize() + data.serialize())
+        c.acknowledge_received_data(len(data.data), stream_id=1)
+        c.clear_outbound_data_buffer()
+
+        pending_wire = b""
+        if pending_frame:
+            c.ping(b"abcdefgh")
+            pending_wire = frame_factory.build_ping_frame(b"abcdefgh").serialize()
+
+        managers = {None: c._inbound_flow_control_window_manager, 1: c.streams[1]._inbound_window_manager}
+        before = {key: (m.current_window_size, m.max_window_size, m._bytes_processed) for key, m in managers.items()}
+        manager = managers[stream_id]
+        original_window = manager.current_window_size
+        assert original_window < manager.max_window_size
+        assert manager._bytes_processed == len(data.data)
+
+        with pytest.raises(h2.exceptions.FlowControlError, match="mustn't exceed"):
+            c.increment_flow_control_window(2**31 - original_window, stream_id=stream_id)
+
+        assert {key: (m.current_window_size, m.max_window_size, m._bytes_processed) for key, m in managers.items()} == before
+        assert bytes(c._data_to_send) == pending_wire
+
+        c.increment_flow_control_window(1, stream_id=stream_id)
+        expected = frame_factory.build_window_update_frame(stream_id=stream_id or 0, increment=1)
+        assert c.data_to_send() == pending_wire + expected.serialize()
+        assert manager.current_window_size == original_window + 1
+        assert manager.max_window_size == self.DEFAULT_FLOW_WINDOW
+        assert manager._bytes_processed == len(data.data)
+        other_stream_id = 1 if stream_id is None else None
+        other = managers[other_stream_id]
+        assert (other.current_window_size, other.max_window_size, other._bytes_processed) == before[other_stream_id]
+
+        # The exact maximum is legal; rejecting another byte must leave it so.
+        increment = 2**31 - 1 - manager.current_window_size
+        c.increment_flow_control_window(increment, stream_id=stream_id)
+        expected = frame_factory.build_window_update_frame(stream_id=stream_id or 0, increment=increment)
+        assert c.data_to_send() == expected.serialize()
+        assert manager.current_window_size == manager.max_window_size == 2**31 - 1
+        with pytest.raises(h2.exceptions.FlowControlError, match="mustn't exceed"):
+            c.increment_flow_control_window(1, stream_id=stream_id)
+        assert manager.current_window_size == manager.max_window_size == 2**31 - 1
+        assert manager._bytes_processed == len(data.data)
+        assert not c.data_to_send()
+
     def test_send_update_on_closed_streams(self, frame_factory) -> None:
         c = h2.connection.H2Connection()
         c.initiate_connection()
