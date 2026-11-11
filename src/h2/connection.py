@@ -936,6 +936,14 @@ class H2Connection:
         Increment a flow control window, optionally for a single stream. Allows
         the remote peer to send more data.
 
+        If the resulting window exceeds its previous maximum, that maximum
+        is also increased for automatic flow control. To configure a larger
+        connection receive window, call this once after initiating the
+        connection, before receiving data, with the desired size minus 65,535.
+        Continue to use :meth:`acknowledge_received_data` to replenish it as
+        data is processed. Stream receive windows can be configured separately
+        using ``SETTINGS_INITIAL_WINDOW_SIZE``.
+
         .. versionchanged:: 2.0.0
            Rejects attempts to increment the flow control window by out of
            range values with a ``ValueError``.

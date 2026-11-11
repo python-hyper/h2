@@ -323,3 +323,55 @@ a certain number of bytes have been freed up.
 
 For most applications, this method should be preferred to the manual flow
 control mechanism.
+
+Configuring Receive Windows
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Automatic flow control can also be used with larger receive windows, for
+example on connections with a high round-trip time. The connection and stream
+windows must be configured separately. Both initially allow 65,535 bytes.
+``SETTINGS_INITIAL_WINDOW_SIZE`` changes stream windows only; the connection
+window can only be increased by sending a ``WINDOW_UPDATE`` frame, as described
+in `RFC 9113, Section 6.9.2
+<https://www.rfc-editor.org/rfc/rfc9113.html#section-6.9.2>`_.
+
+To enlarge the connection window, call :meth:`increment_flow_control_window
+<h2.connection.H2Connection.increment_flow_control_window>` once, immediately
+after initiating the connection and before receiving any data. The argument
+is an *increment*, not the desired window size. At this point, increasing the
+window also raises the maximum used by automatic flow control. For example,
+this configures a 1 MiB connection receive window and 256 KiB stream receive
+windows::
+
+    from h2.connection import H2Connection
+    from h2.settings import SettingCodes
+
+    conn = H2Connection()
+    conn.initiate_connection()
+    conn.increment_flow_control_window(1024 * 1024 - 65535)
+    conn.update_settings({SettingCodes.INITIAL_WINDOW_SIZE: 256 * 1024})
+    # Send conn.data_to_send() to the peer using your transport.
+
+The peer learns the connection increase from ``WINDOW_UPDATE`` and the stream
+size from ``SETTINGS``. h2 applies the stream setting locally when the peer
+acknowledges it. Continue to call :meth:`acknowledge_received_data
+<h2.connection.H2Connection.acknowledge_received_data>` as data is processed,
+using each event's ``flow_controlled_length``. Automatic updates then replenish
+the enlarged windows; no further manual increments are needed to maintain
+them. Receiving data alone does not replenish either window.
+
+Increasing the connection window does not increase stream windows, and neither
+operation increases the amount of data that *you* can send. Your peer controls
+your sending windows. Larger receive windows allow more data to be in flight,
+so choose sizes that your application can buffer.
+
+The connection window cannot be reduced with ``SETTINGS`` or a negative
+increment. Each increment must be between 1 and ``2**31 - 1``, and the resulting
+window must not exceed ``2**31 - 1``. Leave the connection window unchanged if
+the default size is sufficient; do not send an increment of zero.
+
+If you increment a window after receiving data, you increase its *current*
+available space. The maximum used by automatic flow control only grows if the
+result exceeds its previous maximum. Such an increment may merely restore
+space already consumed, which is why the example enlarges the window before
+receiving data.
