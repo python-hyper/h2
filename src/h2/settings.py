@@ -310,10 +310,11 @@ class Settings(MutableMapping[SettingCodes | int, int]):
         del self._settings[key]
 
     def __iter__(self) -> Iterator[SettingCodes | int]:
-        return self._settings.__iter__()
+        # New settings have no current value until their first acknowledgement.
+        return (key for key, values in self._settings.items() if values[0] is not None)
 
     def __len__(self) -> int:
-        return len(self._settings)
+        return sum(1 for _ in self)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Settings):
