@@ -220,6 +220,57 @@ class TestSettings:
         s.acknowledge()
         assert s[h2.settings.SettingCodes.HEADER_TABLE_SIZE] == 4096
 
+    @pytest.mark.parametrize("setting", [80, h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS])
+    def test_new_setting_mapping_waits_for_acknowledgement(self, setting: int) -> None:
+        """Pending new settings are absent from every view of the active mapping."""
+        settings = h2.settings.Settings()
+        original = dict(settings)
+        settings[setting] = 100
+
+        assert dict(settings) == original
+        assert dict(settings.items()) == original
+        assert list(settings.values()) == list(original.values())
+        assert list(settings) == list(original)
+        assert len(settings) == len(original)
+        assert setting not in settings
+
+        changes = settings.acknowledge()
+
+        assert changes[setting].original_value is None
+        assert dict(settings) == {**original, setting: 100}
+        assert len(settings) == len(original) + 1
+        assert setting in settings
+
+    def test_new_setting_mapping_with_multiple_proposals(self) -> None:
+        """A new key becomes visible on its first ACK and keeps later values pending."""
+        settings = h2.settings.Settings()
+        original = dict(settings)
+        settings[80] = 81
+        settings[80] = 82
+
+        assert dict(settings) == original
+        assert len(settings) == len(original)
+
+        settings.acknowledge()
+        assert dict(settings) == {**original, 80: 81}
+        assert len(settings) == len(original) + 1
+
+        settings.acknowledge()
+        assert dict(settings) == {**original, 80: 82}
+        assert len(settings) == len(original) + 1
+
+    def test_delete_pending_setting(self) -> None:
+        """Deleting an unacknowledged key discards its proposed value."""
+        settings = h2.settings.Settings()
+        original = dict(settings)
+        settings[80] = 81
+
+        del settings[80]
+
+        assert dict(settings) == original
+        assert len(settings) == len(original)
+        assert settings.acknowledge() == {}
+
     def test_settings_getters(self) -> None:
         """
         Getters exist for well-known settings.
