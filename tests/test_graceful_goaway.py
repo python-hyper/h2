@@ -486,3 +486,28 @@ class TestGracefulGoAwayEdges:
         c.send_data(1, b"ok", end_stream=True)
         assert c.data_to_send()
         assert c.is_in_graceful_shutdown
+
+    def test_state_machine_graceful_goaway_lifecycle(self) -> None:
+        """
+        H2ConnectionStateMachine handles RECV_GRACEFUL_GOAWAY transitions
+        directly without external state manipulation.
+        """
+        sm = h2.connection.H2ConnectionStateMachine()
+        sm.process_input(h2.connection.ConnectionInputs.SEND_HEADERS)
+        assert sm.state is h2.connection.ConnectionState.CLIENT_OPEN
+
+        sm.process_input(h2.connection.ConnectionInputs.RECV_GRACEFUL_GOAWAY)
+        assert sm.state is h2.connection.ConnectionState.CLOSED
+        assert sm.is_in_graceful_shutdown
+
+        # A further graceful GOAWAY keeps graceful shutdown active.
+        sm.process_input(h2.connection.ConnectionInputs.RECV_GRACEFUL_GOAWAY)
+        assert sm.state is h2.connection.ConnectionState.CLOSED
+        assert sm.is_in_graceful_shutdown
+
+        # A non-graceful GOAWAY ends graceful shutdown, and a later graceful
+        # GOAWAY does not revive it.
+        sm.process_input(h2.connection.ConnectionInputs.RECV_GOAWAY)
+        assert not sm.is_in_graceful_shutdown
+        sm.process_input(h2.connection.ConnectionInputs.RECV_GRACEFUL_GOAWAY)
+        assert not sm.is_in_graceful_shutdown

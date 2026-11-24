@@ -101,6 +101,7 @@ class ConnectionInputs(Enum):
     RECV_PRIORITY = 17
     SEND_ALTERNATIVE_SERVICE = 18  # Added in 2.3.0
     RECV_ALTERNATIVE_SERVICE = 19  # Added in 2.3.0
+    RECV_GRACEFUL_GOAWAY = 20  # Added in 4.5.0
 
 
 class AllowedStreamIDs(IntEnum):
@@ -128,7 +129,25 @@ class H2ConnectionStateMachine:
     # contains all allowed transitions: anything not in this map is invalid
     # and immediately causes a transition to ``closed``.
 
-    _transitions = {
+    # During graceful shutdown: the state the connection would be in had the
+    # GOAWAY not arrived (IDLE, CLIENT_OPEN or SERVER_OPEN). It keeps the
+    # normal client and server rules in force. None otherwise.
+    _graceful_shutdown_state: ConnectionState | None
+
+    def _start_graceful_shutdown(self, previous_state: ConnectionState) -> list[Event]:
+        """
+        Enter graceful shutdown after receiving GOAWAY(NO_ERROR) from the peer,
+        preserving ``previous_state`` so normal client/server rules stay in
+        force while already-open streams finish.
+        """
+        assert previous_state is not ConnectionState.CLOSED
+        self._graceful_shutdown_state = previous_state
+        return []
+
+    _transitions: dict[
+        tuple[ConnectionState, ConnectionInputs],
+        tuple[Callable[[H2ConnectionStateMachine, ConnectionState], list[Event]] | None, ConnectionState],
+    ] = {
         # State: idle
         (ConnectionState.IDLE, ConnectionInputs.SEND_HEADERS):
             (None, ConnectionState.CLIENT_OPEN),
@@ -150,6 +169,8 @@ class H2ConnectionStateMachine:
             (None, ConnectionState.CLOSED),
         (ConnectionState.IDLE, ConnectionInputs.RECV_GOAWAY):
             (None, ConnectionState.CLOSED),
+        (ConnectionState.IDLE, ConnectionInputs.RECV_GRACEFUL_GOAWAY):
+            (_start_graceful_shutdown, ConnectionState.CLOSED),
         (ConnectionState.IDLE, ConnectionInputs.SEND_PRIORITY):
             (None, ConnectionState.IDLE),
         (ConnectionState.IDLE, ConnectionInputs.RECV_PRIORITY):
@@ -182,6 +203,8 @@ class H2ConnectionStateMachine:
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_GOAWAY):
             (None, ConnectionState.CLOSED),
+        (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_GRACEFUL_GOAWAY):
+            (_start_graceful_shutdown, ConnectionState.CLOSED),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE):
             (None, ConnectionState.CLIENT_OPEN),
         (ConnectionState.CLIENT_OPEN, ConnectionInputs.RECV_PING):
@@ -221,6 +244,8 @@ class H2ConnectionStateMachine:
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_GOAWAY):
             (None, ConnectionState.CLOSED),
+        (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_GRACEFUL_GOAWAY):
+            (_start_graceful_shutdown, ConnectionState.CLOSED),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_WINDOW_UPDATE):
             (None, ConnectionState.SERVER_OPEN),
         (ConnectionState.SERVER_OPEN, ConnectionInputs.RECV_PING):
@@ -245,16 +270,19 @@ class H2ConnectionStateMachine:
             (None, ConnectionState.CLOSED),
         (ConnectionState.CLOSED, ConnectionInputs.RECV_GOAWAY):
             (None, ConnectionState.CLOSED),
+        (ConnectionState.CLOSED, ConnectionInputs.RECV_GRACEFUL_GOAWAY):
+            (None, ConnectionState.CLOSED),
     }
 
     # Inputs that stay valid in the CLOSED state while the connection is in
     # graceful shutdown after the remote peer sent GOAWAY(NO_ERROR).
     # RFC 9113, Section 6.8: streams that were already open may still
-    # complete, but the receiver of the GOAWAY must not open new streams.
-    # SEND_PUSH_PROMISE is therefore absent; H2Connection refuses other new
-    # local streams, since it knows the stream IDs. An input is accepted only
-    # if the open connection would also accept it (see
-    # _graceful_shutdown_state).
+    # complete, and only the *receiver* of the GOAWAY is barred from opening
+    # new streams. SEND_PUSH_PROMISE is therefore absent (and H2Connection
+    # refuses new local streams via send_headers()), whereas inputs from the
+    # GOAWAY sender — including RECV_PUSH_PROMISE and peer-initiated
+    # RECV_HEADERS — remain valid. An input is accepted only if the open
+    # connection would also accept it (see _graceful_shutdown_state).
     _graceful_shutdown_inputs = frozenset({
         ConnectionInputs.SEND_HEADERS,
         ConnectionInputs.SEND_DATA,
@@ -277,10 +305,7 @@ class H2ConnectionStateMachine:
 
     def __init__(self) -> None:
         self.state = ConnectionState.IDLE
-        # During graceful shutdown: the state the connection would be in had
-        # the GOAWAY not arrived (IDLE, CLIENT_OPEN or SERVER_OPEN). It keeps
-        # the normal client and server rules in force. None otherwise.
-        self._graceful_shutdown_state: ConnectionState | None = None
+        self._graceful_shutdown_state = None
 
     @property
     def is_in_graceful_shutdown(self) -> bool:
@@ -293,15 +318,6 @@ class H2ConnectionStateMachine:
         """
         return self._graceful_shutdown_state is not None
 
-    def _start_graceful_shutdown(self, open_state: ConnectionState) -> None:
-        """
-        Start (or continue) graceful shutdown after a GOAWAY(NO_ERROR) from the
-        peer. ``open_state`` is the state before the GOAWAY. It must not be
-        CLOSED: a connection that is already closed stays closed.
-        """
-        assert open_state is not ConnectionState.CLOSED
-        self._graceful_shutdown_state = open_state
-
     def process_input(self, input_: ConnectionInputs) -> list[Event]:
         """
         Process a specific input in the state machine.
@@ -311,17 +327,18 @@ class H2ConnectionStateMachine:
             raise ValueError(msg)  # noqa: TRY004
 
         if self.is_in_graceful_shutdown:
+            if input_ is ConnectionInputs.RECV_GRACEFUL_GOAWAY:
+                return []
             assert self._graceful_shutdown_state is not None
             transition = self._transitions.get((self._graceful_shutdown_state, input_))
             if input_ in self._graceful_shutdown_inputs and transition is not None:
                 self._graceful_shutdown_state = transition[1]
                 return []
-            # Anything else (a GOAWAY, or an input the open connection would
-            # also reject) ends graceful shutdown. self.state is already CLOSED
-            # and _transitions has no path back out of CLOSED, so falling
-            # through either handles a GOAWAY (staying CLOSED) or raises
-            # ProtocolError. A further graceful GOAWAY from the peer continues
-            # graceful shutdown (see H2Connection._receive_goaway_frame).
+            # Anything else (a non-graceful GOAWAY, or an input the open
+            # connection would also reject) ends graceful shutdown. self.state
+            # is already CLOSED and _transitions has no path back out of
+            # CLOSED, so falling through either handles a GOAWAY (staying
+            # CLOSED) or raises ProtocolError.
             assert self.state is ConnectionState.CLOSED
             self._graceful_shutdown_state = None
 
@@ -333,9 +350,10 @@ class H2ConnectionStateMachine:
             msg = f"Invalid input {input_} in state {old_state}"
             raise ProtocolError(msg) from e
         else:
+            previous_state = self.state
             self.state = target_state
-            if func is not None:  # pragma: no cover
-                return func()
+            if func is not None:
+                return func(self, previous_state)
 
             return []
 
@@ -1998,31 +2016,18 @@ class H2Connection:
         """
         Receive a GOAWAY frame on the connection.
         """
-        # The state the connection would be in without this GOAWAY: the state
-        # preserved by an active graceful shutdown, or the current open state.
-        # None if the connection is already closed for good (an error GOAWAY,
-        # a protocol error, or close_connection()); a later graceful GOAWAY
-        # must not revive it (RFC 9113, Section 5.4.1).
-        open_state: ConnectionState | None
-        if self.is_in_graceful_shutdown:
-            open_state = self.state_machine._graceful_shutdown_state
-        elif self.state_machine.state is not ConnectionState.CLOSED:
-            open_state = self.state_machine.state
-        else:
-            open_state = None
-
-        events = self.state_machine.process_input(
-            ConnectionInputs.RECV_GOAWAY,
+        input_ = (
+            ConnectionInputs.RECV_GRACEFUL_GOAWAY
+            if frame.error_code == ErrorCodes.NO_ERROR
+            else ConnectionInputs.RECV_GOAWAY
         )
+        events = self.state_machine.process_input(input_)
 
-        if frame.error_code == ErrorCodes.NO_ERROR and open_state is not None:
-            # A graceful shutdown (RFC 9113, Section 6.8): no new streams, but
-            # streams that are already open may complete. Keep the outbound
-            # buffer, which may hold WINDOW_UPDATE, SETTINGS or PING ACK frames
-            # those streams need.
-            self.state_machine._start_graceful_shutdown(open_state)
-        else:
+        if not self.is_in_graceful_shutdown:
             # Clear the outbound data buffer: we cannot send further data now.
+            # During graceful shutdown (RFC 9113, Section 6.8), keep the buffer
+            # because it may hold WINDOW_UPDATE, SETTINGS, or PING ACK frames
+            # that in-flight streams still need.
             self.clear_outbound_data_buffer()
 
         # Fire an appropriate ConnectionTerminated event.
