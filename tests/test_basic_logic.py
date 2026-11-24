@@ -1792,8 +1792,8 @@ class TestBasicServer:
         """
         Frames already in the receive buffer after a GOAWAY with an error code
         must not raise ProtocolError. Further GOAWAY frames are still accepted.
-        (After a graceful GOAWAY the connection drains instead; see
-        test_graceful_goaway.py.)
+        (After a graceful GOAWAY the connection enters graceful shutdown
+        instead; see test_graceful_goaway.py.)
         """
         c = h2.connection.H2Connection(config=self.server_config)
         c.initiate_connection()
