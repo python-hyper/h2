@@ -562,8 +562,23 @@ class PriorityUpdated(Event):
 class ConnectionTerminated(Event):
     """
     The ConnectionTerminated event is fired when a connection is torn down by
-    the remote peer using a GOAWAY frame. Once received, no further action may
-    be taken on the connection: a new connection must be established.
+    the remote peer using a GOAWAY frame. Once received, no new streams may be
+    opened on the connection: a new connection must be established for them.
+
+    If ``error_code`` is ``NO_ERROR``, this is a graceful shutdown (RFC 9113,
+    Section 6.8): streams up to ``last_stream_id`` may still complete. On a
+    connection that was not already closed, h2 enters (or continues) graceful
+    shutdown and keeps processing frames for open streams; check
+    :attr:`H2Connection.is_in_graceful_shutdown
+    <h2.connection.H2Connection.is_in_graceful_shutdown>` for the current
+    state. Locally initiated streams above ``last_stream_id`` were not
+    processed by the peer and are safe to retry elsewhere. h2 does not reset
+    or filter them, and does not check that a later GOAWAY keeps
+    ``last_stream_id`` from increasing: the application decides. With any
+    other error code, no further action may be taken on the connection.
+
+    .. versionchanged:: 4.5.0
+       A graceful GOAWAY no longer prevents open streams from completing.
     """
 
     def __init__(self) -> None:

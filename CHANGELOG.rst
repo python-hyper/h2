@@ -11,10 +11,22 @@ dev
 **API Changes (Backward Compatible)**
 
 - Support for Python 3.15 has been added.
+- Support graceful shutdown by the remote peer (RFC 9113, Section 6.8). After
+  a GOAWAY with error code ``NO_ERROR``, the connection enters graceful
+  shutdown: its state is ``CLOSED`` and no new local streams may be opened,
+  but frames for open streams are still processed, PING and SETTINGS frames
+  are still acknowledged, and the outbound data buffer is kept. The client and
+  server rules of the open connection still apply. A further graceful GOAWAY
+  keeps graceful shutdown active; a GOAWAY with an error code, an invalid
+  input or ``close_connection()`` ends it, and a connection that is already
+  closed is never reopened by a later GOAWAY.
+  ``H2Connection.is_in_graceful_shutdown`` reports the state.
+  ``ConnectionTerminated`` is still fired for every GOAWAY. (#1181, #1199)
 
 **Bugfixes**
 
--
+- Ignore leftover frames received after the connection has closed, instead of
+  raising ``ProtocolError``. Further GOAWAY frames are still processed.
 
 4.4.1 (2026-08-03)
 ------------------
