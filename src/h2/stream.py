@@ -858,7 +858,8 @@ class H2Stream:
     def send_headers(self,
                      headers: Iterable[HeaderWeaklyTyped],
                      encoder: Encoder,
-                     end_stream: bool = False) -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
+                     end_stream: bool = False,
+                     reserved_bytes: int = 0) -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
         """
         Returns a list of HEADERS/CONTINUATION frames to emit as either headers
         or trailers.
@@ -890,6 +891,7 @@ class H2Stream:
         hdr_validation_flags = self._build_hdr_validation_flags(events)
         frames = self._build_headers_frames(
             bytes_headers, encoder, hf, hdr_validation_flags,
+            reserved_bytes,
         )
 
         if end_stream:
@@ -1286,7 +1288,8 @@ class H2Stream:
                               headers: Iterable[Header],
                               encoder: Encoder,
                               first_frame: HeadersFrame | PushPromiseFrame,
-                              hdr_validation_flags: HeaderValidationFlags) \
+                              hdr_validation_flags: HeaderValidationFlags,
+                              reserved_bytes: int = 0) \
             -> list[HeadersFrame | ContinuationFrame | PushPromiseFrame]:
         """
         Helper method to build headers or push promise frames.
@@ -1308,15 +1311,16 @@ class H2Stream:
 
         encoded_headers = encoder.encode(headers)
 
-        # Slice into blocks of max_outbound_frame_size. Be careful with this:
-        # it only works right because we never send padded frames or priority
-        # information on the frames. Revisit this if we do.
-        header_blocks = [
-            encoded_headers[i:i+(self.max_outbound_frame_size or 0)]
-            for i in range(
-                0, len(encoded_headers), (self.max_outbound_frame_size or 0),
-            )
-        ]
+        # Slice into blocks of max_outbound_frame_size. The first frame can
+        # carry reserved bytes (priority, padding, or a promised stream ID)
+        # inside its payload, so those bytes must fit in its block as well.
+        frame_size = self.max_outbound_frame_size or 0
+        first_frame_size = frame_size - reserved_bytes
+        header_blocks = [encoded_headers[0:first_frame_size]]
+        header_blocks.extend(
+            encoded_headers[i:i + frame_size]
+            for i in range(first_frame_size, len(encoded_headers), frame_size)
+        )
 
         frames: list[HeadersFrame | ContinuationFrame | PushPromiseFrame] = []
         first_frame.data = header_blocks[0]
