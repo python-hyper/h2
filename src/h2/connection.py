@@ -805,17 +805,20 @@ class H2Connection:
             stream_id, AllowedStreamIDs(self.config.client_side),
         )
 
-        frames: list[Frame] = []
-        frames.extend(stream.send_headers(
-            headers, self.encoder, end_stream,
-        ))
-
-        # We may need to send priority information.
+        # We may need to send priority information. The priority fields occupy
+        # 5 bytes of the HEADERS frame payload: a 4-byte depends_on/exclusive
+        # value plus a 1-byte weight. Reserve that space in the first block.
         priority_present = (
             (priority_weight is not None) or
             (priority_depends_on is not None) or
             (priority_exclusive is not None)
         )
+        reserved_bytes = 5 if priority_present else 0
+
+        frames: list[Frame] = []
+        frames.extend(stream.send_headers(
+            headers, self.encoder, end_stream, reserved_bytes,
+        ))
 
         if priority_present:
             if not self.config.client_side:
