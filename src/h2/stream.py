@@ -1060,6 +1060,7 @@ class H2Stream:
             StreamInputs.RECV_PUSH_PROMISE,
         )
         self._authority = authority_from_headers(pushed_headers)
+        self.request_method = extract_method_header(pushed_headers)
         return [], events
 
     def receive_headers(self,
