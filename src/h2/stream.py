@@ -1365,8 +1365,12 @@ class H2Stream:
             return
 
         content_length = None
+        response_status: bytes | None = None
 
         for n, v in headers:
+            if n == b":status":
+                response_status = v
+
             if n == b"content-length":
                 if not v.isdigit():
                     # https://www.rfc-editor.org/rfc/rfc9110.html#name-content-length
@@ -1385,7 +1389,12 @@ class H2Stream:
                     msg = f"Conflicting content-length headers: {content_length} and {parsed_content_length}"
                     raise ProtocolError(msg)
 
-        self._expected_content_length = content_length
+        # These responses have no content, so Content-Length is not the size
+        # of any DATA frames (RFC 9113, § 8.1.1).
+        if response_status in {b"204", b"304"}:
+            self._expected_content_length = 0
+        else:
+            self._expected_content_length = content_length
 
     def _track_content_length(self, length: int, end_stream: bool) -> None:
         """
