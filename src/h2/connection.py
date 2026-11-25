@@ -792,6 +792,14 @@ class H2Connection:
             "Send headers on stream ID %d", stream_id,
         )
 
+        # RFC 7540 Section 5.1.1 assigns even stream IDs to server-initiated
+        # streams and Section 8.2 reserves them with PUSH_PROMISE. A server
+        # therefore responds on a peer-opened or PUSH_PROMISE-reserved stream,
+        # both of which are already in ``self.streams``.
+        if not self.config.client_side and stream_id not in self.streams:
+            msg = "Servers cannot open new streams by sending a HEADERS frame."
+            raise ProtocolError(msg)
+
         # Check we can open the stream.
         if stream_id not in self.streams:
             max_open_streams = self.remote_settings.max_concurrent_streams

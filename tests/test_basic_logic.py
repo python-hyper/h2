@@ -99,6 +99,19 @@ class TestBasicClient:
             b"A\x88/\x91\xd3]\x05\\\x87\xa7\x84\x87\x82"
         )
 
+    def test_client_can_open_stream_by_sending_headers(self) -> None:
+        """
+        A client may open a new stream by sending HEADERS.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        c.send_headers(1, self.example_request_headers)
+
+        assert 1 in c.streams
+        assert c.data_to_send()
+
     def test_sending_data(self) -> None:
         """
         Single data frames are encoded correctly.
@@ -1496,6 +1509,45 @@ class TestBasicServer:
         )
 
         assert c.data_to_send() == expected_frame.serialize()
+
+    def test_server_cannot_open_stream_by_sending_headers(self) -> None:
+        """
+        A server must not open a new stream by sending HEADERS.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.initiate_connection()
+        c.clear_outbound_data_buffer()
+
+        # Request-style headers let the base code accept this call: the fresh
+        # stream is (incorrectly) treated as a request stream opened by us.
+        with pytest.raises(
+            h2.exceptions.ProtocolError,
+            match="Servers cannot open new streams by sending a HEADERS frame",
+        ):
+            c.send_headers(2, self.example_request_headers)
+
+        assert not c.data_to_send()
+
+    def test_server_can_send_headers_on_pushed_stream(self, frame_factory) -> None:
+        """
+        A server may send response HEADERS on a stream it reserved by pushing.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+        c.receive_data(frame_factory.preamble())
+        f = frame_factory.build_headers_frame(self.example_request_headers)
+        c.receive_data(f.serialize())
+
+        c.push_stream(
+            stream_id=1,
+            promised_stream_id=2,
+            request_headers=self.example_request_headers,
+        )
+        c.clear_outbound_data_buffer()
+
+        c.send_headers(2, self.example_response_headers)
+
+        assert 2 in c.streams
+        assert c.data_to_send()
 
     def test_cannot_push_streams_when_disabled(self, frame_factory) -> None:
         """

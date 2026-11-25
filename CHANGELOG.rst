@@ -14,7 +14,7 @@ dev
 
 **Bugfixes**
 
--
+- ``H2Connection.send_headers`` now raises ``ProtocolError`` when a server tries to open a new stream by sending a HEADERS frame. Previously the stream was created regardless of connection side.
 
 4.4.1 (2026-08-03)
 ------------------
