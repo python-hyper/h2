@@ -1522,7 +1522,7 @@ class TestBasicServer:
         # stream is (incorrectly) treated as a request stream opened by us.
         with pytest.raises(
             h2.exceptions.ProtocolError,
-            match="Server cannot open stream 2 by sending headers",
+            match="Servers cannot open new streams by sending a HEADERS frame",
         ):
             c.send_headers(2, self.example_request_headers)
 
