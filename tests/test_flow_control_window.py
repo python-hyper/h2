@@ -650,6 +650,80 @@ class TestFlowControl:
         with pytest.raises(h2.exceptions.FlowControlError):
             c.increment_flow_control_window(increment=increment, stream_id=1)
 
+    @pytest.mark.parametrize("stream_id", [None, 1])
+    def test_rejected_local_increment_leaves_window_unchanged(
+        self, frame_factory, stream_id,
+    ) -> None:
+        """
+        A local increment that is valid on its own but would overflow the
+        window must be rejected without corrupting the window, so that later
+        increments still succeed.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        if stream_id is None:
+            window = c._inbound_flow_control_window_manager
+        else:
+            window = c.streams[stream_id]._inbound_window_manager
+
+        original_window_size = window.current_window_size
+        original_max_window_size = window.max_window_size
+
+        # Legal as a bare increment, but one byte too large when added to the
+        # current window.
+        overflow_increment = 2**31 - original_window_size
+
+        with pytest.raises(h2.exceptions.FlowControlError):
+            c.increment_flow_control_window(
+                increment=overflow_increment, stream_id=stream_id,
+            )
+
+        assert c.data_to_send() == b""
+        assert window.current_window_size == original_window_size
+        assert window.max_window_size == original_max_window_size
+
+        # The window is still usable after the rejected increment.
+        c.increment_flow_control_window(increment=5, stream_id=stream_id)
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=(stream_id or 0), increment=5,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+
+    @pytest.mark.parametrize("stream_id", [None, 1])
+    def test_local_increment_to_exact_limit_is_allowed(
+        self, frame_factory, stream_id,
+    ) -> None:
+        """
+        An increment that brings the window to exactly the protocol maximum is
+        accepted and emits a single WINDOW_UPDATE.
+        """
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=True)
+        c.clear_outbound_data_buffer()
+
+        if stream_id is None:
+            window = c._inbound_flow_control_window_manager
+        else:
+            window = c.streams[stream_id]._inbound_window_manager
+
+        legal_increment = 2**31 - 1 - window.current_window_size
+
+        c.increment_flow_control_window(
+            increment=legal_increment, stream_id=stream_id,
+        )
+
+        expected_frame = frame_factory.build_window_update_frame(
+            stream_id=(stream_id or 0), increment=legal_increment,
+        )
+        assert c.data_to_send() == expected_frame.serialize()
+        assert window.current_window_size == 2**31 - 1
+        assert window.max_window_size == 2**31 - 1
+
     def test_send_update_on_closed_streams(self, frame_factory) -> None:
         c = h2.connection.H2Connection()
         c.initiate_connection()
